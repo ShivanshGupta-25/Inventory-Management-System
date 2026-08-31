@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Logo from "../components/common/Logo";
+import { ArrowLeft } from "lucide-react";
 
 const AuthLayout = ({ children }) => {
   return (
@@ -14,8 +15,9 @@ const AuthLayout = ({ children }) => {
 
           <Link
             to="/"
-            className="text-sm font-medium text-slate-500 transition hover:text-slate-900"
+            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-3.5 font-semibold text-white transition hover:bg-slate-800"
           >
+            <ArrowLeft size={18}/>  
             Back to home
           </Link>
 
