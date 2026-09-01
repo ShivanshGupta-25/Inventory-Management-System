@@ -1,19 +1,14 @@
 import "./App.css";
 import AppRoutes from "./routes/AppRoutes";
+import ScrollToTop from "./utils/ScrollToTop";
 
 const App = () => {
-  return <AppRoutes />;
+  return (
+    <>
+      <ScrollToTop />
+      <AppRoutes />
+    </>
+  );
 };
 
 export default App;
-
-// const App = () => {
-//   return (
-//     <div>
-//       <h1>Inventory Management System</h1>
-//       <p>React is working correctly.</p>
-//     </div>
-//   );
-// };
-
-// export default App;
