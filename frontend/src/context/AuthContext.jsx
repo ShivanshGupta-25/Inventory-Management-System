@@ -7,101 +7,78 @@ import {
 
 const AuthContext = createContext(null);
 
-const AUTH_STORAGE_KEY = "inventory_auth";
-
 export const AuthProvider = ({ children }) => {
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
 
-    if (storedUser) {
-      try {
+  // Restore authentication on page refresh
+  useEffect(() => {
+
+    try {
+
+      const token = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+
+      if (token && storedUser) {
         setUser(JSON.parse(storedUser));
-      } catch {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
       }
+
+    } catch (error) {
+
+      console.error(
+        "Failed to restore authentication:",
+        error
+      );
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+    } finally {
+
+      setLoading(false);
+
     }
 
-    setLoading(false);
   }, []);
 
-  const login = async ({ email, password, role }) => {
-    /*
-      TEMPORARY FRONTEND AUTHENTICATION
 
-      This will later become:
-
-      API → Backend → Database
-                  ↓
-             JWT / Session
-                  ↓
-              User Role
-    */
-
-    if (!email || !password || !role) {
-      throw new Error("Please complete all fields.");
-    }
-
-    const authenticatedUser = {
-      id: Date.now(),
-      name: email.split("@")[0],
-      email,
-      role,
-    };
+  // Login
+  const login = (token, userData) => {
 
     localStorage.setItem(
-      AUTH_STORAGE_KEY,
-      JSON.stringify(authenticatedUser)
+      "token",
+      token
     );
-
-    setUser(authenticatedUser);
-
-    return authenticatedUser;
-  };
-
-  const signup = async ({
-    name,
-    email,
-    password,
-    role,
-  }) => {
-    if (!name || !email || !password || !role) {
-      throw new Error("Please complete all fields.");
-    }
-
-    const newUser = {
-      id: Date.now(),
-      name,
-      email,
-      role,
-    };
 
     localStorage.setItem(
-      AUTH_STORAGE_KEY,
-      JSON.stringify(newUser)
+      "user",
+      JSON.stringify(userData)
     );
 
-    setUser(newUser);
-
-    return newUser;
+    setUser(userData);
   };
 
+
+  // Logout
   const logout = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
     setUser(null);
   };
+
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
-        isAuthenticated: Boolean(user),
         login,
-        signup,
         logout,
+        isAuthenticated: !!user,
       }}
     >
       {children}
@@ -109,7 +86,9 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+
 export const useAuth = () => {
+
   const context = useContext(AuthContext);
 
   if (!context) {

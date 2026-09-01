@@ -19,12 +19,16 @@ import {
 } from "lucide-react";
 
 import AuthLayout from "../../components/auth/AuthLayout";
+import { registerUser } from "../../services/authService";
 
 const SignupPage = () => {
   const navigate = useNavigate();
 
-  const [selectedRole, setSelectedRole] = useState("admin");
+  const [selectedRole, setSelectedRole] = useState("staff");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -42,26 +46,68 @@ const SignupPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
+    setError("");
+    setSuccess("");
+
+    // Password confirmation
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match.");
+      setError("Passwords do not match.");
       return;
     }
 
-    const userData = {
-      ...formData,
-      role: selectedRole,
-    };
+    // Password length
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
 
-    console.log("Signup:", userData);
+    // Public signup roles
+    if (!["manager", "staff"].includes(selectedRole)) {
+      setError(
+        "Administrator accounts cannot be created through public signup."
+      );
+      return;
+    }
 
-    // Temporary role-based navigation
-    if (selectedRole === "admin") {
-      navigate("/dashboard");
-    } else {
-      navigate("/dashboard");
+    setLoading(true);
+
+    try {
+      const response = await registerUser({
+        name: formData.name.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        role: selectedRole,
+      });
+
+      // Save authentication information
+      localStorage.setItem("token", response.token);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(response.user)
+      );
+
+      setSuccess("Account created successfully.");
+
+      // Redirect based on actual backend role
+      if (response.user.role === "manager") {
+        navigate("/dashboard");
+      } else if (response.user.role === "staff") {
+        navigate("/dashboard");
+      }
+
+    } catch (error) {
+
+      setError(
+        error.message ||
+        "Unable to create your account. Please try again."
+      );
+
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -250,11 +296,11 @@ const SignupPage = () => {
 
                   <div className="mb-1.5">
                     <h3 className="text-[11px] font-semibold text-slate-900">
-                      Sign in as
+                      Choose your workspace role
                     </h3>
 
                     <p className="mt-0.5 text-[10px] text-slate-500">
-                      Choose your role to continue.
+                      Select the role that matches your responsibilities.
                     </p>
                   </div>
 
@@ -263,7 +309,8 @@ const SignupPage = () => {
                     {/* Administrator */}
                     <button
                       type="button"
-                      onClick={() => setSelectedRole("admin")}
+                      // onClick={() => setSelectedRole("admin")}
+                      disabled
                       className={`relative rounded-lg border p-2 text-left transition ${
                         selectedRole === "admin"
                           ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-100"
@@ -355,6 +402,25 @@ const SignupPage = () => {
                   </div>
 
                 </div>
+
+
+                {/* Error Message */}   
+                {error && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <p className="text-[10px] font-medium leading-4 text-red-600">
+                      {error}
+                    </p>
+                  </div>
+                )}
+
+                {/* Success Message */}
+                {success && (
+                  <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+                    <p className="text-[10px] font-medium leading-4 text-green-600">
+                      {success}
+                    </p>
+                  </div>
+                )}
 
 
                 {/* Full Name */}
@@ -534,10 +600,12 @@ const SignupPage = () => {
                 {/* Submit */}
                 <button
                   type="submit"
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  disabled={loading}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Create Account
-                  <ArrowRight size={13} />
+                  {loading ? "Creating account..." : "Create Account"}
+
+                  {!loading && <ArrowRight size={14} />}
                 </button>
 
               </form>
@@ -551,7 +619,7 @@ const SignupPage = () => {
                   Already have an account?{" "}
 
                   <Link
-                    to="/login"
+                    to="/auth/login"
                     className="font-semibold text-blue-600 hover:text-blue-700"
                   >
                     Sign in

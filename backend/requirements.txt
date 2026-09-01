@@ -1,0 +1,8 @@
+express 
+pg
+dotenv
+cors
+bcryptjs
+jsonwebtoken
+
+npm install -D nodemon

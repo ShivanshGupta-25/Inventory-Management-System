@@ -17,12 +17,18 @@ import {
 } from "lucide-react";
 
 import AuthLayout from "../../components/auth/AuthLayout";
+import { loginUser } from "../../services/authService";
+import { useAuth } from "../../context/AuthContext";
 
 const LoginPage = () => {
   const navigate = useNavigate();
 
-  const [selectedRole, setSelectedRole] = useState("admin");
+  const [selectedRole, setSelectedRole] = useState("staff");
   const [showPassword, setShowPassword] = useState(false);
+
+  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     email: "",
@@ -38,19 +44,58 @@ const LoginPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    const loginData = {
-      ...formData,
-      role: selectedRole,
-    };
+  setError("");
+  setLoading(true);
 
-    console.log("Login:", loginData);
+  try {
+    const response = await loginUser({
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+    });
 
-    // Temporary frontend-only login
-    navigate("/dashboard");
-  };
+    const user = response.user;
+
+    // Make sure the selected role matches
+    // the role stored in PostgreSQL.
+    if (user.role !== selectedRole) {
+      setError(
+        `This account is registered as ${user.role}. Please select the correct role.`
+      );
+
+      return;
+    }
+
+    // Store authentication through AuthContext
+    login(
+      response.token,
+      user
+    );
+
+    // Redirect according to actual database role
+    if (user.role === "admin") {
+      navigate("/admin/dashboard");
+    } else if (user.role === "manager") {
+      navigate("/manager/dashboard");
+    } else if (user.role === "staff") {
+      navigate("/staff/dashboard");
+    }
+
+  } catch (error) {
+
+    setError(
+      error.message ||
+      "Unable to login. Please try again."
+    );
+
+  } finally {
+
+    setLoading(false);
+
+  }
+};
 
   return (
     <AuthLayout>
@@ -450,6 +495,13 @@ const LoginPage = () => {
 
                 </div>
 
+                {error && (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <p className="text-[10px] font-medium leading-4 text-red-600">
+                      {error}
+                    </p>
+                  </div>
+                )}
 
                 {/* Submit */}
                 <button

@@ -5,46 +5,107 @@ import {
 } from "react-router-dom";
 
 import LandingPage from "../pages/landing/LandingPage";
-// import LoadingPage from "../pages/loading/LoadingPage";
 import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignupPage";
-import DashboardPage from "../pages/dashboard/DashboardPage";
+
 import ContactPage from "../pages/contact/ContactPage";
 import PricingPage from "../pages/pricing/PricingPage";
 
+// Authentication
 import ProtectedRoute from "./ProtectedRoute";
+
+// Dashboard
+import DashboardPage from "../pages/dashboard/DashboardPage";
 
 const AppRoutes = () => {
   return (
     <Routes>
 
-      {/* Public */}
-      <Route path="/" element={<LandingPage />} />
+      {/* =====================================================
+          PUBLIC ROUTES
+      ====================================================== */}
 
-      <Route path="/contact" element={<ContactPage />} />
+      <Route
+        path="/"
+        element={<LandingPage />}
+      />
 
-      <Route path="/pricing" element={<PricingPage />} />
+      <Route
+        path="/contact"
+        element={<ContactPage />}
+      />
 
-      {/* <Route path="/loading" element={<LoadingPage />} /> */}
+      <Route
+        path="/pricing"
+        element={<PricingPage />}
+      />
 
-      <Route path="/auth/login" element={<LoginPage />} />
+      <Route
+        path="/auth/login"
+        element={<LoginPage />}
+      />
 
-      <Route path="/auth/signup" element={<SignupPage />} />
+      <Route
+        path="/auth/signup"
+        element={<SignupPage />}
+      />
 
-      {/* Protected */}
-      {/* <Route element={<ProtectedRoute />}> */}
 
+      {/* =====================================================
+          PROTECTED ROUTES
+      ====================================================== */}
+
+      {/* Admin */}
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={["admin"]} />
+        }
+      >
         <Route
-          path="/dashboard"
+          path="/admin/dashboard"
           element={<DashboardPage />}
         />
+      </Route>
 
-      {/* </Route> */}
 
-      {/* Fallback */}
+      {/* Manager */}
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={["manager"]} />
+        }
+      >
+        <Route
+          path="/manager/dashboard"
+          element={<DashboardPage />}
+        />
+      </Route>
+
+
+      {/* Staff */}
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={["staff"]} />
+        }
+      >
+        <Route
+          path="/staff/dashboard"
+          element={<DashboardPage />}
+        />
+      </Route>
+
+
+      {/* =====================================================
+          FALLBACK
+      ====================================================== */}
+
       <Route
         path="*"
-        element={<Navigate to="/" replace />}
+        element={
+          <Navigate
+            to="/"
+            replace
+          />
+        }
       />
 
     </Routes>
