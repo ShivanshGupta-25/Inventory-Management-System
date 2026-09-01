@@ -44,12 +44,12 @@ const Navbar = () => {
             Home
           </Link>
 
-          <a
+          {/* <a
             href="/#how-it-works"
             className="text-sm font-medium text-slate-600 transition hover:text-blue-600"
           >
             How It Works
-          </a>
+          </a> */}
 
           <a
             href="/#features"
@@ -64,6 +64,13 @@ const Navbar = () => {
           >
             About
           </a>
+
+          <Link
+            to="/pricing"
+            className="text-sm font-medium text-slate-600 transition hover:text-blue-600"
+          >
+            Pricing
+          </Link>
 
           <Link
             to="/contact"

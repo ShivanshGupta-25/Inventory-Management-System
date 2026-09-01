@@ -10,6 +10,7 @@ import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignupPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ContactPage from "../pages/contact/ContactPage";
+import PricingPage from "../pages/pricing/PricingPage";
 
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -21,6 +22,8 @@ const AppRoutes = () => {
       <Route path="/" element={<LandingPage />} />
 
       <Route path="/contact" element={<ContactPage />} />
+
+      <Route path="/pricing" element={<PricingPage />} />
 
       {/* <Route path="/loading" element={<LoadingPage />} /> */}
 

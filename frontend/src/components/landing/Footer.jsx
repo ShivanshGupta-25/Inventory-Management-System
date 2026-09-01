@@ -5,6 +5,10 @@ import {
   Phone,
   MapPin,
   ArrowUp,
+  ArrowRight,
+  // Linkedin,
+  // Github,
+  // Twitter,
 } from "lucide-react";
 
 const Footer = () => {
@@ -16,100 +20,122 @@ const Footer = () => {
   };
 
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer className="border-t border-slate-800 bg-slate-950 text-slate-300">
 
-      {/* Main Footer */}
-      <div className="mx-auto max-w-7xl px-6 py-14 lg:px-8">
+      {/* =====================================================
+          MAIN FOOTER
+      ====================================================== */}
+      <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
 
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-12">
 
-          {/* Brand */}
-          <div className="lg:col-span-2">
+          {/* =================================================
+              BRAND
+          ================================================== */}
+          <div className="lg:col-span-5">
+
             <Link
               to="/"
               className="inline-flex items-center gap-3"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
                 <Package size={21} />
               </div>
 
               <div className="leading-tight">
-                <h2 className="text-lg font-bold text-slate-900">
-                  Inventory<span className="text-blue-600">Flow</span>
+                <h2 className="text-lg font-bold text-white">
+                  Inventory
+                  <span className="text-blue-400">Flow</span>
                 </h2>
 
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-slate-500">
                   Smart Inventory Management
                 </p>
               </div>
             </Link>
 
-            <p className="mt-5 max-w-md text-sm leading-6 text-slate-500">
+            <p className="mt-4 max-w-md text-sm leading-6 text-slate-400">
               A centralized inventory management platform designed
               to help businesses track stock, understand inventory
               trends, and make smarter decisions.
             </p>
 
-            {/* Contact Details */}
-            <div className="mt-6 space-y-3">
+            {/* Contact */}
+            <div className="mt-5 space-y-2.5">
 
-              <div className="flex items-center gap-3 text-sm text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
                 <Mail
-                  size={16}
-                  className="text-blue-600"
+                  size={15}
+                  className="shrink-0 text-blue-400"
                 />
-                support@inventoryflow.com
+                <span>support@inventoryflow.com</span>
               </div>
 
-              <div className="flex items-center gap-3 text-sm text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
                 <Phone
-                  size={16}
-                  className="text-blue-600"
+                  size={15}
+                  className="shrink-0 text-blue-400"
                 />
-                +91 00000 00000
+                <span>+91 00000 00000</span>
               </div>
 
-              <div className="flex items-center gap-3 text-sm text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
                 <MapPin
-                  size={16}
-                  className="text-blue-600"
+                  size={15}
+                  className="shrink-0 text-blue-400"
                 />
-                India
+                <span>India</span>
               </div>
 
             </div>
+
+            {/* Social */}
+            {/* <div className="mt-5 flex items-center gap-2">
+
+              <a
+                href="#"
+                aria-label="LinkedIn"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-blue-500 hover:text-blue-400"
+              >
+                <Linkedin size={15} />
+              </a>
+
+              <a
+                href="#"
+                aria-label="GitHub"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-blue-500 hover:text-blue-400"
+              >
+                <Github size={15} />
+              </a>
+
+              <a
+                href="#"
+                aria-label="Twitter"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-blue-500 hover:text-blue-400"
+              >
+                <Twitter size={15} />
+              </a>
+
+            </div> */}
+
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
-              Quick Links
+
+          {/* =================================================
+              PRODUCT
+          ================================================== */}
+          <div className="lg:col-span-2">
+
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+              Product
             </h3>
 
-            <ul className="mt-5 space-y-3">
-
-              <li>
-                <a
-                  href="/#home"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
-                >
-                  Home
-                </a>
-              </li>
-
-              <li>
-                <a
-                  href="/#how-it-works"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
-                >
-                  How It Works
-                </a>
-              </li>
+            <ul className="mt-4 space-y-3">
 
               <li>
                 <a
                   href="/#features"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
                 >
                   Features
                 </a>
@@ -117,46 +143,103 @@ const Footer = () => {
 
               <li>
                 <a
-                  href="/#about"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
+                  href="/#how-it-works"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
                 >
-                  About
+                  How It Works
                 </a>
               </li>
 
               <li>
                 <Link
+                  to="/pricing"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
+                >
+                  Pricing
+                </Link>
+              </li>
+
+              <li>
+                <Link
                   to="/contact"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
                 >
                   Contact
                 </Link>
               </li>
 
             </ul>
+
           </div>
 
-          {/* Account */}
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">
+
+          {/* =================================================
+              COMPANY
+          ================================================== */}
+          <div className="lg:col-span-2">
+
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
+              Company
+            </h3>
+
+            <ul className="mt-4 space-y-3">
+
+              <li>
+                <a
+                  href="/#home"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
+                >
+                  Home
+                </a>
+              </li>
+
+              <li>
+                <a
+                  href="/#about"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
+                >
+                  About Us
+                </a>
+              </li>
+
+              <li>
+                <Link
+                  to="/contact"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
+                >
+                  Get in Touch
+                </Link>
+              </li>
+
+            </ul>
+
+          </div>
+
+
+          {/* =================================================
+              ACCOUNT / CTA
+          ================================================== */}
+          <div className="lg:col-span-3">
+
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white">
               Account
             </h3>
 
-            <ul className="mt-5 space-y-3">
+            <ul className="mt-4 space-y-3">
 
               <li>
                 <Link
                   to="/auth/login"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
                 >
-                  Login
+                  Sign In
                 </Link>
               </li>
 
               <li>
                 <Link
                   to="/auth/signup"
-                  className="text-sm text-slate-500 transition hover:text-blue-600"
+                  className="text-xs text-slate-400 transition hover:text-blue-400"
                 >
                   Create Account
                 </Link>
@@ -165,54 +248,63 @@ const Footer = () => {
             </ul>
 
             {/* CTA */}
-            <div className="mt-7">
-              <Link
-                to="/auth/signup"
-                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Get Started
-              </Link>
-            </div>
+            <Link
+              to="/auth/signup"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
+            >
+              Get Started
+              <ArrowRight size={13} />
+            </Link>
+
           </div>
 
         </div>
+
       </div>
 
-      {/* Bottom Footer */}
-      <div className="border-t border-slate-100">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-8">
 
-          <p className="text-xs text-slate-400">
+      {/* =====================================================
+          BOTTOM FOOTER
+      ====================================================== */}
+      <div className="border-t border-slate-800">
+
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+
+          {/* Copyright */}
+          <p className="text-[11px] text-slate-500">
             © {new Date().getFullYear()} InventoryFlow. All rights reserved.
           </p>
 
+
+          {/* Bottom Links */}
           <div className="flex items-center gap-5">
 
             <Link
               to="/"
-              className="text-xs text-slate-400 transition hover:text-blue-600"
+              className="text-[11px] text-slate-500 transition hover:text-blue-400"
             >
               Privacy
             </Link>
 
             <Link
               to="/"
-              className="text-xs text-slate-400 transition hover:text-blue-600"
+              className="text-[11px] text-slate-500 transition hover:text-blue-400"
             >
               Terms
             </Link>
 
             <button
               onClick={scrollToTop}
-              className="flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-blue-600"
+              className="flex items-center gap-1 text-[11px] font-medium text-slate-400 transition hover:text-blue-400"
             >
               Back to top
-              <ArrowUp size={14} />
+              <ArrowUp size={13} />
             </button>
 
           </div>
 
         </div>
+
       </div>
 
     </footer>

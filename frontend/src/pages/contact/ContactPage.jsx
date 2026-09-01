@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../../components/landing/Navbar";
+import Footer from "../../components/landing/Footer";
 
 import {
   Mail,
@@ -11,6 +13,7 @@ import {
   CircleHelp,
   Package,
   Headphones,
+  ArrowRight,
 } from "lucide-react";
 
 const ContactPage = () => {
@@ -46,407 +49,426 @@ const ContactPage = () => {
   };
 
   return (
-    
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-
-      <Navbar />
+    <div className="min-h-screen bg-white text-slate-900">
 
       {/* =====================================================
-          HERO / INTRO SECTION
+          SHARED NAVBAR
       ====================================================== */}
-      <section className="border-b border-slate-200 bg-slate-50">
-        <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+      <Navbar />
 
-          <div className="grid items-center gap-10 lg:grid-cols-2">
+      <main>
 
-            {/* LEFT - INTRO */}
-            <div className="max-w-2xl">
+        {/* =====================================================
+            HERO
+        ====================================================== */}
+        <section className="border-b border-slate-200 bg-slate-50">
 
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                Contact Us
-              </div>
+          <div className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-12">
 
-              {/* Heading */}
-              <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-                Let's build a better
-                <span className="block text-blue-600">
-                  inventory experience.
-                </span>
-              </h1>
+            <div className="grid items-center gap-8 lg:grid-cols-[1fr_1.2fr]">
 
-              {/* Description */}
-              <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-                Whether you're exploring our inventory management
-                platform, need help getting started, or have a question
-                for our team, we're here to help you move forward.
-              </p>
+              {/* LEFT */}
+              <div className="max-w-xl">
 
-            </div>
-
-            {/* RIGHT - QUICK CONTACT CARDS */}
-            <div className="grid gap-4 sm:grid-cols-3 lg:gap-3">
-
-              {/* Sales */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <Package size={19} />
+                <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  Contact Us
                 </div>
 
-                <h3 className="mt-5 text-sm font-bold text-slate-900">
-                  Sales & Plans
-                </h3>
+                <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+                  Let's talk about your
+                  <span className="block text-blue-600">
+                    inventory needs.
+                  </span>
+                </h1>
 
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Talk to us about plans, pricing, and finding the
-                  right solution for your business.
+                <p className="mt-4 max-w-lg text-sm leading-6 text-slate-500 sm:text-base">
+                  Have a question about InventoryFlow, need help
+                  getting started, or want to learn more about our
+                  platform? Our team is here to help.
                 </p>
 
               </div>
 
-              {/* Product */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <CircleHelp size={19} />
+              {/* RIGHT - QUICK CONTACT */}
+              <div className="grid gap-3 sm:grid-cols-3">
+
+                {/* Sales */}
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <Package size={17} />
+                  </div>
+
+                  <h3 className="mt-3 text-xs font-bold text-slate-900">
+                    Sales & Plans
+                  </h3>
+
+                  <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                    Questions about plans, pricing, or choosing the
+                    right solution.
+                  </p>
+
                 </div>
 
-                <h3 className="mt-5 text-sm font-bold text-slate-900">
-                  Product Guidance
-                </h3>
 
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Have questions about features, setup, or using the
-                  inventory system?
-                </p>
+                {/* Product */}
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
 
-              </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <CircleHelp size={17} />
+                  </div>
 
-              {/* Support */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                  <h3 className="mt-3 text-xs font-bold text-slate-900">
+                    Product Help
+                  </h3>
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  <Headphones size={19} />
+                  <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                    Get help with features, setup, and using the
+                    platform.
+                  </p>
+
                 </div>
 
-                <h3 className="mt-5 text-sm font-bold text-slate-900">
-                  Quick Response
-                </h3>
 
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Send us a message and our team will get back to
-                  you within 24 hours.
-                </p>
+                {/* Support */}
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <Headphones size={17} />
+                  </div>
+
+                  <h3 className="mt-3 text-xs font-bold text-slate-900">
+                    Support
+                  </h3>
+
+                  <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
+                    Send us a message and we'll respond within 24
+                    hours.
+                  </p>
+
+                </div>
 
               </div>
 
             </div>
 
           </div>
-        </div>
-      </section>
 
-      {/* =====================================================
-          CONTACT + FORM SECTION
-      ====================================================== */}
-      <section className="py-14 lg:py-16">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 lg:grid-cols-2 lg:px-8">
+        </section>
 
-          {/* =================================================
-              LEFT - CONTACT INFORMATION
-          ================================================== */}
-          <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-blue-50 p-7 sm:p-8 lg:p-10">
 
-            {/* Decorative Circle */}
-            <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/60" />
+        {/* =====================================================
+            CONTACT AREA
+        ====================================================== */}
+        <section className="px-5 py-10 sm:px-6 lg:px-8 lg:py-12">
 
-            <div className="relative">
+          <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[0.85fr_1.15fr]">
 
-              {/* Small Heading */}
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+            {/* =================================================
+                CONTACT INFORMATION
+            ================================================== */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 sm:p-7">
+
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
                 Contact & Support
               </p>
 
-              <h2 className="mt-3 text-2xl font-bold text-slate-950">
-                Let's talk.
+              <h2 className="mt-2 text-2xl font-bold text-slate-950">
+                We're here to help.
               </h2>
 
-              <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
-                Whether you have a question about the platform or
-                need help getting started, our team is here to assist
-                you.
+              <p className="mt-2.5 text-sm leading-5 text-slate-500">
+                Reach out to our team for product questions,
+                support, or general enquiries.
               </p>
 
-              {/* Divider */}
-              <div className="my-7 h-px bg-blue-100" />
 
-              {/* EMAIL */}
-              <div className="flex gap-4">
+              {/* Contact Details */}
+              <div className="mt-6 space-y-4">
 
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-white text-blue-600">
-                  <Mail size={18} />
+                {/* Email */}
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm">
+                    <Mail size={16} />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Email
+                    </p>
+
+                    <p className="mt-0.5 text-xs font-medium text-slate-800">
+                      support@inventoryflow.com
+                    </p>
+                  </div>
+
                 </div>
 
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                    General Enquiries
-                  </p>
 
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    support@inventoryflow.com
-                  </p>
+                {/* Phone */}
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm">
+                    <Phone size={16} />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Phone
+                    </p>
+
+                    <p className="mt-0.5 text-xs font-medium text-slate-800">
+                      +91 00000 00000
+                    </p>
+                  </div>
+
+                </div>
+
+
+                {/* Location */}
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm">
+                    <MapPin size={16} />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Location
+                    </p>
+
+                    <p className="mt-0.5 text-xs font-medium text-slate-800">
+                      India
+                    </p>
+                  </div>
+
                 </div>
 
               </div>
 
-              {/* Divider */}
-              <div className="my-5 h-px bg-blue-100" />
 
-              {/* PHONE */}
-              <div className="flex gap-4">
+              {/* Response Time */}
+              <div className="mt-6 flex items-start gap-3 rounded-lg border border-blue-100 bg-white p-3.5">
 
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-white text-blue-600">
-                  <Phone size={18} />
-                </div>
-
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                    Phone
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    +91 00000 00000
-                  </p>
-                </div>
-
-              </div>
-
-              {/* Divider */}
-              <div className="my-5 h-px bg-blue-100" />
-
-              {/* LOCATION */}
-              <div className="flex gap-4">
-
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-white text-blue-600">
-                  <MapPin size={18} />
-                </div>
+                <Clock
+                  size={16}
+                  className="mt-0.5 shrink-0 text-blue-600"
+                />
 
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                    Location
+                  <p className="text-xs font-semibold text-slate-900">
+                    Quick response
                   </p>
 
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    India
-                  </p>
-                </div>
-
-              </div>
-
-              {/* Support Message */}
-              <div className="mt-7 rounded-xl border border-blue-100 bg-white/70 p-4">
-
-                <div className="flex items-start gap-3">
-
-                  <Clock
-                    size={17}
-                    className="mt-0.5 shrink-0 text-blue-600"
-                  />
-
-                  <p className="text-xs leading-5 text-slate-600">
+                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
                     We aim to respond to all enquiries within
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-slate-700">
                       {" "}24 hours.
                     </span>
                   </p>
-
                 </div>
 
               </div>
 
             </div>
-          </div>
 
-          {/* =================================================
-              RIGHT - CONTACT FORM
-          ================================================== */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm sm:p-8 lg:p-10">
 
-            {/* Form Header */}
-            <div className="flex items-start justify-between gap-5">
+            {/* =================================================
+                CONTACT FORM
+            ================================================== */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
 
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
-                  Send a Message
-                </p>
-
-                <h2 className="mt-2 text-2xl font-bold text-slate-950">
-                  Tell us what you need
-                </h2>
-              </div>
-
-              <MessageSquare
-                size={22}
-                className="mt-1 text-blue-500"
-              />
-
-            </div>
-
-            <p className="mt-3 text-sm text-slate-500">
-              Fill out the form below and we'll get back to you soon.
-            </p>
-
-            {/* FORM */}
-            <form
-              onSubmit={handleSubmit}
-              className="mt-7"
-            >
-
-              {/* NAME + EMAIL */}
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="flex items-start justify-between">
 
                 <div>
+
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
+                    Send a Message
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-bold text-slate-950">
+                    Tell us how we can help
+                  </h2>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    Fill out the form and our team will get back to you.
+                  </p>
+
+                </div>
+
+                <div className="hidden h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 sm:flex">
+                  <MessageSquare size={17} />
+                </div>
+
+              </div>
+
+
+              {/* FORM */}
+              <form
+                onSubmit={handleSubmit}
+                className="mt-6"
+              >
+
+                {/* Name + Email */}
+                <div className="grid gap-4 sm:grid-cols-2">
+
+                  <div>
+
+                    <label
+                      htmlFor="name"
+                      className="mb-1.5 block text-xs font-semibold text-slate-700"
+                    >
+                      Full Name
+                    </label>
+
+                    <input
+                      id="name"
+                      name="name"
+                      type="text"
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="Your name"
+                      required
+                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+
+                  </div>
+
+
+                  <div>
+
+                    <label
+                      htmlFor="email"
+                      className="mb-1.5 block text-xs font-semibold text-slate-700"
+                    >
+                      Email Address
+                    </label>
+
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="you@example.com"
+                      required
+                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+
+                  </div>
+
+                </div>
+
+
+                {/* Subject */}
+                <div className="mt-4">
+
                   <label
-                    htmlFor="name"
-                    className="mb-2 block text-xs font-semibold text-slate-700"
+                    htmlFor="subject"
+                    className="mb-1.5 block text-xs font-semibold text-slate-700"
                   >
-                    Full Name
+                    Subject
                   </label>
 
                   <input
-                    id="name"
-                    name="name"
+                    id="subject"
+                    name="subject"
                     type="text"
-                    value={formData.name}
+                    value={formData.subject}
                     onChange={handleChange}
-                    placeholder="Your name"
+                    placeholder="What can we help with?"
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
+
                 </div>
 
-                <div>
+
+                {/* Message */}
+                <div className="mt-4">
+
                   <label
-                    htmlFor="email"
-                    className="mb-2 block text-xs font-semibold text-slate-700"
+                    htmlFor="message"
+                    className="mb-1.5 block text-xs font-semibold text-slate-700"
                   >
-                    Email Address
+                    Message
                   </label>
 
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
+                  <textarea
+                    id="message"
+                    name="message"
+                    rows="4"
+                    value={formData.message}
                     onChange={handleChange}
-                    placeholder="you@example.com"
+                    placeholder="Tell us more about your question..."
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full resize-none rounded-lg border border-slate-200 px-3.5 py-2.5 text-xs outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   />
+
                 </div>
 
-              </div>
 
-              {/* SUBJECT */}
-              <div className="mt-5">
-
-                <label
-                  htmlFor="subject"
-                  className="mb-2 block text-xs font-semibold text-slate-700"
-                >
-                  Subject
-                </label>
-
-                <input
-                  id="subject"
-                  name="subject"
-                  type="text"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  placeholder="What's this about?"
-                  required
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-
-              </div>
-
-              {/* MESSAGE */}
-              <div className="mt-5">
-
-                <label
-                  htmlFor="message"
-                  className="mb-2 block text-xs font-semibold text-slate-700"
-                >
-                  Message
-                </label>
-
-                <textarea
-                  id="message"
-                  name="message"
-                  rows="5"
-                  value={formData.message}
-                  onChange={handleChange}
-                  placeholder="Tell us more..."
-                  required
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-
-              </div>
-
-              {/* SUBMIT */}
-              <div className="mt-6">
-
+                {/* Submit */}
                 <button
                   type="submit"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-xs font-semibold text-white transition hover:bg-blue-700"
                 >
                   Send Message
-                  <Send size={17} />
+                  <Send size={14} />
                 </button>
 
-              </div>
+                <p className="mt-3 flex items-center justify-center gap-1.5 text-[10px] text-slate-400">
+                  <Clock size={12} />
+                  Typical response time: within 24 hours
+                </p>
 
-              <p className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400">
-                <Clock size={14} />
-                We'll get back to you within 24 hours.
-              </p>
+              </form>
 
-            </form>
+            </div>
 
           </div>
 
-        </div>
-      </section>
+        </section>
+
+
+        {/* =====================================================
+            FINAL CTA
+        ====================================================== */}
+        <section className="border-t border-slate-200 bg-slate-50 px-5 py-10 sm:px-6 lg:px-8">
+
+          <div className="mx-auto max-w-3xl text-center">
+
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950">
+              Ready to take control of your inventory?
+            </h2>
+
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-5 text-slate-500">
+              Create your account and start managing your inventory
+              from one centralized platform.
+            </p>
+
+            <Link
+              to="/auth/signup"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+            >
+              Get Started
+              <ArrowRight size={14} />
+            </Link>
+
+          </div>
+
+        </section>
+
+      </main>
+
 
       {/* =====================================================
-          BOTTOM CTA
+          SHARED FOOTER
       ====================================================== */}
-      <section className="border-t border-slate-200 bg-white py-14">
-
-        <div className="mx-auto max-w-3xl px-6 text-center">
-
-          <h2 className="text-2xl font-bold text-slate-950 sm:text-3xl">
-            Ready to take control of your inventory?
-          </h2>
-
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
-            Create your account and start managing your inventory
-            from one centralized platform.
-          </p>
-
-          <a
-            href="/auth/signup"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
-            Get Started
-            <Send size={17} />
-          </a>
-
-        </div>
-
-      </section>
+      <Footer />
 
     </div>
   );
