@@ -16,6 +16,7 @@ import ProtectedRoute from "./ProtectedRoute";
 
 // Dashboard
 import DashboardPage from "../pages/dashboard/DashboardPage";
+import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 
 const AppRoutes = () => {
   return (
@@ -76,7 +77,7 @@ const AppRoutes = () => {
       >
         <Route
           path="/manager/dashboard"
-          element={<DashboardPage />}
+          element={<ManagerDashboardPage />}
         />
       </Route>
 
