@@ -20,27 +20,29 @@ const inventoryData = [
 
 const InventoryOverview = () => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="h-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">
             Inventory Overview
           </h2>
 
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-400">
             Current stock distribution
           </p>
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
-          <Boxes size={18} />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+          <Boxes size={16} />
         </div>
       </div>
 
-      <div className="mt-6 space-y-5">
+      {/* Inventory Bars */}
+      <div className="mt-5 space-y-4">
         {inventoryData.map((item) => (
           <div key={item.label}>
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-1.5 flex items-center justify-between">
               <span className="text-xs font-medium text-slate-600">
                 {item.label}
               </span>
@@ -50,23 +52,26 @@ const InventoryOverview = () => {
               </span>
             </div>
 
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
               <div
                 className="h-full rounded-full bg-blue-500"
-                style={{ width: `${item.percentage}%` }}
+                style={{
+                  width: `${item.percentage}%`,
+                }}
               />
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 border-t border-slate-100 pt-4">
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-400">
+      {/* Total */}
+      <div className="mt-5 border-t border-slate-100 pt-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-400">
             Total inventory units
           </span>
 
-          <span className="font-semibold text-slate-700">
+          <span className="text-xs font-semibold text-slate-700">
             18,420
           </span>
         </div>

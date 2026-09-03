@@ -18,34 +18,66 @@ const data = [
   { day: "Sun", stock: 18420 },
 ];
 
+const formatStock = (value) => {
+  if (value >= 1000) {
+    return `${value / 1000}K`;
+  }
+
+  return value;
+};
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-lg">
+      <p className="text-xs text-slate-400">{label}</p>
+
+      <p className="mt-1 text-sm font-semibold text-slate-900">
+        {payload[0].value.toLocaleString("en-IN")} units
+      </p>
+    </div>
+  );
+};
+
 const StockLevelChart = () => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
+    <div className="h-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">
             Stock Level
           </h2>
 
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-400">
             Inventory movement over the past week
           </p>
         </div>
 
-        <select className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 outline-none">
+        <select className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 outline-none">
           <option>Last 7 days</option>
           <option>Last 30 days</option>
           <option>Last 3 months</option>
         </select>
       </div>
 
-      <div className="mt-6 h-64">
+      {/* Chart */}
+      <div className="mt-4 h-52">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
+          <AreaChart
+            data={data}
+            margin={{
+              top: 5,
+              right: 5,
+              left: -15,
+              bottom: 0,
+            }}
+          >
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              stroke="#e2e8f0"
+              stroke="#f1f5f9"
             />
 
             <XAxis
@@ -53,7 +85,7 @@ const StockLevelChart = () => {
               axisLine={false}
               tickLine={false}
               tick={{
-                fontSize: 11,
+                fontSize: 10,
                 fill: "#94a3b8",
               }}
             />
@@ -62,12 +94,17 @@ const StockLevelChart = () => {
               axisLine={false}
               tickLine={false}
               tick={{
-                fontSize: 11,
+                fontSize: 10,
                 fill: "#94a3b8",
               }}
+              tickFormatter={formatStock}
+              width={38}
             />
 
-            <Tooltip />
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ stroke: "#cbd5e1" }}
+            />
 
             <Area
               type="monotone"

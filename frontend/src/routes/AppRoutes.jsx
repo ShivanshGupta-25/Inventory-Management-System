@@ -17,6 +17,9 @@ import ProtectedRoute from "./ProtectedRoute";
 // Dashboard
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
+import InventoryPage from "../pages/manager/inventory/InventoryPage";
+import StockDetailsPage from "../pages/manager/inventory/StockDetailsPage";
+import StockAdjustmentPage from "../pages/manager/inventory/StockAdjustmentPage";
 
 const AppRoutes = () => {
   return (
@@ -78,6 +81,21 @@ const AppRoutes = () => {
         <Route
           path="/manager/dashboard"
           element={<ManagerDashboardPage />}
+        />
+
+        <Route
+          path="/manager/inventory"
+          element={<InventoryPage />}
+        />
+
+        <Route
+          path="/manager/inventory/:id"
+          element={<StockDetailsPage />}
+        />
+
+        <Route
+          path="/manager/inventory/:id/adjust"
+          element={<StockAdjustmentPage />}
         />
       </Route>
 

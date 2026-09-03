@@ -1003,18 +1003,24 @@ const ManagerDashboardPage = () => {
             {/* Statistics */}
             <DashboardStats />
 
-            {/* Inventory + Stock */}
-            <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
-              <div className="xl:col-span-2">
+            {/* Analytics Overview */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 mt-4">
+
+              {/* Stock Level */}
+              <div className="lg:col-span-5">
                 <StockLevelChart />
               </div>
 
-              <InventoryOverview />
-            </div>
+              {/* Inventory Overview */}
+              <div className="lg:col-span-3">
+                <InventoryOverview />
+              </div>
 
-            {/* Sales */}
-            <div className="mt-5">
-              <SalesOverview />
+              {/* Sales Overview */}
+              <div className="lg:col-span-4">
+                <SalesOverview />
+              </div>
+
             </div>
 
             {/* Alerts / Low Stock */}

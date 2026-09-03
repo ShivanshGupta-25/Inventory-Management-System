@@ -242,16 +242,16 @@ const menuItems = [
     icon: Boxes,
     path: "/manager/inventory",
   },
-  {
-    label: "Products",
-    icon: Package,
-    path: "/manager/products",
-  },
-  {
-    label: "Suppliers",
-    icon: Truck,
-    path: "/manager/suppliers",
-  },
+//   {
+//     label: "Products",
+//     icon: Package,
+//     path: "/manager/products",
+//   },
+//   {
+//     label: "Suppliers",
+//     icon: Truck,
+//     path: "/manager/suppliers",
+//   },
   {
     label: "Purchase Orders",
     icon: ShoppingCart,
@@ -262,11 +262,11 @@ const menuItems = [
     icon: Receipt,
     path: "/manager/sales",
   },
-  {
-    label: "Alerts",
-    icon: Bell,
-    path: "/manager/alerts",
-  },
+//   {
+//     label: "Alerts",
+//     icon: Bell,
+//     path: "/manager/alerts",
+//   },
   {
     label: "Analytics",
     icon: BarChart3,
@@ -280,16 +280,16 @@ const menuItems = [
 ];
 
 const accountItems = [
-  {
-    label: "Profile",
-    icon: UserCircle,
-    path: "/manager/profile",
-  },
-  {
-    label: "Settings",
-    icon: Settings,
-    path: "/manager/settings",
-  },
+//   {
+//     label: "Profile",
+//     icon: UserCircle,
+//     path: "/manager/profile",
+//   },
+//   {
+//     label: "Settings",
+//     icon: Settings,
+//     path: "/manager/settings",
+//   },
 ];
 
 const ManagerSidebar = ({
@@ -449,7 +449,7 @@ const SidebarContent = ({
       </div>
 
       {/* Account */}
-      <div className="mt-8">
+      {/* <div className="mt-8">
         {!collapsed && (
           <p className="mb-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             Account
@@ -481,7 +481,7 @@ const SidebarContent = ({
             );
           })}
         </nav>
-      </div>
+      </div> */}
 
       <div className="mt-auto border-t border-slate-100 pt-3">
         <button
