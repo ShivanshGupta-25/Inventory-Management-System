@@ -242,11 +242,11 @@ const menuItems = [
     icon: Boxes,
     path: "/manager/inventory",
   },
-//   {
-//     label: "Products",
-//     icon: Package,
-//     path: "/manager/products",
-//   },
+  {
+    label: "Products",
+    icon: Package,
+    path: "/manager/products",
+  },
 //   {
 //     label: "Suppliers",
 //     icon: Truck,
