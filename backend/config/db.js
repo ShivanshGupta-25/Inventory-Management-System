@@ -1,24 +1,14 @@
-import pg from "pg";
-import dotenv from "dotenv";
+const mongoose = require("mongoose");
 
-dotenv.config();
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
 
-const { Pool } = pg;
+    console.log("MongoDB connected successfully");
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+    process.exit(1);
+  }
+};
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
-
-pool.on("connect", () => {
-  console.log("PostgreSQL connected");
-});
-
-pool.on("error", (error) => {
-  console.error("Unexpected PostgreSQL error:", error);
-});
-
-export default pool;
+module.exports = connectDB;

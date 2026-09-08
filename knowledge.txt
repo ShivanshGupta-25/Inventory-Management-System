@@ -1,0 +1,45 @@
+CREATE DATABASE inventoryflow;
+
+To list the database : \l
+
+To connect to inventoryflow database : \c inventoryflow
+
+To verify the current database : SELECT current_database();
+
+To quit the database : \q
+
+To enter in the postgress 
+--> psql -U postgres
+
+
+creating the user table : 
+```CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+
+    name VARCHAR(100) NOT NULL,
+
+    email VARCHAR(255) UNIQUE NOT NULL,
+
+    password VARCHAR(255) NOT NULL,
+
+    role VARCHAR(20) NOT NULL DEFAULT 'staff',
+
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT users_role_check
+        CHECK (role IN ('admin', 'manager', 'staff'))
+);```
+
+
+To verify the table : \dt
+
+to start the database : npm run dev
+
+
+http://localhost:5000/
+
+http://localhost:5000/api/health/db

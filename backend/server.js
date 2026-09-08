@@ -1,55 +1,57 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
-import pool from "./config/db.js";
-import authRoutes from "./routes/authRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
+const connectDB = require("./config/db");
+
+const authRoutes = require("./routes/authRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
+const stockMovementRoutes = require("./routes/stockMovementRoutes");
 
 dotenv.config();
 
+connectDB();
+
 const app = express();
 
-const PORT = process.env.PORT || 5000;
+// CORS
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+  })
+);
 
-// Middleware
-app.use(cors());
+// Body parser
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-
-
-// Health check
+// Root route
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "InventoryFlow API is running",
+    message: "Inventory Management API is running",
   });
 });
 
-// Database test
-app.get("/api/health/db", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
+// Authentication routes
+app.use("/api/auth", authRoutes);
 
-    res.json({
-      success: true,
-      message: "PostgreSQL connection successful",
-      time: result.rows[0].now,
-    });
-  } catch (error) {
-    console.error("Database error:", error);
+// Inventory routes
+app.use("/api/inventory", inventoryRoutes);
 
-    res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-    });
-  }
+// Stock movement routes
+app.use("/api/stock-movements", stockMovementRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
 });
 
+// Server
+const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
-  console.log(`InventoryFlow API running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

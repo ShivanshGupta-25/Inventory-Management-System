@@ -1,38 +1,44 @@
 const API_URL = "http://localhost:5000/api";
 
-const api = async (
-  endpoint,
-  options = {}
-) => {
-
-  const token = localStorage.getItem("token");
-
-  const headers = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-      headers,
-    }
-  );
+const apiRequest = async (endpoint, options = {}) => {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.message || "Something went wrong."
-    );
+    throw new Error(data.message || "Something went wrong");
   }
 
   return data;
 };
 
-export default api;
+export const registerUser = async (userData) => {
+  return apiRequest("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
+};
+
+export const loginUser = async (credentials) => {
+  return apiRequest("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+  });
+};
+
+export const getCurrentUser = async (token) => {
+  return apiRequest("/auth/me", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+export default apiRequest;

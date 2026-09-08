@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import AuthLayout from "../../components/auth/AuthLayout";
-import { loginUser } from "../../services/authService";
+// import { loginUser } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
 const LoginPage = () => {
@@ -26,7 +26,7 @@ const LoginPage = () => {
   const [selectedRole, setSelectedRole] = useState("staff");
   const [showPassword, setShowPassword] = useState(false);
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,7 +51,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const response = await loginUser({
+      const response = await login({
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
@@ -63,10 +63,9 @@ const LoginPage = () => {
           `This account is registered as ${user.role}. Please select the correct role.`
         );
 
+        logout();
         return;
       }
-
-      login(response.token, user);
 
       if (user.role === "admin") {
         navigate("/admin/dashboard");
@@ -76,9 +75,7 @@ const LoginPage = () => {
         navigate("/staff/dashboard");
       }
     } catch (error) {
-      setError(
-        error.message || "Unable to login. Please try again."
-      );
+      setError(error.message || "Unable to login. Please try again.");
     } finally {
       setLoading(false);
     }

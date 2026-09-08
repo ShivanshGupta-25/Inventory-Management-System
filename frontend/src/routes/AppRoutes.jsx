@@ -18,21 +18,9 @@ import ProtectedRoute from "./ProtectedRoute";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 
-// Manager - Inventory
-import InventoryPage from "../pages/manager/inventory/InventoryPage";
-import StockDetailsPage from "../pages/manager/inventory/StockDetailsPage";
-import StockAdjustmentPage from "../pages/manager/inventory/StockAdjustmentPage";
-
-// Manager - Purchase Orders
-import PurchaseOrderPage from "../pages/Manager/purchaseOrders/PurchaseOrderPage";
-import CreatePurchaseOrderPage from "../pages/Manager/purchaseOrders/CreatePurchaseOrderPage";
-import PurchaseOrderDetailsPage from "../pages/Manager/purchaseOrders/PurchaseOrderDetailsPage";
-import EditPurchaseOrderPage from "../pages/Manager/purchaseOrders/EditPurchaseOrderPage";
-
-// Manager - Sales
-import SalesPage from "../pages/Manager/sales/SalesPage";
-import SaleDetailsPage from "../pages/Manager/sales/SaleDetailsPage";
-import CreateSalePage from "../pages/Manager/sales/CreateSalePage";
+// Inventory
+import Inventory from "../pages/Manager/inventory/Inventory";
+import InventoryDetails from "../pages/Manager/inventory/InventoryDetails";
 
 
 const AppRoutes = () => {
@@ -104,54 +92,12 @@ const AppRoutes = () => {
         {/* Inventory */}
         <Route
           path="/manager/inventory"
-          element={<InventoryPage />}
+          element={<Inventory />}
         />
 
         <Route
           path="/manager/inventory/:id"
-          element={<StockDetailsPage />}
-        />
-
-        <Route
-          path="/manager/inventory/:id/adjust"
-          element={<StockAdjustmentPage />}
-        />
-
-        {/* Purchase Orders */}
-        <Route
-          path="/manager/purchase-orders"
-          element={<PurchaseOrderPage />}
-        />
-
-        <Route
-          path="/manager/purchase-orders/create"
-          element={<CreatePurchaseOrderPage />}
-        />
-
-        <Route
-          path="/manager/purchase-orders/:id"
-          element={<PurchaseOrderDetailsPage />}
-        />
-
-        <Route
-          path="/manager/purchase-orders/:id/edit"
-          element={<EditPurchaseOrderPage />}
-        />
-
-        {/* Sales */}
-        <Route
-          path="/manager/sales"
-          element={<SalesPage />}
-        />
-
-        <Route
-          path="/manager/sales/:id"
-          element={<SaleDetailsPage />}
-        />
-
-        <Route
-          path="/manager/sales/create"
-          element={<CreateSalePage />}
+          element={<InventoryDetails />}
         />
 
       </Route>

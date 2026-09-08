@@ -20,9 +20,11 @@ import {
 
 import AuthLayout from "../../components/auth/AuthLayout";
 import { registerUser } from "../../services/authService";
+import { useAuth } from "../../context/AuthContext";
 
 const SignupPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState("staff");
   const [showPassword, setShowPassword] = useState(false);
@@ -82,25 +84,21 @@ const SignupPage = () => {
         role: selectedRole,
       });
 
-      localStorage.setItem("token", response.token);
-
-      localStorage.setItem(
-        "user",
-        JSON.stringify(response.user)
-      );
+      // Store authentication through AuthContext
+      login(response.token, response.user);
 
       setSuccess("Account created successfully.");
 
+      // Redirect based on actual backend role
       if (response.user.role === "manager") {
-        navigate("/dashboard");
+        navigate("/manager/dashboard");
       } else if (response.user.role === "staff") {
-        navigate("/dashboard");
+        navigate("/staff/dashboard");
       }
-
     } catch (error) {
       setError(
         error.message ||
-        "Unable to create your account. Please try again."
+          "Unable to create your account. Please try again."
       );
     } finally {
       setLoading(false);
