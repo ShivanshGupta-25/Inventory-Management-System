@@ -2,44 +2,60 @@ import {
   Plus,
   ClipboardEdit,
   ShoppingCart,
-  FileText,
+  Receipt,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const actions = [
   {
     title: "Add Product",
+    description: "Add a new inventory item",
     icon: Plus,
-    path: "/manager/products/add",
+    path: "/manager/inventory",
+    iconStyle:
+      "bg-blue-50 text-blue-600 group-hover:bg-blue-100 group-hover:text-blue-700",
   },
+  // {
+  //   title: "Adjust Stock",
+  //   description: "Update inventory quantity",
+  //   icon: ClipboardEdit,
+  //   path: "/manager/inventory/adjust",
+  //   iconStyle:
+  //     "bg-amber-50 text-amber-600 group-hover:bg-amber-100 group-hover:text-amber-700",
+  // },
   {
-    title: "Adjust Stock",
-    icon: ClipboardEdit,
-    path: "/manager/inventory/adjust",
-  },
-  {
-    title: "Create Purchase Order",
+    title: "Purchase Order",
+    description: "Create a new purchase order",
     icon: ShoppingCart,
-    path: "/manager/purchase-orders/create",
+    path: "/manager/purchase-orders",
+    iconStyle:
+      "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 group-hover:text-emerald-700",
   },
   {
-    title: "View Reports",
-    icon: FileText,
-    path: "/manager/reports",
+    title: "Create Sale",
+    description: "Record a new sale",
+    icon: Receipt,
+    path: "/manager/sales/create",
+    iconStyle:
+      "bg-violet-50 text-violet-600 group-hover:bg-violet-100 group-hover:text-violet-700",
   },
 ];
 
 const QuickActions = () => {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-900">
-        Quick Actions
-      </h2>
+      {/* Header */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-900">
+          Quick Actions
+        </h2>
 
-      <p className="mt-1 text-xs text-slate-400">
-        Frequently used actions
-      </p>
+        <p className="mt-1 text-xs text-slate-400">
+          Frequently used actions
+        </p>
+      </div>
 
+      {/* Actions */}
       <div className="mt-5 grid grid-cols-2 gap-3">
         {actions.map((action) => {
           const Icon = action.icon;
@@ -48,14 +64,22 @@ const QuickActions = () => {
             <Link
               key={action.title}
               to={action.path}
-              className="group rounded-lg border border-slate-200 p-3 transition hover:border-blue-200 hover:bg-blue-50/40"
+              className="group rounded-lg border border-slate-200 p-3 transition hover:border-slate-300 hover:bg-slate-50"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition group-hover:bg-blue-100 group-hover:text-blue-600">
+              {/* Icon */}
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${action.iconStyle}`}
+              >
                 <Icon size={16} />
               </div>
 
-              <p className="mt-3 text-xs font-semibold leading-5 text-slate-700">
+              {/* Content */}
+              <p className="mt-3 text-xs font-semibold leading-4 text-slate-700">
                 {action.title}
+              </p>
+
+              <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                {action.description}
               </p>
             </Link>
           );

@@ -5,6 +5,7 @@ import ManagerHeader from "../../components/layout/ManagerHeader";
 
 import DashboardStats from "../../components/manager/dashboard/DashboardStats";
 import InventoryOverview from "../../components/manager/dashboard/InventoryOverview";
+import PurchaseOrdersOverview from "../../components/manager/dashboard/PurchaseOrdersOverview";
 import StockLevelChart from "../../components/manager/dashboard/StockLevelChart";
 import SalesOverview from "../../components/manager/dashboard/SalesOverview";
 import LowStockProducts from "../../components/manager/dashboard/LowStockProducts";
@@ -219,17 +220,25 @@ const ManagerDashboardPage = () => {
                     </div>
                   </div>
 
-                  {/* Alerts / Low Stock */}
-                  <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-                    <LowStockProducts
-                      data={
-                        dashboard.lowStockProducts
-                      }
-                    />
+                  {/* Inventory / Purchase Overview */}
+                  <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+                    <div className="xl:col-span-1">
+                      <LowStockProducts
+                        data={dashboard.lowStockProducts}
+                      />
+                    </div>
 
-                    <InventoryAlerts
-                      data={dashboard.alerts}
-                    />
+                    <div className="xl:col-span-1">
+                      <PurchaseOrdersOverview
+                        data={dashboard.purchases}
+                      />
+                    </div>
+
+                    <div className="xl:col-span-1">
+                      <InventoryAlerts
+                        data={dashboard.alerts}
+                      />
+                    </div>
                   </div>
 
                   {/* Transactions / Actions */}
