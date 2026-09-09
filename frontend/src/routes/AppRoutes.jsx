@@ -26,6 +26,11 @@ import InventoryDetails from "../pages/Manager/inventory/InventoryDetails";
 import PurchaseOrders from "../pages/Manager/purchaseOrders/PurchaseOrders";
 import PurchaseOrderDetails from "../pages/Manager/purchaseOrders/PurchaseOrderDetails";
 
+// Sales
+import Sales from "../pages/Manager/Sales/Sales";
+import CreateSale from "../pages/Manager/Sales/CreateSale";
+import SaleDetails from "../pages/Manager/Sales/SaleDetails";
+
 
 const AppRoutes = () => {
   return (
@@ -113,6 +118,22 @@ const AppRoutes = () => {
         <Route
           path="/manager/purchase-orders/:id"
           element={<PurchaseOrderDetails />}
+        />
+
+        {/* Sales */}
+        <Route
+          path="/manager/sales"
+          element={<Sales />}
+        />
+
+        <Route
+          path="/manager/sales/create"
+          element={<CreateSale />}
+        />
+
+        <Route
+          path="/manager/sales/:id"
+          element={<SaleDetails />}
         />
 
       </Route>

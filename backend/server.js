@@ -8,6 +8,7 @@ const authRoutes = require("./routes/authRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const stockMovementRoutes = require("./routes/stockMovementRoutes");
 const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
+const salesRoutes = require("./routes/salesRoutes");
 
 dotenv.config();
 
@@ -44,6 +45,9 @@ app.use("/api/stock-movements", stockMovementRoutes);
 
 // Purchase order routes
 app.use("/api/purchase-orders", purchaseOrderRoutes);
+
+// Sales routes
+app.use("/api/sales", salesRoutes);
 
 // 404 handler
 app.use((req, res) => {
