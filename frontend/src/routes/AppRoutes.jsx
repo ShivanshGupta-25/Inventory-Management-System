@@ -30,6 +30,7 @@ import PurchaseOrderDetails from "../pages/Manager/purchaseOrders/PurchaseOrderD
 import Sales from "../pages/Manager/Sales/Sales";
 import CreateSale from "../pages/Manager/Sales/CreateSale";
 import SaleDetails from "../pages/Manager/Sales/SaleDetails";
+import EditSale from "../pages/Manager/Sales/EditSale";
 
 
 const AppRoutes = () => {
@@ -134,6 +135,11 @@ const AppRoutes = () => {
         <Route
           path="/manager/sales/:id"
           element={<SaleDetails />}
+        />
+
+        <Route
+          path="/manager/sales/:id/edit"
+          element={<EditSale />}
         />
 
       </Route>

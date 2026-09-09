@@ -1,24 +1,48 @@
 import { Boxes } from "lucide-react";
 
-const inventoryData = [
-  {
-    label: "In Stock",
-    value: "14,820",
-    percentage: 80,
-  },
-  {
-    label: "Low Stock",
-    value: "2,940",
-    percentage: 16,
-  },
-  {
-    label: "Out of Stock",
-    value: "660",
-    percentage: 4,
-  },
-];
+const InventoryOverview = ({ data }) => {
+  if (!data) {
+    return null;
+  }
 
-const InventoryOverview = () => {
+  const inStock = data.overview?.inStock || 0;
+  const lowStock = data.overview?.lowStock || 0;
+  const outOfStock = data.overview?.outOfStock || 0;
+
+  const totalProducts =
+    inStock + lowStock + outOfStock;
+
+  const getPercentage = (value) => {
+    if (totalProducts === 0) {
+      return 0;
+    }
+
+    return Math.round(
+      (value / totalProducts) * 100
+    );
+  };
+
+  const inventoryData = [
+    {
+      label: "In Stock",
+      value: inStock,
+      percentage: getPercentage(inStock),
+      barStyle: "bg-blue-500",
+    },
+    {
+      label: "Low Stock",
+      value: lowStock,
+      percentage: getPercentage(lowStock),
+      barStyle: "bg-amber-500",
+    },
+    {
+      label: "Out of Stock",
+      value: outOfStock,
+      percentage: getPercentage(outOfStock),
+      barStyle: "bg-red-500",
+    },
+  ];
+
   return (
     <div className="h-full rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       {/* Header */}
@@ -54,25 +78,33 @@ const InventoryOverview = () => {
 
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full rounded-full bg-blue-500"
+                className={`h-full rounded-full ${item.barStyle}`}
                 style={{
                   width: `${item.percentage}%`,
                 }}
               />
+            </div>
+
+            <div className="mt-1 text-right">
+              <span className="text-[10px] text-slate-400">
+                {item.percentage}%
+              </span>
             </div>
           </div>
         ))}
       </div>
 
       {/* Total */}
-      <div className="mt-5 border-t border-slate-100 pt-3">
+      <div className="mt-4 border-t border-slate-100 pt-3">
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-400">
             Total inventory units
           </span>
 
           <span className="text-xs font-semibold text-slate-700">
-            18,420
+            {new Intl.NumberFormat("en-IN").format(
+              data.totalStock || 0
+            )}
           </span>
         </div>
       </div>

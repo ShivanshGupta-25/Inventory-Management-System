@@ -1,5 +1,64 @@
 const mongoose = require("mongoose");
 
+// Sale Activity Schema
+const saleActivitySchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      enum: [
+        "CREATED",
+        "EDITED",
+        "PAYMENT_UPDATED",
+        "CANCELLED",
+        "RETURNED",
+      ],
+      required: true,
+    },
+
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "Completed",
+        "Cancelled",
+        "Returned",
+      ],
+      required: true,
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: [
+        "Pending",
+        "Partial",
+        "Paid",
+        "Refunded",
+      ],
+      required: true,
+    },
+
+    paidAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
+// Sale Schema
 const saleItemSchema = new mongoose.Schema(
   {
     inventory: {
@@ -46,7 +105,7 @@ const saleItemSchema = new mongoose.Schema(
 
 const saleSchema = new mongoose.Schema(
   {
-    saleNumber: {
+      saleNumber: {
       type: String,
       required: true,
       unique: true,
@@ -68,10 +127,14 @@ const saleSchema = new mongoose.Schema(
     items: {
       type: [saleItemSchema],
       required: true,
+
       validate: {
         validator: (items) =>
-          Array.isArray(items) && items.length > 0,
-        message: "A sale must contain at least one item",
+          Array.isArray(items) &&
+          items.length > 0,
+
+        message:
+          "A sale must contain at least one item",
       },
     },
 
@@ -99,22 +162,28 @@ const saleSchema = new mongoose.Schema(
       min: 0,
     },
 
-    /*
-     * Actual amount received from customer.
-     */
     paidAmount: {
       type: Number,
       default: 0,
       min: 0,
     },
 
-    /*
-     * Amount returned to customer.
-     */
     refundedAmount: {
       type: Number,
       default: 0,
       min: 0,
+    },
+
+    paymentMethod: {
+      type: String,
+      enum: [
+        "Cash",
+        "Card",
+        "UPI",
+        "Bank Transfer",
+        "Other",
+      ],
+      default: "Cash",
     },
 
     paymentStatus: {
@@ -136,6 +205,39 @@ const saleSchema = new mongoose.Schema(
         "Returned",
       ],
       default: "Completed",
+    },
+
+    notes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    cancellationReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+
+    returnReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    returnedAt: {
+      type: Date,
+      default: null,
+    },
+
+    activityLog: {
+      type: [saleActivitySchema],
+      default: [],
     },
   },
   {

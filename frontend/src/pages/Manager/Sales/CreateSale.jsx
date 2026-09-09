@@ -1,23 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  Check,
-} from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import ManagerSidebar from "../../../components/layout/ManagerSidebar";
 import ManagerHeader from "../../../components/layout/ManagerHeader";
+
 import SaleForm from "../../../components/sales/SaleForm";
 
 import { createSale } from "../../../services/salesApi";
 
-const INVENTORY_API =
-  "http://localhost:5000/api/inventory";
-
 const CreateSale = () => {
   const navigate = useNavigate();
 
-  /* Sidebar */
+  /* =====================================================
+     LAYOUT
+  ===================================================== */
 
   const [sidebarCollapsed, setSidebarCollapsed] =
     useState(false);
@@ -25,249 +22,77 @@ const CreateSale = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] =
     useState(false);
 
-  /* Inventory */
+  /* =====================================================
+     SUBMIT STATE
+  ===================================================== */
 
-  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] =
+    useState(false);
 
-  /* Sale */
-
-  const [items, setItems] = useState([
-    {
-      inventory: "",
-      quantity: 1,
-    },
-  ]);
-
-  const [customerName, setCustomerName] =
+  const [error, setError] =
     useState("");
 
-  const [customerContact, setCustomerContact] =
-    useState("");
+  /* =====================================================
+     CREATE SALE
+  ===================================================== */
 
-  const [discount, setDiscount] = useState(0);
-
-  const [tax, setTax] = useState(0);
-
-  /*
-   * Payment
-   *
-   * Backend derives paymentStatus from paidAmount.
-   */
-  const [paidAmount, setPaidAmount] =
-    useState(0);
-
-  /* Loading / Error */
-
-  const [loading, setLoading] = useState(true);
-
-  const [saving, setSaving] = useState(false);
-
-  const [error, setError] = useState("");
-
-  /* Fetch inventory */
-
-  useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const response = await fetch(
-          INVENTORY_API
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Failed to fetch inventory"
-          );
-        }
-
-        setInventory(data.data || []);
-      } catch (error) {
-        console.error(error);
-
-        setError(
-          error.message ||
-            "Failed to load inventory"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInventory();
-  }, []);
-
-  /* Calculate subtotal */
-
-  const subtotal = useMemo(() => {
-    return items.reduce((total, item) => {
-      const product = inventory.find(
-        (product) =>
-          product._id === item.inventory
-      );
-
-      if (!product) {
-        return total;
-      }
-
-      return (
-        total +
-        product.sellingPrice *
-          Number(item.quantity || 0)
-      );
-    }, 0);
-  }, [items, inventory]);
-
-  /* Calculate total */
-
-  const totalAmount = Math.max(
-    0,
-    subtotal -
-      Number(discount || 0) +
-      Number(tax || 0)
-  );
-
-  /* Submit */
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleCreateSale = async (data) => {
     try {
-      setSaving(true);
+      setLoading(true);
       setError("");
 
-      if (!items.length) {
+      const response =
+        await createSale(data);
+
+      if (!response?.success) {
         throw new Error(
-          "Add at least one product"
+          response?.message ||
+            "Failed to create sale"
         );
       }
 
-      /* Validate items */
+      /*
+       * Sale successfully created.
+       * Return to Sales page.
+       */
 
-      for (const item of items) {
-        if (!item.inventory) {
-          throw new Error(
-            "Please select a product for every item"
-          );
-        }
-
-        if (
-          !Number.isInteger(
-            Number(item.quantity)
-          ) ||
-          Number(item.quantity) <= 0
-        ) {
-          throw new Error(
-            "Quantity must be a positive integer"
-          );
-        }
-
-        const product = inventory.find(
-          (product) =>
-            product._id === item.inventory
-        );
-
-        if (!product) {
-          throw new Error(
-            "Selected product no longer exists"
-          );
-        }
-
-        const availableStock =
-          product.currentStock -
-          product.reservedStock;
-
-        if (
-          Number(item.quantity) >
-          availableStock
-        ) {
-          throw new Error(
-            `Insufficient stock for ${product.productName}. Available stock: ${availableStock}`
-          );
-        }
-      }
-
-      /* Validate discount / tax */
-
-      if (
-        Number(discount) < 0 ||
-        Number(tax) < 0
-      ) {
-        throw new Error(
-          "Discount and tax cannot be negative"
-        );
-      }
-
-      if (Number(discount) > subtotal) {
-        throw new Error(
-          "Discount cannot be greater than subtotal"
-        );
-      }
-
-      /* Validate paid amount */
-
-      const numericPaidAmount = Number(
-        paidAmount || 0
-      );
-
-      if (numericPaidAmount < 0) {
-        throw new Error(
-          "Paid amount cannot be negative"
-        );
-      }
-
-      if (numericPaidAmount > totalAmount) {
-        throw new Error(
-          "Paid amount cannot be greater than total amount"
-        );
-      }
-
-      /* Create sale */
-
-      const response = await createSale({
-        customerName,
-        customerContact,
-
-        discount: Number(
-          discount || 0
-        ),
-
-        tax: Number(tax || 0),
-
-        paidAmount: numericPaidAmount,
-
-        items: items.map((item) => ({
-          inventory: item.inventory,
-          quantity: Number(
-            item.quantity
-          ),
-        })),
-      });
-
-      navigate(
-        `/manager/sales/${response.data._id}`
-      );
+      navigate("/manager/sales");
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Create sale error:",
+        error
+      );
 
       setError(
         error.response?.data?.message ||
           error.message ||
           "Failed to create sale"
       );
+
+      /*
+       * Scroll to the error so the user
+       * can immediately see what went wrong.
+       */
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
+
+  /* =====================================================
+     RENDER
+  ===================================================== */
 
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* Sidebar */}
+      {/* =================================================
+          SIDEBAR
+      ================================================= */}
 
       <ManagerSidebar
         collapsed={sidebarCollapsed}
@@ -293,7 +118,9 @@ const CreateSale = () => {
         />
       )}
 
-      {/* Main */}
+      {/* =================================================
+          MAIN CONTENT
+      ================================================= */}
 
       <div
         className={`transition-all duration-300 ${
@@ -312,292 +139,112 @@ const CreateSale = () => {
         />
 
         <main className="p-4 sm:p-6">
-          <div className="mx-auto max-w-[1600px]">
+          <div className="mx-auto max-w-[1400px]">
 
-            {/* Page Heading */}
+            {/* =================================================
+                PAGE HEADER
+            ================================================= */}
 
             <div className="mb-6">
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
 
-                <div>
-                  <p className="text-xs font-medium text-slate-400">
-                    Management / Sales
-                  </p>
-
-                  <div className="mt-1 flex items-center gap-3">
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigate(
-                          "/manager/sales"
-                        )
-                      }
-                      className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
-                    >
-                      <ArrowLeft
-                        size={18}
-                      />
-                    </button>
-
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                      Record Sale
-                    </h1>
-
-                  </div>
-
-                  <p className="mt-2 text-sm text-slate-500">
-                    Create a new sale using available inventory.
-                  </p>
-                </div>
-
-                <div className="sm:text-right">
-                  <p className="text-xs text-slate-400">
-                    Last updated
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-600">
-                    {new Date().toLocaleTimeString(
-                      "en-IN",
-                      {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }
-                    )}
-                  </p>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Error */}
-
-            {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Loading */}
-
-            {loading ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-
-                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900" />
-
-                <p className="mt-4 text-sm text-slate-500">
-                  Loading inventory...
-                </p>
-
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-
-                {/* Sale Form */}
-
-                <SaleForm
-                  inventory={inventory}
-                  items={items}
-                  setItems={setItems}
-
-                  customerName={customerName}
-                  setCustomerName={
-                    setCustomerName
-                  }
-
-                  customerContact={
-                    customerContact
-                  }
-                  setCustomerContact={
-                    setCustomerContact
-                  }
-
-                  discount={discount}
-                  setDiscount={setDiscount}
-
-                  tax={tax}
-                  setTax={setTax}
-
-                  paidAmount={paidAmount}
-                  setPaidAmount={
-                    setPaidAmount
-                  }
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    "/manager/sales"
+                  )
+                }
+                className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+              >
+                <ArrowLeft
+                  size={17}
                 />
 
-                {/* Summary */}
+                Back to Sales
+              </button>
 
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div>
+                <p className="text-xs font-medium text-slate-400">
+                  Sales Management
+                </p>
 
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                  Create Sale
+                </h1>
 
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        Sale Summary
-                      </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Create a new sale and update inventory automatically.
+                </p>
+              </div>
 
-                      <p className="mt-1 text-xs text-slate-500">
-                        Review the transaction before completing the sale.
-                      </p>
-                    </div>
+            </div>
 
-                    <div className="w-full max-w-md space-y-3">
+            {/* =================================================
+                ERROR
+            ================================================= */}
 
-                      {/* Subtotal */}
+            {error && (
+              <div className="mb-5 flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
 
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">
-                          Subtotal
-                        </span>
+                <div>
+                  <p className="font-medium">
+                    Unable to create sale
+                  </p>
 
-                        <span className="font-medium text-slate-900">
-                          ₹
-                          {subtotal.toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Discount */}
-
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">
-                          Discount
-                        </span>
-
-                        <span className="font-medium text-slate-900">
-                          - ₹
-                          {Number(
-                            discount || 0
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Tax */}
-
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">
-                          Tax
-                        </span>
-
-                        <span className="font-medium text-slate-900">
-                          + ₹
-                          {Number(
-                            tax || 0
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Paid Amount */}
-
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">
-                          Paid Amount
-                        </span>
-
-                        <span className="font-medium text-slate-900">
-                          ₹
-                          {Number(
-                            paidAmount || 0
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Balance */}
-
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">
-                          Balance
-                        </span>
-
-                        <span className="font-medium text-slate-900">
-                          ₹
-                          {Math.max(
-                            0,
-                            totalAmount -
-                              Number(
-                                paidAmount ||
-                                  0
-                              )
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Total */}
-
-                      <div className="border-t border-slate-200 pt-3">
-
-                        <div className="flex items-center justify-between">
-
-                          <span className="font-semibold text-slate-900">
-                            Total Amount
-                          </span>
-
-                          <span className="text-xl font-bold tracking-tight text-slate-900">
-                            ₹
-                            {totalAmount.toLocaleString(
-                              "en-IN"
-                            )}
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
+                  <p className="mt-1">
+                    {error}
+                  </p>
                 </div>
 
-                {/* Bottom Actions */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setError("")
+                  }
+                  className="text-red-500 hover:text-red-700"
+                  aria-label="Dismiss error"
+                >
+                  ×
+                </button>
 
-                <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        "/manager/sales"
-                      )
-                    }
-                    disabled={saving}
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={
-                      saving || loading
-                    }
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Check size={17} />
-
-                    {saving
-                      ? "Creating Sale..."
-                      : "Complete Sale"}
-                  </button>
-
-                </div>
-
-              </form>
+              </div>
             )}
+
+            {/* =================================================
+                SALE FORM
+            ================================================= */}
+
+            <SaleForm
+              mode="create"
+              initialData={{
+                customerName:
+                  "Walk-in Customer",
+                customerContact:
+                  "",
+                discount: 0,
+                tax: 0,
+                paidAmount: 0,
+                paymentMethod:
+                  "Cash",
+                notes: "",
+                items: [
+                  {
+                    inventory: "",
+                    quantity: 1,
+                  },
+                ],
+              }}
+              onSubmit={
+                handleCreateSale
+              }
+              loading={loading}
+              submitLabel="Create Sale"
+            />
 
           </div>
         </main>
 
       </div>
-
     </div>
   );
 };

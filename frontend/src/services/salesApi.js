@@ -1,67 +1,63 @@
-// const API_URL =
-//   "http://localhost:5000/api/sales";
+// const API_URL = "http://localhost:5000/api/sales";
 
 // export const getSales = async (params = {}) => {
 //   const query = new URLSearchParams();
 
-//   Object.entries(params).forEach(
-//     ([key, value]) => {
-//       if (value) {
-//         query.append(key, value);
-//       }
+//   Object.entries(params).forEach(([key, value]) => {
+//     if (value) {
+//       query.append(key, value);
 //     }
-//   );
+//   });
 
 //   const response = await fetch(
 //     `${API_URL}?${query.toString()}`
 //   );
 
+//   const data = await response.json();
+
 //   if (!response.ok) {
-//     throw new Error("Failed to fetch sales");
+//     throw new Error(
+//       data.message || "Failed to fetch sales"
+//     );
 //   }
 
-//   return response.json();
+//   return data;
 // };
-
 
 // export const getSalesStats = async () => {
-//   const response = await fetch(
-//     `${API_URL}/stats`
-//   );
+//   const response = await fetch(`${API_URL}/stats`);
+
+//   const data = await response.json();
 
 //   if (!response.ok) {
 //     throw new Error(
-//       "Failed to fetch sales statistics"
+//       data.message || "Failed to fetch sales statistics"
 //     );
 //   }
 
-//   return response.json();
+//   return data;
 // };
-
 
 // export const getSaleById = async (id) => {
-//   const response = await fetch(
-//     `${API_URL}/${id}`
-//   );
+//   const response = await fetch(`${API_URL}/${id}`);
+
+//   const data = await response.json();
 
 //   if (!response.ok) {
 //     throw new Error(
-//       "Failed to fetch sale"
+//       data.message || "Failed to fetch sale"
 //     );
 //   }
 
-//   return response.json();
+//   return data;
 // };
-
 
 // export const createSale = async (saleData) => {
 //   const response = await fetch(API_URL, {
 //     method: "POST",
-
 //     headers: {
 //       "Content-Type": "application/json",
 //     },
-
 //     body: JSON.stringify(saleData),
 //   });
 
@@ -76,77 +72,199 @@
 //   return data;
 // };
 
+// export const updateSale = async (
+//   id,
+//   saleData
+// ) => {
+//   const response = await fetch(
+//     `${API_URL}/${id}`,
+//     {
+//       method: "PUT",
+//       headers: {
+//         "Content-Type":
+//           "application/json",
+//       },
+//       body: JSON.stringify(
+//         saleData
+//       ),
+//     }
+//   );
 
-const API_URL = "http://localhost:5000/api/sales";
+//   const data =
+//     await response.json();
 
-export const getSales = async (params = {}) => {
-  const query = new URLSearchParams();
+//   if (!response.ok) {
+//     throw new Error(
+//       data.message ||
+//         "Failed to update sale"
+//     );
+//   }
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (value) {
-      query.append(key, value);
-    }
-  });
+//   return data;
+// };
 
-  const response = await fetch(
-    `${API_URL}?${query.toString()}`
-  );
 
-  const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch sales"
+
+
+
+
+
+
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api";
+
+/* Generic request helper */
+
+const request = async (
+  method,
+  endpoint,
+  data = null,
+  params = null
+) => {
+  try {
+    const response = await axios({
+      method,
+      url: `${API_URL}${endpoint}`,
+      data,
+      params,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      `Sales API ${method} ${endpoint} failed:`,
+      error
     );
-  }
 
-  return data;
+    throw error;
+  }
 };
+
+/* =========================
+   GET SALES
+========================= */
+
+export const getSales = async (
+  params = {}
+) => {
+  return request(
+    "GET",
+    "/sales",
+    null,
+    params
+  );
+};
+
+/* =========================
+   GET SALES STATISTICS
+========================= */
 
 export const getSalesStats = async () => {
-  const response = await fetch(`${API_URL}/stats`);
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch sales statistics"
-    );
-  }
-
-  return data;
+  return request(
+    "GET",
+    "/sales/stats"
+  );
 };
+
+/* =========================
+   GET SALE BY ID
+========================= */
 
 export const getSaleById = async (id) => {
-  const response = await fetch(`${API_URL}/${id}`);
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to fetch sale"
-    );
-  }
-
-  return data;
+  return request(
+    "GET",
+    `/sales/${id}`
+  );
 };
 
-export const createSale = async (saleData) => {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(saleData),
-  });
+/* =========================
+   CREATE SALE
+========================= */
 
-  const data = await response.json();
+export const createSale = async (data) => {
+  return request(
+    "POST",
+    "/sales",
+    data
+  );
+};
 
-  if (!response.ok) {
-    throw new Error(
-      data.message || "Failed to create sale"
-    );
-  }
+/* =========================
+   UPDATE SALE
+========================= */
 
-  return data;
+export const updateSale = async (
+  id,
+  data
+) => {
+  return request(
+    "PUT",
+    `/sales/${id}`,
+    data
+  );
+};
+
+/* =========================
+   DELETE SALE
+========================= */
+
+export const deleteSale = async (id) => {
+  return request(
+    "DELETE",
+    `/sales/${id}`
+  );
+};
+
+/* =========================
+   UPDATE PAYMENT
+========================= */
+
+export const updateSalePayment = async (
+  id,
+  data
+) => {
+  return request(
+    "PATCH",
+    `/sales/${id}/payment`,
+    data
+  );
+};
+
+/* =========================
+   GET SALE PAYMENT
+========================= */
+
+export const getSaleMovements = async (id) => {
+  return request(
+    "GET",
+    `/sales/${id}/movements`
+  );
+};
+
+/* =========================
+   CANCEL SALE
+========================= */
+
+export const cancelSale = async (id) => {
+  return request(
+    "PATCH",
+    `/sales/${id}/cancel`
+  );
+};
+
+/* =========================
+   RETURN SALE
+========================= */
+
+export const returnSale = async (
+  id,
+  data = {}
+) => {
+  return request(
+    "PATCH",
+    `/sales/${id}/return`,
+    data
+  );
 };

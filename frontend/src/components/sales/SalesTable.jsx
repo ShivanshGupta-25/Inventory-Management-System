@@ -2,6 +2,7 @@ import { Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import SaleStatus from "./SaleStatus";
+import SaleActionMenu from "./SaleActionMenu";
 
 const SalesTable = ({
   sales,
@@ -145,21 +146,26 @@ const SalesTable = ({
                   />
                 </td>
 
-                <td className="px-5 py-4 text-right">
-
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/manager/sales/${sale._id}`
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                  >
-                    <Eye size={15} />
-                    View
-                  </button>
-
-                </td>
+                <td className="px-6 py-4 text-right">
+                    <SaleActionMenu
+                        sale={sale}
+                        onView={() =>
+                        navigate(`/manager/sales/${sale._id}`)
+                        }
+                        onEdit={() =>
+                        navigate(`/manager/sales/${sale._id}/edit`)
+                        }
+                        onPayment={() =>
+                        navigate(`/manager/sales/${sale._id}`)
+                        }
+                        onCancel={() =>
+                        navigate(`/manager/sales/${sale._id}`)
+                        }
+                        onReturn={() =>
+                        navigate(`/manager/sales/${sale._id}`)
+                        }
+                    />
+                    </td>
 
               </tr>
 

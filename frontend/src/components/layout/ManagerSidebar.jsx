@@ -267,11 +267,11 @@ const menuItems = [
     icon: BarChart3,
     path: "/manager/analytics",
   },
-  {
-    label: "Reports",
-    icon: FileText,
-    path: "/manager/reports",
-  },
+  // {
+  //   label: "Reports",
+  //   icon: FileText,
+  //   path: "/manager/reports",
+  // },
 ];
 
 const accountItems = [

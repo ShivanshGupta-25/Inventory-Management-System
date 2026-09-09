@@ -1,69 +1,69 @@
 require("dotenv").config();
 
+const mongoose = require("mongoose");
+
 const connectDB = require("../config/db");
 
-const Inventory = require("../models/Inventory");
 const Sale = require("../models/Sale");
+const Inventory = require("../models/Inventory");
+const StockMovement = require("../models/StockMovement");
+
+/*
+|--------------------------------------------------------------------------
+| Sales Seed Data
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+| Products are referenced using SKU.
+| No duplicate inventory records are created.
+|
+| The seeder will:
+| 1. Find Inventory by SKU
+| 2. Calculate sale totals
+| 3. Create Sale records
+| 4. Deduct sold quantity from Inventory
+| 5. Create StockMovement records
+| 6. Avoid duplicate sales when run again
+|--------------------------------------------------------------------------
+*/
 
 const salesData = [
   {
     saleNumber: "SAL-2026-001",
+
     customerName: "Rahul Sharma",
+
     customerContact: "9876543210",
 
     items: [
       {
         sku: "LP-001",
-        quantity: 1,
+        quantity: 2,
       },
       {
         sku: "MS-002",
-        quantity: 2,
+        quantity: 3,
       },
     ],
 
-    discount: 500,
-    tax: 1250,
+    discount: 1000,
 
-    paymentStatus: "Paid",
-    status: "Completed",
+    tax: 2000,
 
-    createdAt: "2026-09-01T10:15:00.000Z",
+    paidAmount: 112000,
 
-    notes: "Laptop purchase with accessories",
+    paymentMethod: "UPI",
+
+    notes:
+      "Laptop and wireless mouse purchase.",
   },
 
   {
     saleNumber: "SAL-2026-002",
-    customerName: "Priya Verma",
-    customerContact: "9823456712",
 
-    items: [
-      {
-        sku: "KB-003",
-        quantity: 2,
-      },
-      {
-        sku: "HB-005",
-        quantity: 2,
-      },
-    ],
+    customerName: "Priya Enterprises",
 
-    discount: 200,
-    tax: 450,
-
-    paymentStatus: "Paid",
-    status: "Completed",
-
-    createdAt: "2026-09-02T12:30:00.000Z",
-
-    notes: "Keyboard and USB hub purchase",
-  },
-
-  {
-    saleNumber: "SAL-2026-003",
-    customerName: "Amit Enterprises",
-    customerContact: "9765432109",
+    customerContact: "9823456789",
 
     items: [
       {
@@ -71,30 +71,93 @@ const salesData = [
         quantity: 3,
       },
       {
-        sku: "SSD-008",
+        sku: "HB-005",
         quantity: 2,
       },
     ],
 
-    discount: 1000,
-    tax: 2100,
+    discount: 500,
 
-    paymentStatus: "Partial",
-    status: "Completed",
+    tax: 1000,
 
-    createdAt: "2026-09-03T09:45:00.000Z",
+    paidAmount: 87500,
 
-    notes: "Business hardware order. Partial payment received.",
+    paymentMethod: "Card",
+
+    notes:
+      "Monitor and USB-C hub order for office setup.",
   },
 
   {
-    saleNumber: "SAL-2026-004",
-    customerName: "Neha Patil",
+    saleNumber: "SAL-2026-003",
+
+    customerName: "Amit Verma",
+
     customerContact: "9812345678",
 
     items: [
       {
+        sku: "DL-007",
+        quantity: 4,
+      },
+      {
         sku: "WC-006",
+        quantity: 2,
+      },
+    ],
+
+    discount: 200,
+
+    tax: 500,
+
+    paidAmount: 0,
+
+    paymentMethod: "Cash",
+
+    notes:
+      "Office accessories sale. Payment pending.",
+  },
+
+  {
+    saleNumber: "SAL-2026-004",
+
+    customerName: "TechNova Solutions",
+
+    customerContact: "9898765432",
+
+    items: [
+      {
+        sku: "SSD-008",
+        quantity: 2,
+      },
+      {
+        sku: "HB-005",
+        quantity: 3,
+      },
+    ],
+
+    discount: 300,
+
+    tax: 700,
+
+    paidAmount: 10000,
+
+    paymentMethod: "Bank Transfer",
+
+    notes:
+      "Partial payment received. Remaining amount due.",
+  },
+
+  {
+    saleNumber: "SAL-2026-005",
+
+    customerName: "Sneha Kulkarni",
+
+    customerContact: "9765432109",
+
+    items: [
+      {
+        sku: "MS-002",
         quantity: 2,
       },
       {
@@ -104,202 +167,137 @@ const salesData = [
     ],
 
     discount: 100,
+
     tax: 250,
 
-    paymentStatus: "Paid",
-    status: "Completed",
+    paidAmount: 0,
 
-    createdAt: "2026-09-04T14:20:00.000Z",
+    paymentMethod: "Cash",
 
-    notes: "Office accessories purchase",
-  },
-
-  {
-    saleNumber: "SAL-2026-005",
-    customerName: "Vikram Desai",
-    customerContact: "9898765432",
-
-    items: [
-      {
-        sku: "LP-001",
-        quantity: 2,
-      },
-    ],
-
-    discount: 1000,
-    tax: 700,
-
-    paymentStatus: "Paid",
-    status: "Completed",
-
-    createdAt: "2026-09-05T11:10:00.000Z",
-
-    notes: "Two laptop purchase",
+    notes:
+      "Walk-in customer sale.",
   },
 
   {
     saleNumber: "SAL-2026-006",
-    customerName: "TechNova Solutions",
+
+    customerName: "Global IT Services",
+
     customerContact: "9753102468",
 
     items: [
       {
-        sku: "SSD-008",
-        quantity: 5,
+        sku: "LP-001",
+        quantity: 1,
       },
-      {
-        sku: "HB-005",
-        quantity: 5,
-      },
-      {
-        sku: "MS-002",
-        quantity: 5,
-      },
-    ],
-
-    discount: 1500,
-    tax: 2800,
-
-    paymentStatus: "Paid",
-    status: "Completed",
-
-    createdAt: "2026-09-06T15:40:00.000Z",
-
-    notes: "Bulk accessories and storage order",
-  },
-
-  {
-    saleNumber: "SAL-2026-007",
-    customerName: "Sneha Kulkarni",
-    customerContact: "9867543210",
-
-    items: [
       {
         sku: "MN-004",
-        quantity: 1,
-      },
-      {
-        sku: "KB-003",
-        quantity: 1,
-      },
-    ],
-
-    discount: 0,
-    tax: 500,
-
-    paymentStatus: "Pending",
-    status: "Completed",
-
-    createdAt: "2026-09-07T10:25:00.000Z",
-
-    notes: "Payment pending from customer",
-  },
-
-  {
-    saleNumber: "SAL-2026-008",
-    customerName: "Rohan Mehta",
-    customerContact: "9801234567",
-
-    items: [
-      {
-        sku: "WC-006",
-        quantity: 1,
-      },
-      {
-        sku: "DL-007",
         quantity: 2,
       },
-    ],
-
-    discount: 0,
-    tax: 250,
-
-    paymentStatus: "Refunded",
-    status: "Returned",
-
-    createdAt: "2026-09-08T13:15:00.000Z",
-
-    notes: "Customer returned the purchased items",
-  },
-
-  {
-    saleNumber: "SAL-2026-009",
-    customerName: "Global IT Services",
-    customerContact: "9797979797",
-
-    items: [
-      {
-        sku: "LP-001",
-        quantity: 3,
-      },
-      {
-        sku: "MN-004",
-        quantity: 3,
-      },
       {
         sku: "SSD-008",
-        quantity: 3,
+        quantity: 1,
       },
     ],
 
     discount: 2500,
+
     tax: 3500,
 
-    paymentStatus: "Partial",
-    status: "Completed",
+    paidAmount: 0,
 
-    createdAt: "2026-09-08T16:30:00.000Z",
+    paymentMethod: "Card",
 
-    notes: "Corporate hardware purchase",
-  },
-
-  {
-    saleNumber: "SAL-2026-010",
-    customerName: "Arjun Joshi",
-    customerContact: "9911223344",
-
-    items: [
-      {
-        sku: "KB-003",
-        quantity: 1,
-      },
-      {
-        sku: "MS-002",
-        quantity: 1,
-      },
-      {
-        sku: "HB-005",
-        quantity: 1,
-      },
-    ],
-
-    discount: 150,
-    tax: 300,
-
-    paymentStatus: "Paid",
-    status: "Cancelled",
-
-    createdAt: "2026-09-09T09:20:00.000Z",
-
-    notes: "Sale cancelled by customer",
+    notes:
+      "Corporate hardware order. Payment pending.",
   },
 ];
+
+/*
+|--------------------------------------------------------------------------
+| Helpers
+|--------------------------------------------------------------------------
+*/
+
+const calculatePaymentStatus = (
+  paidAmount,
+  totalAmount
+) => {
+  if (paidAmount <= 0) {
+    return "Pending";
+  }
+
+  if (paidAmount >= totalAmount) {
+    return "Paid";
+  }
+
+  return "Partial";
+};
+
+/*
+|--------------------------------------------------------------------------
+| Seed Sales
+|--------------------------------------------------------------------------
+*/
 
 const seedSales = async () => {
   try {
     await connectDB();
 
-    console.log("Connected to MongoDB");
+    console.log(
+      "Connected to MongoDB"
+    );
 
-    const salesToInsert = [];
-
-    for (const sale of salesData) {
-      const populatedItems = [];
-
-      for (const item of sale.items) {
-        const inventory = await Inventory.findOne({
-          sku: item.sku,
+    /*
+     * We process every sale individually.
+     */
+    for (const saleData of salesData) {
+      /*
+       * Check whether the sale already exists.
+       *
+       * This makes the seeder safe to run repeatedly.
+       */
+      const existingSale =
+        await Sale.findOne({
+          saleNumber:
+            saleData.saleNumber,
         });
+
+      if (existingSale) {
+        console.log(
+          `Sale ${saleData.saleNumber} already exists - skipped`
+        );
+
+        continue;
+      }
+
+      /*
+       * Build sale items from Inventory.
+       */
+      const saleItems = [];
+
+      let subtotal = 0;
+
+      /*
+       * Track quantities by inventory ID.
+       *
+       * This prevents duplicate stock deduction
+       * when the same SKU appears more than once.
+       */
+      const inventoryQuantities =
+        new Map();
+
+      /*
+       * ----------------------------------------------------
+       * Find Inventory Products
+       * ----------------------------------------------------
+       */
+
+      for (const item of saleData.items) {
+        const inventory =
+          await Inventory.findOne({
+            sku: item.sku,
+          });
 
         if (!inventory) {
           throw new Error(
@@ -307,106 +305,319 @@ const seedSales = async () => {
           );
         }
 
-        const sellingPrice = inventory.sellingPrice;
+        if (
+          inventory.status === "Inactive"
+        ) {
+          throw new Error(
+            `Inventory item ${item.sku} is inactive`
+          );
+        }
+
+        const quantity =
+          Number(item.quantity);
+
+        if (
+          !Number.isInteger(quantity) ||
+          quantity <= 0
+        ) {
+          throw new Error(
+            `Invalid quantity for SKU: ${item.sku}`
+          );
+        }
+
+        /*
+         * Merge duplicate SKU entries.
+         */
+        const inventoryId =
+          inventory._id.toString();
+
+        const existingQuantity =
+          inventoryQuantities.get(
+            inventoryId
+          ) || 0;
+
+        inventoryQuantities.set(
+          inventoryId,
+          existingQuantity + quantity
+        );
+      }
+
+      /*
+       * ----------------------------------------------------
+       * Validate Stock
+       * ----------------------------------------------------
+       */
+
+      for (const [
+        inventoryId,
+        quantity,
+      ] of inventoryQuantities) {
+        const inventory =
+          await Inventory.findById(
+            inventoryId
+          );
+
+        if (!inventory) {
+          throw new Error(
+            `Inventory ${inventoryId} not found`
+          );
+        }
+
+        const availableStock =
+          inventory.currentStock -
+          inventory.reservedStock;
+
+        if (
+          quantity >
+          availableStock
+        ) {
+          throw new Error(
+            `Insufficient stock for ${inventory.productName}. Available: ${availableStock}, Required: ${quantity}`
+          );
+        }
+      }
+
+      /*
+       * ----------------------------------------------------
+       * Build Sale Items
+       * ----------------------------------------------------
+       */
+
+      for (const [
+        inventoryId,
+        quantity,
+      ] of inventoryQuantities) {
+        const inventory =
+          await Inventory.findById(
+            inventoryId
+          );
 
         const totalPrice =
-          item.quantity * sellingPrice;
+          inventory.sellingPrice *
+          quantity;
 
-        populatedItems.push({
-          inventory: inventory._id,
+        subtotal += totalPrice;
 
-          productName: inventory.productName,
+        saleItems.push({
+          inventory:
+            inventory._id,
 
-          sku: inventory.sku,
+          productName:
+            inventory.productName,
 
-          quantity: item.quantity,
+          sku:
+            inventory.sku,
 
-          sellingPrice,
+          quantity,
+
+          sellingPrice:
+            inventory.sellingPrice,
 
           totalPrice,
         });
       }
 
-      const subtotal = populatedItems.reduce(
-        (total, item) =>
-          total + item.totalPrice,
-        0
-      );
+      /*
+       * ----------------------------------------------------
+       * Calculate Sale Amounts
+       * ----------------------------------------------------
+       */
 
-      const totalAmount =
-        subtotal -
-        sale.discount +
-        sale.tax;
+      const discount =
+        Number(
+          saleData.discount || 0
+        );
 
-      if (totalAmount < 0) {
+      const tax =
+        Number(
+          saleData.tax || 0
+        );
+
+      const paidAmount =
+        Number(
+          saleData.paidAmount || 0
+        );
+
+      if (discount > subtotal) {
         throw new Error(
-          `Invalid total amount for ${sale.saleNumber}`
+          `Discount for ${saleData.saleNumber} cannot exceed subtotal`
         );
       }
 
-      salesToInsert.push({
-        saleNumber: sale.saleNumber,
+      const totalAmount =
+        subtotal -
+        discount +
+        tax;
 
-        customerName: sale.customerName,
+      if (paidAmount > totalAmount) {
+        throw new Error(
+          `Paid amount for ${saleData.saleNumber} cannot exceed total amount`
+        );
+      }
 
-        customerContact:
-          sale.customerContact,
+      const paymentStatus =
+        calculatePaymentStatus(
+          paidAmount,
+          totalAmount
+        );
 
-        items: populatedItems,
+      /*
+       * ----------------------------------------------------
+       * Create Sale
+       * ----------------------------------------------------
+       */
 
-        subtotal,
+      const sale =
+        await Sale.create({
+          saleNumber:
+            saleData.saleNumber,
 
-        discount: sale.discount,
+          customerName:
+            saleData.customerName ||
+            "Walk-in Customer",
 
-        tax: sale.tax,
+          customerContact:
+            saleData.customerContact ||
+            "",
 
-        totalAmount,
+          items: saleItems,
 
-        paymentStatus:
-          sale.paymentStatus,
+          subtotal,
 
-        status: sale.status,
+          discount,
 
-        createdAt: new Date(
-          sale.createdAt
-        ),
+          tax,
 
-        updatedAt: new Date(
-          sale.createdAt
-        ),
-      });
-    }
+          totalAmount,
 
-    /*
-     * Upsert by sale number.
-     * Running the seeder multiple times
-     * will not create duplicate sales.
-     */
+          paidAmount,
 
-    for (const sale of salesToInsert) {
-      await Sale.findOneAndUpdate(
-        {
-          saleNumber: sale.saleNumber,
-        },
-        sale,
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true,
+          refundedAmount: 0,
+
+          paymentMethod:
+            saleData.paymentMethod ||
+            "Cash",
+
+          paymentStatus,
+
+          status: "Completed",
+
+          notes:
+            saleData.notes || "",
+
+          activityLog: [
+            {
+              action: "CREATED",
+
+              message:
+                `Sale ${saleData.saleNumber} created during database seeding`,
+
+              status:
+                "Completed",
+
+              paymentStatus,
+
+              paidAmount,
+            },
+          ],
+        });
+
+      /*
+       * ----------------------------------------------------
+       * Update Inventory
+       * ----------------------------------------------------
+       */
+
+      for (const [
+        inventoryId,
+        quantity,
+      ] of inventoryQuantities) {
+        const inventory =
+          await Inventory.findById(
+            inventoryId
+          );
+
+        if (!inventory) {
+          throw new Error(
+            `Inventory ${inventoryId} not found while updating stock`
+          );
         }
+
+        const stockBefore =
+          inventory.currentStock;
+
+        const stockAfter =
+          stockBefore -
+          quantity;
+
+        if (stockAfter < 0) {
+          throw new Error(
+            `Stock cannot become negative for ${inventory.productName}`
+          );
+        }
+
+        inventory.currentStock =
+          stockAfter;
+
+        await inventory.save();
+
+        /*
+         * ------------------------------------------------
+         * Create Stock Movement
+         * ------------------------------------------------
+         */
+
+        await StockMovement.create({
+          inventory:
+            inventory._id,
+
+          type: "OUT",
+
+          quantity,
+
+          previousStock:
+            stockBefore,
+
+          newStock:
+            stockAfter,
+
+          reason:
+            `Sale ${sale.saleNumber}`,
+
+          referenceType:
+            "SALE",
+
+          referenceId:
+            sale._id.toString(),
+        });
+      }
+
+      console.log(
+        `Sale ${sale.saleNumber} created successfully - ${paymentStatus}`
       );
     }
 
     console.log(
-      `Successfully seeded ${salesToInsert.length} sales`
+      "\nSales database seeding completed successfully."
+    );
+
+    /*
+     * Print final sales count.
+     */
+    const totalSales =
+      await Sale.countDocuments();
+
+    console.log(
+      `Total sales in database: ${totalSales}`
     );
 
     process.exit(0);
   } catch (error) {
     console.error(
-      "Sales seeding failed:",
-      error
+      "\nSales seeding failed:"
     );
+
+    console.error(error);
 
     process.exit(1);
   }
