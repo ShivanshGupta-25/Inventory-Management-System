@@ -17,6 +17,8 @@ import ProtectedRoute from "./ProtectedRoute";
 // Dashboard
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
+import Profile from "../pages/Manager/Profile";
+import Settings from "../pages/Manager/Settings";
 
 // Inventory
 import Inventory from "../pages/Manager/inventory/Inventory";
@@ -97,6 +99,18 @@ const AppRoutes = () => {
         <Route
           path="/manager/dashboard"
           element={<ManagerDashboardPage />}
+        />
+
+        {/* Profile */}
+        <Route
+          path="/manager/profile"
+          element={<Profile />}
+        />
+
+        {/* Settings */}
+        <Route
+          path="/manager/settings"
+          element={<Settings />}
         />
 
         {/* Inventory */}

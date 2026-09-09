@@ -2,7 +2,13 @@ const {
   registerUser,
   loginUser,
   getCurrentUser,
+  updateUserProfile,
+  changeUserPassword,
 } = require("../services/authService");
+
+// --------------------------------------------------
+// REGISTER
+// --------------------------------------------------
 
 const register = async (req, res) => {
   try {
@@ -16,14 +22,16 @@ const register = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Name, email and password are required",
+        message:
+          "Name, email and password are required",
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters",
+        message:
+          "Password must be at least 6 characters",
       });
     }
 
@@ -58,6 +66,10 @@ const register = async (req, res) => {
   }
 };
 
+// --------------------------------------------------
+// LOGIN
+// --------------------------------------------------
+
 const login = async (req, res) => {
   try {
     const {
@@ -68,7 +80,8 @@ const login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message:
+          "Email and password are required",
       });
     }
 
@@ -91,6 +104,10 @@ const login = async (req, res) => {
   }
 };
 
+// --------------------------------------------------
+// GET CURRENT USER
+// --------------------------------------------------
+
 const me = async (req, res) => {
   try {
     const user = await getCurrentUser(
@@ -109,8 +126,100 @@ const me = async (req, res) => {
   }
 };
 
+// --------------------------------------------------
+// UPDATE PROFILE
+// --------------------------------------------------
+
+const updateProfile = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+    } = req.body;
+
+    if (name === undefined && email === undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "At least one profile field is required",
+      });
+    }
+
+    const user = await updateUserProfile(
+      req.user.userId,
+      {
+        name,
+        email,
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// --------------------------------------------------
+// CHANGE PASSWORD
+// --------------------------------------------------
+
+const changePassword = async (req, res) => {
+  try {
+    const {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    } = req.body;
+
+    if (
+      !currentPassword ||
+      !newPassword ||
+      !confirmPassword
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Current password, new password and confirmation are required",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "New password and confirmation do not match",
+      });
+    }
+
+    await changeUserPassword(
+      req.user.userId,
+      currentPassword,
+      newPassword
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   me,
+  updateProfile,
+  changePassword,
 };

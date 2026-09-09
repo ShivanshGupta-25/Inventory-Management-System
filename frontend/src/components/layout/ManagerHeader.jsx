@@ -11,7 +11,7 @@ import {
   AlertTriangle,
   ShoppingCart,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const ManagerHeader = ({ onMenuClick }) => {
   const navigate = useNavigate();
@@ -199,13 +199,13 @@ const ManagerHeader = ({ onMenuClick }) => {
               </div>
 
               <div className="p-2">
-                <button
-                  onClick={() => navigate("/manager/profile")}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
+                <Link
+                  to="/manager/profile"
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   <User size={16} />
                   Profile
-                </button>
+                </Link>
 
                 <button
                   onClick={() => navigate("/manager/settings")}

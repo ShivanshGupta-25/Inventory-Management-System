@@ -96,8 +96,117 @@ const getCurrentUser = async (userId) => {
   return user;
 };
 
+// --------------------------------------------------
+// UPDATE USER PROFILE
+// --------------------------------------------------
+
+const updateUserProfile = async (
+  userId,
+  { name, email }
+) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (name !== undefined) {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      throw new Error("Name cannot be empty");
+    }
+
+    user.name = trimmedName;
+  }
+
+  if (email !== undefined) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      throw new Error("Email cannot be empty");
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+      _id: { $ne: userId },
+    });
+
+    if (existingUser) {
+      throw new Error(
+        "User with this email already exists"
+      );
+    }
+
+    user.email = normalizedEmail;
+  }
+
+  await user.save();
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
+
+// --------------------------------------------------
+// CHANGE PASSWORD
+// --------------------------------------------------
+
+const changeUserPassword = async (
+  userId,
+  currentPassword,
+  newPassword
+) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const isCurrentPasswordValid =
+    await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+  if (!isCurrentPasswordValid) {
+    throw new Error("Current password is incorrect");
+  }
+
+  if (newPassword.length < 6) {
+    throw new Error(
+      "New password must be at least 6 characters"
+    );
+  }
+
+  const isSamePassword = await bcrypt.compare(
+    newPassword,
+    user.password
+  );
+
+  if (isSamePassword) {
+    throw new Error(
+      "New password must be different from current password"
+    );
+  }
+
+  user.password = await bcrypt.hash(
+    newPassword,
+    10
+  );
+
+  await user.save();
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getCurrentUser,
+  updateUserProfile,
+  changeUserPassword,
 };
