@@ -22,6 +22,10 @@ import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Inventory from "../pages/Manager/inventory/Inventory";
 import InventoryDetails from "../pages/Manager/inventory/InventoryDetails";
 
+// Purchase Orders
+import PurchaseOrders from "../pages/Manager/purchaseOrders/PurchaseOrders";
+import PurchaseOrderDetails from "../pages/Manager/purchaseOrders/PurchaseOrderDetails";
+
 
 const AppRoutes = () => {
   return (
@@ -98,6 +102,17 @@ const AppRoutes = () => {
         <Route
           path="/manager/inventory/:id"
           element={<InventoryDetails />}
+        />
+
+        {/* Purchase Orders */}
+        <Route
+          path="/manager/purchase-orders"
+          element={<PurchaseOrders />}
+        />
+
+        <Route
+          path="/manager/purchase-orders/:id"
+          element={<PurchaseOrderDetails />}
         />
 
       </Route>

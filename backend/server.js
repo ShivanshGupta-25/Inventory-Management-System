@@ -7,6 +7,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const stockMovementRoutes = require("./routes/stockMovementRoutes");
+const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
 
 dotenv.config();
 
@@ -40,6 +41,9 @@ app.use("/api/inventory", inventoryRoutes);
 
 // Stock movement routes
 app.use("/api/stock-movements", stockMovementRoutes);
+
+// Purchase order routes
+app.use("/api/purchase-orders", purchaseOrderRoutes);
 
 // 404 handler
 app.use((req, res) => {
