@@ -440,7 +440,7 @@ const Inventory = () => {
           <DeleteProductModal
             product={deleteProduct}
             onClose={() => setDeleteProduct(null)}
-            onSubmit={handleConfirmDelete}
+            onConfirm={handleConfirmDelete}
             loading={deleteProductLoading}
           />
         )}
