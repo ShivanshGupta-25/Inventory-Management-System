@@ -9,6 +9,7 @@ const {
   getDemandHistory,
   getDemandFeatures,
   getDemandForecast,
+  getStockoutRisk,
 } = require("../controllers/analyticsController");
 
 const router = express.Router();
@@ -57,6 +58,11 @@ router.get(
 router.get(
   "/demand-forecast",
   getDemandForecast
+);
+
+router.get(
+  "/stockout-risk",
+  getStockoutRisk
 );
 
 module.exports = router;

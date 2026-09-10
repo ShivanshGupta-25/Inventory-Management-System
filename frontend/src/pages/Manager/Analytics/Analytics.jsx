@@ -24,6 +24,7 @@ import InventoryHealth from "../../../components/manager/analytics/InventoryHeal
 import PurchaseOverview from "../../../components/manager/analytics/PurchaseOverview";
 import DemandHistory from "../../../components/manager/analytics/DemandHistory";
 import DemandForecast from "../../../components/manager/analytics/DemandForecast";
+import StockoutRisk from "../../../components/manager/analytics/StockoutRisk";
 
 const Analytics = () => {
   const [sidebarCollapsed, setSidebarCollapsed] =
@@ -263,10 +264,16 @@ const Analytics = () => {
                     data={analytics.overview}
                   />
 
-                  {/* Sales */}
-                  <SalesTrendChart
-                    data={analytics.salesTrend}
-                  />  
+                  {/* Sales Trend and Stockout Risk */}
+                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                    <SalesTrendChart
+                      data={analytics.salesTrend}
+                    />
+
+                    <StockoutRisk
+                      products={analytics.products}
+                    />
+                  </div>
 
                   {/* Products / Categories */}
                   <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -301,6 +308,7 @@ const Analytics = () => {
                       products={analytics.products}
                     />
                   </div>
+
                 </div>
               )}
           </div>

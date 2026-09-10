@@ -136,3 +136,27 @@ export const getDemandForecast = async (
 
   return result;
 };
+
+export const getStockoutRisk = async (
+  productId,
+  forecastDays = 30
+) => {
+  const params = new URLSearchParams();
+
+  params.append("productId", productId);
+  params.append("forecastDays", forecastDays);
+
+  const response = await fetch(
+    `${API_BASE_URL}/stockout-risk?${params.toString()}`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      result.message || "Failed to fetch stockout risk"
+    );
+  }
+
+  return result;
+};

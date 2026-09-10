@@ -2251,6 +2251,206 @@ const getInventoryAnalytics = async (
   }
 };
 
+
+// --------------------------------------------------
+// STOCKOUT RISK
+// --------------------------------------------------
+const getStockoutRisk = async (req, res) => {
+  try {
+    const { productId, forecastDays = 30 } = req.query;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "productId is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid productId",
+      });
+    }
+
+    const days = Math.min(
+      Math.max(parseInt(forecastDays, 10) || 30, 7),
+      90
+    );
+
+    const inventory = await Inventory.findById(productId).lean();
+
+    if (!inventory) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // --------------------------------------------------
+    // Get last 30 days of completed sales
+    // --------------------------------------------------
+
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+
+    startDate.setDate(startDate.getDate() - 30);
+
+    const salesData = await Sale.aggregate([
+      {
+        $match: {
+          status: "Completed",
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $match: {
+          "items.inventory": new mongoose.Types.ObjectId(productId),
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          unitsSold: {
+            $sum: "$items.quantity",
+          },
+        },
+      },
+    ]);
+
+    const unitsSold = salesData[0]?.unitsSold || 0;
+
+    // --------------------------------------------------
+    // Average daily demand
+    // --------------------------------------------------
+
+    const averageDailyDemand = unitsSold / 30;
+
+    // --------------------------------------------------
+    // Available stock
+    // --------------------------------------------------
+
+    const currentStock = inventory.currentStock || 0;
+    const reservedStock = inventory.reservedStock || 0;
+
+    const availableStock = Math.max(
+      currentStock - reservedStock,
+      0
+    );
+
+    // --------------------------------------------------
+    // Days until stockout
+    // --------------------------------------------------
+
+    let daysUntilStockout = null;
+
+    if (averageDailyDemand > 0) {
+      daysUntilStockout =
+        availableStock / averageDailyDemand;
+    }
+
+    // --------------------------------------------------
+    // Risk classification
+    // --------------------------------------------------
+
+    let riskLevel = "Safe";
+
+    if (availableStock <= 0) {
+      riskLevel = "Critical";
+    } else if (
+      daysUntilStockout !== null &&
+      daysUntilStockout <= 7
+    ) {
+      riskLevel = "Critical";
+    } else if (
+      daysUntilStockout !== null &&
+      daysUntilStockout <= 14
+    ) {
+      riskLevel = "Warning";
+    }
+
+    // Current inventory status can increase risk
+    if (inventory.currentStock <= 0) {
+      riskLevel = "Critical";
+    } else if (
+      inventory.currentStock <= inventory.minStock &&
+      riskLevel === "Safe"
+    ) {
+      riskLevel = "Warning";
+    }
+
+    // --------------------------------------------------
+    // Projected stock
+    // --------------------------------------------------
+
+    const projectedStock = Math.max(
+      availableStock -
+        averageDailyDemand * days,
+      0
+    );
+
+    res.json({
+      success: true,
+
+      data: {
+        product: {
+          productId: inventory._id,
+          productName: inventory.productName,
+          sku: inventory.sku,
+          category: inventory.category,
+          unit: inventory.unit,
+        },
+
+        stock: {
+          currentStock,
+          reservedStock,
+          availableStock,
+          minStock: inventory.minStock,
+          maxStock: inventory.maxStock,
+        },
+
+        demand: {
+          periodDays: 30,
+          unitsSold,
+          averageDailyDemand,
+        },
+
+        risk: {
+          level: riskLevel,
+          daysUntilStockout:
+            daysUntilStockout === null
+              ? null
+              : Number(daysUntilStockout.toFixed(2)),
+          projectedStock: Number(
+            projectedStock.toFixed(2)
+          ),
+          projectionDays: days,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Stockout risk error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to calculate stockout risk",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  // keep your existing exports here
+  getStockoutRisk,
+};
+
+
 module.exports = {
   getAnalyticsOverview,
   getSalesTrend,
@@ -2260,4 +2460,5 @@ module.exports = {
   getDemandHistory,
   getDemandFeatures,
   getDemandForecast,
+  getStockoutRisk,
 };
