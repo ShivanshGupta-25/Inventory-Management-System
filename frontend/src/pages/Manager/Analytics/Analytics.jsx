@@ -25,6 +25,7 @@ import PurchaseOverview from "../../../components/manager/analytics/PurchaseOver
 import DemandHistory from "../../../components/manager/analytics/DemandHistory";
 import DemandForecast from "../../../components/manager/analytics/DemandForecast";
 import StockoutRisk from "../../../components/manager/analytics/StockoutRisk";
+import SmartAlerts from "../../../components/manager/analytics/SmartAlerts";
 
 const Analytics = () => {
   const [sidebarCollapsed, setSidebarCollapsed] =
@@ -275,30 +276,42 @@ const Analytics = () => {
                     />
                   </div>
 
-                  {/* Products / Categories */}
+                  {/* Smart Alerts / Products */}
                   <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+
+                    {/* Smart Alerts */}
+                    <SmartAlerts />
+
+                    {/* Products */}
                     <ProductPerformance
                       data={analytics.products}
                     />
 
+                  </div>
+
+                  {/* Categories / Inventory */}
+                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+
+                    {/* Categories */}  
                     <CategoryPerformance
                       data={analytics.categories}
                     />
-                  </div>
 
-                  {/* Inventory / Purchases */}
-                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                    {/* Inventory */}
                     <InventoryHealth
                       data={analytics.inventory}
                     />
+                  </div>
 
+                  {/* Purchase / Demand */}
+                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+
+                    {/* Purchases */}
                     <PurchaseOverview
                       data={analytics.overview.purchases}
                     />
-                  </div>
 
-                  {/* Demand */}
-                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                    {/* Demand */}
                     <DemandHistory
                       period={period}
                       products={analytics.products}

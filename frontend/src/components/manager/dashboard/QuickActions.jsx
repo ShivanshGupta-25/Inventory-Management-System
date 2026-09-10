@@ -15,14 +15,14 @@ const actions = [
     iconStyle:
       "bg-blue-50 text-blue-600 group-hover:bg-blue-100 group-hover:text-blue-700",
   },
-  // {
-  //   title: "Adjust Stock",
-  //   description: "Update inventory quantity",
-  //   icon: ClipboardEdit,
-  //   path: "/manager/inventory/adjust",
-  //   iconStyle:
-  //     "bg-amber-50 text-amber-600 group-hover:bg-amber-100 group-hover:text-amber-700",
-  // },
+  {
+    title: "Alerts",
+    description: "Update inventory quantity",
+    icon: ClipboardEdit,
+    path: "/manager/analytics",
+    iconStyle:
+      "bg-amber-50 text-amber-600 group-hover:bg-amber-100 group-hover:text-amber-700",
+  },
   {
     title: "Purchase Order",
     description: "Create a new purchase order",

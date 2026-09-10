@@ -2451,6 +2451,259 @@ module.exports = {
 };
 
 
+// --------------------------------------------------
+// Smart Alerts
+// --------------------------------------------------
+
+const getSmartAlerts = async (req, res) => {
+  try {
+    const alerts = [];
+
+    const inventories = await Inventory.find({
+      status: "Active",
+    }).lean();
+
+    if (!inventories.length) {
+      return res.json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    const productIds = inventories.map((item) => item._id);
+
+    // --------------------------------------------------
+    // Last 30 days sales
+    // --------------------------------------------------
+
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+
+    startDate.setDate(startDate.getDate() - 30);
+
+    const salesData = await Sale.aggregate([
+      {
+        $match: {
+          status: "Completed",
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+      },
+      {
+        $unwind: "$items",
+      },
+      {
+        $match: {
+          "items.inventory": {
+            $in: productIds,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$items.inventory",
+          unitsSold: {
+            $sum: "$items.quantity",
+          },
+        },
+      },
+    ]);
+
+    const salesMap = new Map(
+      salesData.map((item) => [
+        item._id.toString(),
+        item.unitsSold,
+      ])
+    );
+
+    // --------------------------------------------------
+    // Generate alerts
+    // --------------------------------------------------
+
+    inventories.forEach((inventory) => {
+      const productId = inventory._id.toString();
+
+      const unitsSold =
+        salesMap.get(productId) || 0;
+
+      const averageDailyDemand =
+        unitsSold / 30;
+
+      const currentStock =
+        inventory.currentStock || 0;
+
+      const reservedStock =
+        inventory.reservedStock || 0;
+
+      const availableStock = Math.max(
+        currentStock - reservedStock,
+        0
+      );
+
+      // ----------------------------------------------
+      // 1. OUT OF STOCK
+      // ----------------------------------------------
+
+      if (currentStock <= 0) {
+        alerts.push({
+          id: `out-${productId}`,
+          type: "OUT_OF_STOCK",
+          severity: "critical",
+          title: "Product out of stock",
+          message: `${inventory.productName} has no available stock.`,
+          productId: inventory._id,
+          productName: inventory.productName,
+          sku: inventory.sku,
+          currentStock,
+          recommendedAction: "Reorder immediately",
+        });
+
+        return;
+      }
+
+      // ----------------------------------------------
+      // 2. LOW STOCK
+      // ----------------------------------------------
+
+      if (currentStock <= inventory.minStock) {
+        alerts.push({
+          id: `low-${productId}`,
+          type: "LOW_STOCK",
+          severity: "warning",
+          title: "Low stock",
+          message: `${inventory.productName} is below its minimum stock level.`,
+          productId: inventory._id,
+          productName: inventory.productName,
+          sku: inventory.sku,
+          currentStock,
+          minStock: inventory.minStock,
+          recommendedAction: "Review reorder requirement",
+        });
+      }
+
+      // ----------------------------------------------
+      // 3. OVERSTOCK
+      // ----------------------------------------------
+
+      if (
+        inventory.maxStock &&
+        currentStock >= inventory.maxStock
+      ) {
+        alerts.push({
+          id: `over-${productId}`,
+          type: "OVERSTOCK",
+          severity: "info",
+          title: "Overstock detected",
+          message: `${inventory.productName} is above the maximum stock level.`,
+          productId: inventory._id,
+          productName: inventory.productName,
+          sku: inventory.sku,
+          currentStock,
+          maxStock: inventory.maxStock,
+          recommendedAction: "Review inventory movement",
+        });
+      }
+
+      // ----------------------------------------------
+      // 4. HIGH DEMAND
+      // ----------------------------------------------
+
+      if (
+        averageDailyDemand >= 1 &&
+        currentStock > 0
+      ) {
+        const daysRemaining =
+          availableStock / averageDailyDemand;
+
+        if (daysRemaining <= 14) {
+          alerts.push({
+            id: `demand-${productId}`,
+            type: "STOCKOUT_RISK",
+            severity:
+              daysRemaining <= 7
+                ? "critical"
+                : "warning",
+            title: "Stockout risk",
+            message: `${inventory.productName} may run out in approximately ${Math.round(
+              daysRemaining
+            )} days based on recent demand.`,
+            productId: inventory._id,
+            productName: inventory.productName,
+            sku: inventory.sku,
+            currentStock,
+            availableStock,
+            averageDailyDemand,
+            daysRemaining: Number(
+              daysRemaining.toFixed(2)
+            ),
+            recommendedAction:
+              "Create a purchase order",
+          });
+        }
+      }
+
+      // ----------------------------------------------
+      // 5. HIGH DEMAND TREND
+      // ----------------------------------------------
+
+      if (averageDailyDemand >= 2) {
+        alerts.push({
+          id: `high-demand-${productId}`,
+          type: "HIGH_DEMAND",
+          severity: "info",
+          title: "High demand product",
+          message: `${inventory.productName} is selling at an average of ${averageDailyDemand.toFixed(
+            1
+          )} units per day.`,
+          productId: inventory._id,
+          productName: inventory.productName,
+          sku: inventory.sku,
+          averageDailyDemand: Number(
+            averageDailyDemand.toFixed(2)
+          ),
+          unitsSold,
+          recommendedAction:
+            "Monitor stock and forecast demand",
+        });
+      }
+    });
+
+    // --------------------------------------------------
+    // Priority ordering
+    // --------------------------------------------------
+
+    const severityOrder = {
+      critical: 1,
+      warning: 2,
+      info: 3,
+    };
+
+    alerts.sort(
+      (a, b) =>
+        severityOrder[a.severity] -
+        severityOrder[b.severity]
+    );
+
+    res.json({
+      success: true,
+      count: alerts.length,
+      data: alerts,
+    });
+  } catch (error) {
+    console.error("Smart alerts error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate smart alerts",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   getAnalyticsOverview,
   getSalesTrend,
@@ -2461,4 +2714,5 @@ module.exports = {
   getDemandFeatures,
   getDemandForecast,
   getStockoutRisk,
+  getSmartAlerts,
 };

@@ -160,3 +160,19 @@ export const getStockoutRisk = async (
 
   return result;
 };
+
+export const getSmartAlerts = async () => {
+  const response = await fetch(
+    `${API_BASE_URL}/smart-alerts`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      result.message || "Failed to fetch smart alerts"
+    );
+  }
+
+  return result;
+};
