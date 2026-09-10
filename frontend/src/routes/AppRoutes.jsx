@@ -34,6 +34,9 @@ import CreateSale from "../pages/Manager/Sales/CreateSale";
 import SaleDetails from "../pages/Manager/Sales/SaleDetails";
 import EditSale from "../pages/Manager/Sales/EditSale";
 
+// Analytics
+import Analytics from "../pages/Manager/Analytics/Analytics";
+
 
 const AppRoutes = () => {
   return (
@@ -154,6 +157,12 @@ const AppRoutes = () => {
         <Route
           path="/manager/sales/:id/edit"
           element={<EditSale />}
+        />
+
+        {/* Analytics */}
+        <Route
+          path="/manager/analytics"
+          element={<Analytics />}
         />
 
       </Route>
