@@ -82,3 +82,57 @@ export const getInventoryAnalytics = async () => {
 
   return result;
 };
+
+export const getDemandHistory = async (
+  period = "30d",
+  productId = ""
+) => {
+  const params = new URLSearchParams();
+
+  params.append("period", period);
+
+  if (productId) {
+    params.append("productId", productId);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/demand-history?${params.toString()}`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      result.message ||
+        "Failed to fetch demand history"
+    );
+  }
+
+  return result;
+};
+
+export const getDemandForecast = async (
+  productId,
+  historyPeriod = "30d",
+  forecastDays = 7
+) => {
+  const params = new URLSearchParams();
+
+  params.append("productId", productId);
+  params.append("historyPeriod", historyPeriod);
+  params.append("forecastDays", forecastDays);
+
+  const response = await fetch(
+    `${API_BASE_URL}/demand-forecast?${params.toString()}`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      result.message || "Failed to fetch demand forecast"
+    );
+  }
+
+  return result;
+};

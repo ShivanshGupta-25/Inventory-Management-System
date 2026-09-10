@@ -6,6 +6,9 @@ const {
   getProductPerformance,
   getCategoryPerformance,
   getInventoryAnalytics,
+  getDemandHistory,
+  getDemandFeatures,
+  getDemandForecast,
 } = require("../controllers/analyticsController");
 
 const router = express.Router();
@@ -39,6 +42,21 @@ router.get(
 router.get(
   "/inventory",
   getInventoryAnalytics
+);
+
+router.get(
+  "/demand-history",
+  getDemandHistory
+);
+
+router.get(
+  "/demand-features",
+  getDemandFeatures
+);
+
+router.get(
+  "/demand-forecast",
+  getDemandForecast
 );
 
 module.exports = router;
