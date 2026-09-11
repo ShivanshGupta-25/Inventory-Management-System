@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import StaffSidebar from "../../../components/layout/StaffSidebar";
-import StaffHeader from "../../../components/layout/StaffHeader";
+import StaffSidebar from "../../../components/staff/StaffSidebar";
+import StaffHeader from "../../../components/staff/StaffHeader";
 
 import { getInventory } from "../../../services/inventoryService";
 

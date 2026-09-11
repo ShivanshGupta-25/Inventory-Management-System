@@ -227,6 +227,15 @@ const getDashboard = async (req, res) => {
     // STOCK MOVEMENTS
     // --------------------------------------------------
 
+    const todayTransactions =
+      await StockMovement.countDocuments({
+        createdAt: {
+          $gte: startOfToday,
+          $lte: now,
+        },
+      });
+
+
     const stockMovements =
       await StockMovement.find()
         .populate(
@@ -429,6 +438,8 @@ const getDashboard = async (req, res) => {
 
           outOfStockProducts:
             outOfStockProducts.length,
+
+          todayTransactions,
 
           totalSales,
 
