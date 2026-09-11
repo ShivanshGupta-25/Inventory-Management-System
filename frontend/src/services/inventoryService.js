@@ -1,11 +1,12 @@
 import axios from "axios";
 
-const API_URL =
-  "http://localhost:5000/api";
+const API_URL = "http://localhost:5000/api";
 
-export const getInventory = async (
-  params = {}
-) => {
+/* =========================================================
+   GET INVENTORY
+========================================================= */
+
+export const getInventory = async (params = {}) => {
   const response = await axios.get(
     `${API_URL}/inventory`,
     {
@@ -16,6 +17,11 @@ export const getInventory = async (
   return response.data;
 };
 
+
+/* =========================================================
+   GET INVENTORY STATS
+========================================================= */
+
 export const getInventoryStats = async () => {
   const response = await axios.get(
     `${API_URL}/inventory/stats`
@@ -23,6 +29,11 @@ export const getInventoryStats = async () => {
 
   return response.data;
 };
+
+
+/* =========================================================
+   GET SINGLE INVENTORY
+========================================================= */
 
 export const getInventoryById = async (id) => {
   const response = await axios.get(
@@ -32,6 +43,12 @@ export const getInventoryById = async (id) => {
   return response.data;
 };
 
+
+/* =========================================================
+   CREATE INVENTORY
+   Manager/Admin operation
+========================================================= */
+
 export const createInventory = async (data) => {
   const response = await axios.post(
     `${API_URL}/inventory`,
@@ -40,6 +57,12 @@ export const createInventory = async (data) => {
 
   return response.data;
 };
+
+
+/* =========================================================
+   UPDATE INVENTORY
+   Manager/Admin operation
+========================================================= */
 
 export const updateInventory = async (
   id,
@@ -53,6 +76,12 @@ export const updateInventory = async (
   return response.data;
 };
 
+
+/* =========================================================
+   DELETE INVENTORY
+   Manager/Admin operation
+========================================================= */
+
 export const deleteInventory = async (id) => {
   const response = await axios.delete(
     `${API_URL}/inventory/${id}`
@@ -60,6 +89,11 @@ export const deleteInventory = async (id) => {
 
   return response.data;
 };
+
+
+/* =========================================================
+   GENERIC STOCK ADJUSTMENT
+========================================================= */
 
 export const adjustStock = async (
   id,
@@ -72,6 +106,45 @@ export const adjustStock = async (
 
   return response.data;
 };
+
+
+/* =========================================================
+   STOCK IN
+========================================================= */
+
+export const stockIn = async (
+  id,
+  quantity,
+  reason
+) => {
+  return adjustStock(id, {
+    type: "IN",
+    quantity,
+    reason,
+  });
+};
+
+
+/* =========================================================
+   STOCK OUT
+========================================================= */
+
+export const stockOut = async (
+  id,
+  quantity,
+  reason
+) => {
+  return adjustStock(id, {
+    type: "OUT",
+    quantity,
+    reason,
+  });
+};
+
+
+/* =========================================================
+   STOCK MOVEMENTS
+========================================================= */
 
 export const getStockMovements = async (
   inventoryId

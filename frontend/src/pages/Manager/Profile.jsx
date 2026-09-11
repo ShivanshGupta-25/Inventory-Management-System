@@ -9,13 +9,13 @@ import {
 
 import { Link } from "react-router-dom";
 
-import ProfileHeader from "../../components/profile/ProfileHeader";
-import ProfileInfoCard from "../../components/profile/ProfileInfoCard";
-import AccountCard from "../../components/profile/AccountCard";
-import SecurityCard from "../../components/profile/SecurityCard";
-import ActivityCard from "../../components/profile/ActivityCard";
-import EditProfileModal from "../../components/profile/EditProfileModal";
-import ChangePasswordModal from "../../components/profile/ChangePasswordModal";
+import ProfileHeader from "../../components/manager/profile/ProfileHeader";
+import ProfileInfoCard from "../../components/manager/profile/ProfileInfoCard";
+import AccountCard from "../../components/manager/profile/AccountCard";
+import SecurityCard from "../../components/manager/profile/SecurityCard";
+import ActivityCard from "../../components/manager/profile/ActivityCard";
+import EditProfileModal from "../../components/manager/profile/EditProfileModal";
+import ChangePasswordModal from "../../components/manager/profile/ChangePasswordModal";
 
 const Profile = () => {
   const [user, setUser] = useState(null);

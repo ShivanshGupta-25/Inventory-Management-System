@@ -709,7 +709,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import ManagerSidebar from "../../../components/layout/ManagerSidebar";
 import ManagerHeader from "../../../components/layout/ManagerHeader";
-import SaleActionMenu from "../../../components/sales/SaleActionMenu";
+import SaleActionMenu from "../../../components/manager/sales/SaleActionMenu";
 
 import {
   getSaleById,

@@ -14,8 +14,13 @@ import PricingPage from "../pages/pricing/PricingPage";
 // Authentication
 import ProtectedRoute from "./ProtectedRoute";
 
-// Dashboard
-import DashboardPage from "../pages/dashboard/DashboardPage";
+// Staff
+import StaffDashboardPage from "../pages/Staff/StaffDashboardPage";
+
+// Staff Inventory
+import StaffInventory from "../pages/Staff/Inventory/Inventory";
+
+// Manager
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Profile from "../pages/Manager/Profile";
 import Settings from "../pages/Manager/Settings";
@@ -78,7 +83,7 @@ const AppRoutes = () => {
 
       {/* ==================== ADMIN ==================== */}
 
-      <Route
+      {/* <Route
         element={
           <ProtectedRoute allowedRoles={["admin"]} />
         }
@@ -87,7 +92,7 @@ const AppRoutes = () => {
           path="/admin/dashboard"
           element={<DashboardPage />}
         />
-      </Route>
+      </Route> */}
 
 
       {/* ==================== MANAGER ==================== */}
@@ -177,7 +182,12 @@ const AppRoutes = () => {
       >
         <Route
           path="/staff/dashboard"
-          element={<DashboardPage />}
+          element={<StaffDashboardPage />}
+        />
+
+        <Route
+          path="/staff/inventory"
+          element={<StaffInventory />}  
         />
       </Route>
 

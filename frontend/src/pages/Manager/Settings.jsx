@@ -13,8 +13,8 @@ import {
 
 import { Link } from "react-router-dom";
 
-import EditProfileModal from "../../components/profile/EditProfileModal";
-import ChangePasswordModal from "../../components/profile/ChangePasswordModal";
+import EditProfileModal from "../../components/manager/profile/EditProfileModal";
+import ChangePasswordModal from "../../components/manager/profile/ChangePasswordModal";
 
 const Settings = () => {
   const [user, setUser] = useState(null);

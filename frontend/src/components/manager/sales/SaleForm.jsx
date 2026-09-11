@@ -15,7 +15,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 
-import { getInventory } from "../../services/inventoryService";
+import { getInventory } from "../../../services/inventoryService";
 
 const createEmptyItem = () => ({
   inventory: "",

@@ -8,9 +8,9 @@ import { useNavigate } from "react-router-dom";
 import ManagerSidebar from "../../../components/layout/ManagerSidebar";
 import ManagerHeader from "../../../components/layout/ManagerHeader";
 
-import SalesStats from "../../../components/sales/SalesStats";
-import SalesFilters from "../../../components/sales/SalesFilters";
-import SalesTable from "../../../components/sales/SalesTable";
+import SalesStats from "../../../components/manager/sales/SalesStats";
+import SalesFilters from "../../../components/manager/sales/SalesFilters";
+import SalesTable from "../../../components/manager/sales/SalesTable";
 
 import {
   getSales,

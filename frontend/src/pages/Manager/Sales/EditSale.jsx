@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import ManagerSidebar from "../../../components/layout/ManagerSidebar";
 import ManagerHeader from "../../../components/layout/ManagerHeader";
-import SaleForm from "../../../components/sales/SaleForm";
+import SaleForm from "../../../components/manager/sales/SaleForm";
 
 import {
   getSaleById,
