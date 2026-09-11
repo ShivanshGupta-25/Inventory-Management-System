@@ -529,6 +529,174 @@ const getDashboard = async (req, res) => {
   }
 };
 
+const getStaffAlerts = async (req, res) => {
+  try {
+    const inventory = await Inventory.find({
+      status: "Active",
+    }).lean();
+
+    const alerts = [];
+
+    // Out of stock
+    inventory
+      .filter((item) => item.currentStock <= 0)
+      .forEach((item) => {
+        alerts.push({
+          type: "OUT_OF_STOCK",
+          severity: "critical",
+          title: "Out of Stock",
+          message: `${item.productName} is out of stock.`,
+          productId: item._id,
+          productName: item.productName,
+          sku: item.sku,
+          currentStock: item.currentStock,
+          minStock: item.minStock,
+          createdAt: item.updatedAt,
+        });
+      });
+
+    // Low stock
+    inventory
+      .filter(
+        (item) =>
+          item.currentStock > 0 &&
+          item.currentStock <= item.minStock
+      )
+      .forEach((item) => {
+        alerts.push({
+          type: "LOW_STOCK",
+          severity: "warning",
+          title: "Low Stock",
+          message: `${item.productName} has only ${
+            item.currentStock
+          } ${item.unit || "units"} remaining.`,
+          productId: item._id,
+          productName: item.productName,
+          sku: item.sku,
+          currentStock: item.currentStock,
+          minStock: item.minStock,
+          createdAt: item.updatedAt,
+        });
+      });
+
+    // Newest first
+    alerts.sort(
+      (a, b) =>
+        new Date(b.createdAt) -
+        new Date(a.createdAt)
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: alerts.length,
+      data: alerts,
+    });
+  } catch (error) {
+    console.error(
+      "Staff alerts error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch inventory alerts",
+    });
+  }
+};
+
+const getStockHistory = async (req, res) => {
+  try {
+    const {
+      type = "",
+      search = "",
+      limit = 50,
+    } = req.query;
+
+    const query = {};
+
+    if (type) {
+      query.type = type.toUpperCase();
+    }
+
+    let movements = await StockMovement.find(query)
+      .populate(
+        "inventory",
+        "productName sku unit"
+      )
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 50, 100))
+      .lean();
+
+    if (search) {
+      const searchLower =
+        search.toLowerCase();
+
+      movements = movements.filter(
+        (movement) =>
+          movement.inventory?.productName
+            ?.toLowerCase()
+            .includes(searchLower) ||
+          movement.inventory?.sku
+            ?.toLowerCase()
+            .includes(searchLower) ||
+          movement.reason
+            ?.toLowerCase()
+            .includes(searchLower)
+      );
+    }
+
+    const data = movements.map(
+      (movement) => ({
+        _id: movement._id,
+        type: movement.type,
+        quantity: movement.quantity,
+        previousStock:
+          movement.previousStock,
+        newStock: movement.newStock,
+        reason: movement.reason,
+        referenceType:
+          movement.referenceType,
+        referenceId:
+          movement.referenceId,
+        createdAt:
+          movement.createdAt,
+
+        product: movement.inventory
+          ? {
+              _id:
+                movement.inventory._id,
+              productName:
+                movement.inventory.productName,
+              sku:
+                movement.inventory.sku,
+              unit:
+                movement.inventory.unit,
+            }
+          : null,
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: data.length,
+      data,
+    });
+  } catch (error) {
+    console.error(
+      "Stock history error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to fetch stock history",
+    });
+  }
+};
+
 module.exports = {
   getDashboard,
+  getStaffAlerts,
+  getStockHistory,
 };

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Bell, ChevronRight } from "lucide-react";
 
 import AlertItem from "./AlertItem";
@@ -5,8 +6,8 @@ import EmptyState from "./EmptyState";
 
 const InventoryAlerts = ({
   alerts = [],
-  onViewAll,
 }) => {
+    const navigate = useNavigate();
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -22,7 +23,9 @@ const InventoryAlerts = ({
 
         <button
           type="button"
-          onClick={onViewAll}
+          onClick={() =>
+                navigate("/staff/alerts")
+            }
           className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
         >
           View all

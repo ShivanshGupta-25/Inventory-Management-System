@@ -1,12 +1,13 @@
 import { ChevronRight, History } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import EmptyState from "./EmptyState";
 import TransactionRow from "./TransactionRow";
 
 const RecentStockActivity = ({
   transactions = [],
-  onViewHistory,
-}) => {
+  }) => {
+    const navigate = useNavigate();
   return (
     <div className="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -22,7 +23,9 @@ const RecentStockActivity = ({
 
         <button
           type="button"
-          onClick={onViewHistory}
+          onClick={() =>
+                navigate("/staff/stock-history")
+            }
           className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
         >
           View history

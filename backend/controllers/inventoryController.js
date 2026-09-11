@@ -442,44 +442,38 @@ const deleteInventory = async (req, res) => {
 // ADJUST STOCK
 const adjustStock = async (req, res) => {
   try {
-    const {
-      type,
-      quantity,
-      reason,
-    } = req.body;
+    const { type, quantity, reason } = req.body;
 
-    if (!type || quantity === undefined || !reason) {
+    // 1. Validate stock movement type
+    if (!["IN", "OUT", "ADJUSTMENT"].includes(type)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Adjustment type, quantity and reason are required",
+        message: "Invalid stock movement type",
       });
     }
 
+    // 2. STAFF RESTRICTION
+    // Staff can only perform IN and OUT
     if (
-      !["IN", "OUT", "ADJUSTMENT"].includes(type)
+      req.user.role === "staff" &&
+      type === "ADJUSTMENT"
     ) {
-      return res.status(400).json({
+      return res.status(403).json({
         success: false,
-        message: "Invalid adjustment type",
+        message: "Staff cannot perform stock adjustments",
       });
     }
 
-    const numericQuantity = Number(quantity);
-
-    if (
-      Number.isNaN(numericQuantity) ||
-      numericQuantity <= 0
-    ) {
+    // 3. Validate quantity
+    if (!quantity || quantity <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Quantity must be greater than zero",
+        message: "Quantity must be greater than 0",
       });
     }
 
-    const inventory = await Inventory.findById(
-      req.params.id
-    );
+    // 4. Find inventory
+    const inventory = await Inventory.findById(req.params.id);
 
     if (!inventory) {
       return res.status(404).json({
@@ -488,66 +482,61 @@ const adjustStock = async (req, res) => {
       });
     }
 
+    // 5. Store previous stock
     const previousStock = inventory.currentStock;
 
+    // 6. Calculate new stock
     let newStock;
 
     if (type === "IN") {
-      newStock =
-        previousStock + numericQuantity;
+      newStock = previousStock + quantity;
     } else if (type === "OUT") {
-      newStock =
-        previousStock - numericQuantity;
-    } else {
-      newStock = numericQuantity;
+      newStock = previousStock - quantity;
+    } else if (type === "ADJUSTMENT") {
+      newStock = quantity;
     }
 
+    // 7. Prevent negative stock
     if (newStock < 0) {
       return res.status(400).json({
         success: false,
-        message: "Stock cannot be negative",
+        message: "Insufficient stock",
       });
     }
 
+    // 8. Update inventory
     inventory.currentStock = newStock;
 
     await inventory.save();
 
-    await StockMovement.create({
+    // 9. Create stock movement
+    const movement = await StockMovement.create({
       inventory: inventory._id,
       type,
-      quantity: numericQuantity,
+      quantity,
       previousStock,
       newStock,
       reason,
       referenceType: "MANUAL",
+      performedBy: req.user.userId,
     });
 
-    res.status(200).json({
+    // 10. Response
+    return res.status(200).json({
       success: true,
-      message: "Stock adjusted successfully",
+      message: `Stock ${type} operation completed successfully`,
       data: {
-        ...inventory.toObject(),
-
-        availableStock: Math.max(
-          inventory.currentStock -
-            inventory.reservedStock,
-          0
-        ),
-
-        stockStatus: calculateStockStatus(
-          inventory.currentStock,
-          inventory.minStock,
-          inventory.maxStock
-        ),
+        inventory,
+        movement,
       },
     });
   } catch (error) {
     console.error("Adjust stock error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to adjust stock",
+      error: error.message,
     });
   }
 };

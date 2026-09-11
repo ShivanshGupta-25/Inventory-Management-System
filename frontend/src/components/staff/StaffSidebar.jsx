@@ -29,14 +29,9 @@ const menuItems = [
     path: "/staff/inventory",
   },
   {
-    label: "Stock In",
+    label: "Stock Operations",
     icon: ArrowDownToLine,
-    path: "/staff/stock-in",
-  },
-  {
-    label: "Stock Out",
-    icon: ArrowUpFromLine,
-    path: "/staff/stock-out",
+    path: "/staff/stock-operations",
   },
   {
     label: "Purchase Requests",
@@ -44,14 +39,9 @@ const menuItems = [
     path: "/staff/purchase-requests",
   },
   {
-    label: "Stock History",
-    icon: History,
-    path: "/staff/stock-history",
-  },
-  {
-    label: "Alerts",
+    label: "Activity",
     icon: Bell,
-    path: "/staff/alerts",
+    path: "/staff/activity",
   },
 ];
 
