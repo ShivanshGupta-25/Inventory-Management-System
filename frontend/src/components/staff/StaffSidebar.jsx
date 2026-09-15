@@ -12,6 +12,7 @@ import {
   Package,
   ChevronLeft,
   ChevronRight,
+  ShoppingCart,
   X,
 } from "lucide-react";
 
@@ -37,6 +38,11 @@ const menuItems = [
     label: "Purchase Requests",
     icon: ClipboardList,
     path: "/staff/purchase-requests",
+  },
+  {
+    label: "Sales",
+    icon: ShoppingCart,
+    path: "/staff/sales",
   },
   {
     label: "Activity",

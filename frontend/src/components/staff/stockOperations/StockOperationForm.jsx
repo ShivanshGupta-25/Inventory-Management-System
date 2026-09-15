@@ -41,21 +41,43 @@ const StockOperationForm = ({
 
   return (
     <div className="space-y-5">
+
+      {/* Product */}
+
       <ProductSelector
         products={products}
-        selectedProduct={selectedProduct}
-        onChange={onProductChange}
+        selectedProduct={
+          selectedProduct
+        }
+        onChange={
+          onProductChange
+        }
         search={search}
-        onSearchChange={onSearchChange}
+        onSearchChange={
+          onSearchChange
+        }
       />
+
+      {/* Product-dependent fields */}
 
       {selectedProduct && (
         <>
+
+          {/* Stock Summary */}
+
           <StockSummary
-            product={selectedProduct}
-            quantity={quantity}
-            operationType={operationType}
+            product={
+              selectedProduct
+            }
+            quantity={
+              quantity
+            }
+            operationType={
+              operationType
+            }
           />
+
+          {/* Quantity */}
 
           <div>
             <label className="mb-2 block text-xs font-semibold text-slate-700">
@@ -77,6 +99,8 @@ const StockOperationForm = ({
             />
           </div>
 
+          {/* Reason */}
+
           <div>
             <label className="mb-2 block text-xs font-semibold text-slate-700">
               Reason
@@ -95,26 +119,32 @@ const StockOperationForm = ({
                 Select reason
               </option>
 
-              {reasons.map((item) => (
-                <option
-                  key={item}
-                  value={item}
-                >
-                  {item}
-                </option>
-              ))}
+              {reasons.map(
+                (item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item}
+                  </option>
+                )
+              )}
             </select>
           </div>
+
+          {/* Notes */}
 
           <div>
             <label className="mb-2 block text-xs font-semibold text-slate-700">
               Notes
+
               <span className="ml-1 font-normal text-slate-400">
                 (Optional)
               </span>
             </label>
 
             <div className="relative">
+
               <FileText
                 size={15}
                 className="absolute left-3 top-3 text-slate-400"
@@ -131,8 +161,11 @@ const StockOperationForm = ({
                 placeholder="Add additional notes..."
                 className="w-full resize-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
               />
+
             </div>
           </div>
+
+          {/* Review */}
 
           <button
             type="button"
@@ -141,8 +174,10 @@ const StockOperationForm = ({
           >
             Review Operation
           </button>
+
         </>
       )}
+
     </div>
   );
 };

@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  useSearchParams,
+} from "react-router-dom";
+
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -23,44 +32,99 @@ import {
 } from "../../services/staffActivityApi";
 
 const StockOperationsPage = () => {
-  const [operationType, setOperationType] =
-    useState("IN");
+  /* =====================================================
+     URL QUERY PARAMETER
+  ===================================================== */
 
-  const [inventory, setInventory] =
-    useState([]);
+  const [
+    searchParams,
+  ] = useSearchParams();
 
-  const [movements, setMovements] =
-    useState([]);
+  const productId =
+    searchParams.get("product");
 
-  const [selectedProduct, setSelectedProduct] =
-    useState(null);
+  /* =====================================================
+     SIDEBAR STATE
+  ===================================================== */
 
-  const [search, setSearch] =
-    useState("");
+  const [
+    sidebarCollapsed,
+    setSidebarCollapsed,
+  ] = useState(false);
 
-  const [quantity, setQuantity] =
-    useState("");
+  const [
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
+  ] = useState(false);
 
-  const [reason, setReason] =
-    useState("");
+  /* =====================================================
+     STOCK OPERATION STATE
+  ===================================================== */
 
-  const [notes, setNotes] =
-    useState("");
+  const [
+    operationType,
+    setOperationType,
+  ] = useState("IN");
 
-  const [reviewOpen, setReviewOpen] =
-    useState(false);
+  const [
+    inventory,
+    setInventory,
+  ] = useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    movements,
+    setMovements,
+  ] = useState([]);
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [
+    selectedProduct,
+    setSelectedProduct,
+  ] = useState(null);
 
-  const [error, setError] =
-    useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
-  const [success, setSuccess] =
-    useState("");
+  const [
+    quantity,
+    setQuantity,
+  ] = useState("");
+
+  const [
+    reason,
+    setReason,
+  ] = useState("");
+
+  const [
+    notes,
+    setNotes,
+  ] = useState("");
+
+  const [
+    reviewOpen,
+    setReviewOpen,
+  ] = useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const [
+    success,
+    setSuccess,
+  ] = useState("");
 
   /* =====================================================
      LOAD DATA
@@ -76,20 +140,70 @@ const StockOperationsPage = () => {
         historyResponse,
       ] = await Promise.all([
         getInventory(),
+
         getStockHistory({
           limit: 10,
         }),
       ]);
 
-      setInventory(
+      /*
+       * Normalize inventory response.
+       */
+      const inventoryData =
         inventoryResponse?.data ||
-          inventoryResponse ||
+        inventoryResponse ||
+        [];
+
+      /*
+       * Save inventory.
+       */
+      setInventory(
+        inventoryData
+      );
+
+      /*
+       * Save recent movements.
+       */
+      setMovements(
+        historyResponse?.data ||
+          historyResponse ||
           []
       );
 
-      setMovements(
-        historyResponse || []
-      );
+      /*
+       * Automatically select the product
+       * when coming from Staff Inventory.
+       *
+       * Example:
+       *
+       * /staff/stock-operations?product=<id>
+       */
+      if (productId) {
+        const matchedProduct =
+          inventoryData.find(
+            (product) =>
+              String(
+                product._id
+              ) ===
+              String(productId)
+          );
+
+        if (matchedProduct) {
+          setSelectedProduct(
+            matchedProduct
+          );
+
+          setSearch(
+            matchedProduct.productName ||
+              matchedProduct.name ||
+              ""
+          );
+        } else {
+          setSelectedProduct(
+            null
+          );
+        }
+      }
     } catch (err) {
       console.error(
         "Failed to load stock operations:",
@@ -97,7 +211,8 @@ const StockOperationsPage = () => {
       );
 
       setError(
-        err.message ||
+        err.response?.data?.message ||
+          err.message ||
           "Failed to load stock operation data."
       );
     } finally {
@@ -107,30 +222,36 @@ const StockOperationsPage = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [productId]);
 
   /* =====================================================
      FILTER PRODUCTS
   ===================================================== */
 
-  const filteredProducts = useMemo(() => {
-    const value =
-      search.trim().toLowerCase();
+  const filteredProducts =
+    useMemo(() => {
+      const value =
+        search
+          .trim()
+          .toLowerCase();
 
-    if (!value) {
-      return inventory;
-    }
+      if (!value) {
+        return inventory;
+      }
 
-    return inventory.filter(
-      (product) =>
-        product.productName
-          ?.toLowerCase()
-          .includes(value) ||
-        product.sku
-          ?.toLowerCase()
-          .includes(value)
-    );
-  }, [inventory, search]);
+      return inventory.filter(
+        (product) =>
+          product.productName
+            ?.toLowerCase()
+            .includes(value) ||
+          product.sku
+            ?.toLowerCase()
+            .includes(value)
+      );
+    }, [
+      inventory,
+      search,
+    ]);
 
   /* =====================================================
      CHANGE OPERATION TYPE
@@ -141,6 +262,10 @@ const StockOperationsPage = () => {
   ) => {
     setOperationType(type);
 
+    /*
+     * Switching operation type starts
+     * a fresh operation.
+     */
     setSelectedProduct(null);
     setSearch("");
     setQuantity("");
@@ -157,15 +282,25 @@ const StockOperationsPage = () => {
   const handleProductChange = (
     product
   ) => {
-    setSelectedProduct(product);
-    setSearch(product.productName || "");
+    setSelectedProduct(
+      product
+    );
+
+    setSearch(
+      product?.productName ||
+        product?.name ||
+        ""
+    );
+
     setQuantity("");
+    setReason("");
+    setNotes("");
     setError("");
     setSuccess("");
   };
 
   /* =====================================================
-     REVIEW
+     REVIEW OPERATION
   ===================================================== */
 
   const handleReview = () => {
@@ -173,7 +308,10 @@ const StockOperationsPage = () => {
     setSuccess("");
 
     if (!selectedProduct) {
-      setError("Please select a product.");
+      setError(
+        "Please select a product."
+      );
+
       return;
     }
 
@@ -189,24 +327,34 @@ const StockOperationsPage = () => {
       setError(
         "Quantity must be greater than 0."
       );
+
       return;
     }
 
     if (!reason) {
-      setError("Please select a reason.");
+      setError(
+        "Please select a reason."
+      );
+
       return;
     }
 
+    /*
+     * Prevent Stock Out from exceeding
+     * the available inventory.
+     */
     if (
       operationType === "OUT" &&
       numericQuantity >
         Number(
-          selectedProduct.currentStock || 0
+          selectedProduct.currentStock ||
+            0
         )
     ) {
       setError(
         "Requested quantity exceeds available stock."
       );
+
       return;
     }
 
@@ -217,244 +365,424 @@ const StockOperationsPage = () => {
      CONFIRM OPERATION
   ===================================================== */
 
-  const handleConfirm = async () => {
-    if (!selectedProduct) return;
-
-    try {
-      setSubmitting(true);
-      setError("");
-
-      const numericQuantity =
-        Number(quantity);
-
-      const payload = {
-        quantity: numericQuantity,
-        reason,
-      };
-
-      let response;
-
-      if (operationType === "IN") {
-        response = await stockIn(
-          selectedProduct._id,
-          numericQuantity,
-          reason,
-          notes
-        );
-      } else {
-        response = await stockOut(
-          selectedProduct._id,
-          numericQuantity,
-          reason,
-          notes
-        );
+  const handleConfirm =
+    async () => {
+      if (!selectedProduct) {
+        return;
       }
 
-      if (!response?.success) {
-        throw new Error(
-          response?.message ||
-            "Stock operation failed."
+      try {
+        setSubmitting(true);
+        setError("");
+
+        const numericQuantity =
+          Number(quantity);
+
+        let response;
+
+        /*
+         * STOCK IN
+         */
+        if (
+          operationType ===
+          "IN"
+        ) {
+          response =
+            await stockIn(
+              selectedProduct._id,
+              numericQuantity,
+              reason,
+              notes
+            );
+        }
+
+        /*
+         * STOCK OUT
+         */
+        else {
+          response =
+            await stockOut(
+              selectedProduct._id,
+              numericQuantity,
+              reason,
+              notes
+            );
+        }
+
+        /*
+         * Backend validation.
+         */
+        if (!response?.success) {
+          throw new Error(
+            response?.message ||
+              "Stock operation failed."
+          );
+        }
+
+        /*
+         * Success feedback.
+         */
+        setSuccess(
+          operationType ===
+            "IN"
+            ? "Stock added successfully."
+            : "Stock removed successfully."
         );
+
+        /*
+         * Close review modal.
+         */
+        setReviewOpen(false);
+
+        /*
+         * Reset form.
+         */
+        setQuantity("");
+        setReason("");
+        setNotes("");
+        setSelectedProduct(
+          null
+        );
+        setSearch("");
+
+        /*
+         * Refresh inventory and
+         * recent movements.
+         */
+        await loadData();
+      } catch (err) {
+        console.error(
+          "Stock operation failed:",
+          err
+        );
+
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to complete stock operation."
+        );
+      } finally {
+        setSubmitting(false);
       }
+    };
 
-      setSuccess(
-        operationType === "IN"
-          ? "Stock added successfully."
-          : "Stock removed successfully."
-      );
-
-      setReviewOpen(false);
-
-      setQuantity("");
-      setReason("");
-      setNotes("");
-      setSelectedProduct(null);
-      setSearch("");
-
-      await loadData();
-    } catch (err) {
-      console.error(
-        "Stock operation failed:",
-        err
-      );
-
-      setError(
-        err.message ||
-          "Failed to complete stock operation."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  /* =====================================================
+     RENDER
+  ===================================================== */
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <StaffSidebar />
 
-      <div className="lg:pl-64">
-        <StaffHeader />
+      {/* =====================================================
+          SIDEBAR
+      ===================================================== */}
+
+      <StaffSidebar
+        collapsed={
+          sidebarCollapsed
+        }
+        mobileOpen={
+          mobileSidebarOpen
+        }
+        onCollapse={() =>
+          setSidebarCollapsed(
+            (prev) => !prev
+          )
+        }
+        onMobileClose={() =>
+          setMobileSidebarOpen(
+            false
+          )
+        }
+      />
+
+      {/* =====================================================
+          MOBILE SIDEBAR OVERLAY
+      ===================================================== */}
+
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px] lg:hidden"
+          onClick={() =>
+            setMobileSidebarOpen(
+              false
+            )
+          }
+        />
+      )}
+
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
+
+      <div
+        className={`transition-all duration-300 ${
+          sidebarCollapsed
+            ? "lg:pl-20"
+            : "lg:pl-64"
+        }`}
+      >
+
+        {/* HEADER */}
+
+        <StaffHeader
+          onMenuClick={() =>
+            setMobileSidebarOpen(
+              true
+            )
+          }
+        />
 
         <main className="p-4 sm:p-6">
-          <div className="mx-auto max-w-[1400px]">
 
-            {/* PAGE HEADER */}
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-medium text-slate-400">
-                  Workspace
-                </p>
+          <div className="mx-auto max-w-[1600px]">
 
-                <h1 className="mt-1 text-2xl font-bold text-slate-900">
-                  Stock Operations
-                </h1>
+            {/* =================================================
+                PAGE HEADER
+            ================================================== */}
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Manage incoming and outgoing inventory.
-                </p>
+            <div className="mb-6">
+
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+
+                <div>
+
+                  <p className="text-xs font-medium text-slate-400">
+                    Workspace
+                  </p>
+
+                  <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                    Stock Operations
+                  </h1>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Manage incoming and outgoing
+                    inventory.
+                  </p>
+
+                </div>
+
+                {/* OPERATION TABS */}
+
+                <StockOperationTabs
+                  operationType={
+                    operationType
+                  }
+                  onChange={
+                    handleOperationChange
+                  }
+                />
+
               </div>
 
-              <StockOperationTabs
-                operationType={
-                  operationType
-                }
-                onChange={
-                  handleOperationChange
-                }
-              />
             </div>
 
-            {/* FEEDBACK */}
+            {/* =================================================
+                FEEDBACK
+            ================================================== */}
+
             {error && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+
                 <p className="text-xs font-medium text-red-700">
                   {error}
                 </p>
+
               </div>
             )}
 
             {success && (
-              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+
                 <p className="text-xs font-medium text-emerald-700">
                   {success}
                 </p>
+
               </div>
             )}
 
-            {/* MAIN CONTENT */}
+            {/* =================================================
+                LOADING
+            ================================================== */}
+
             {loading ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
-                <p className="text-sm text-slate-500">
+              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+
+                <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
+
+                <p className="text-sm font-medium text-slate-700">
                   Loading stock operations...
                 </p>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Fetching inventory and recent
+                  stock activity.
+                </p>
+
               </div>
             ) : (
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+              <>
+                {/* =================================================
+                    MAIN OPERATION AREA
+                ================================================== */}
 
-                {/* FORM */}
-                <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-200 px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                          operationType ===
-                          "IN"
-                            ? "bg-emerald-50 text-emerald-600"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {operationType ===
-                        "IN" ? (
-                          <ArrowDownToLine
-                            size={17}
-                          />
-                        ) : (
-                          <ArrowUpFromLine
-                            size={17}
-                          />
-                        )}
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+
+                  {/* =================================================
+                      OPERATION FORM
+                  ================================================== */}
+
+                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+
+                    {/* FORM HEADER */}
+
+                    <div className="border-b border-slate-200 px-5 py-4">
+
+                      <div className="flex items-center gap-3">
+
+                        <div
+                          className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                            operationType ===
+                            "IN"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+
+                          {operationType ===
+                          "IN" ? (
+                            <ArrowDownToLine
+                              size={17}
+                            />
+                          ) : (
+                            <ArrowUpFromLine
+                              size={17}
+                            />
+                          )}
+
+                        </div>
+
+                        <div>
+
+                          <h2 className="text-sm font-bold text-slate-800">
+                            {operationType ===
+                            "IN"
+                              ? "Stock In"
+                              : "Stock Out"}
+                          </h2>
+
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {operationType ===
+                            "IN"
+                              ? "Add incoming stock to inventory."
+                              : "Remove issued stock from inventory."}
+                          </p>
+
+                        </div>
+
                       </div>
 
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-800">
-                          {operationType ===
-                          "IN"
-                            ? "Stock In"
-                            : "Stock Out"}
-                        </h2>
-
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {operationType ===
-                          "IN"
-                            ? "Add incoming stock to inventory."
-                            : "Remove issued stock from inventory."}
-                        </p>
-                      </div>
                     </div>
+
+                    {/* FORM BODY */}
+
+                    <div className="p-5">
+
+                      <StockOperationForm
+                        operationType={
+                          operationType
+                        }
+                        products={
+                          filteredProducts
+                        }
+                        selectedProduct={
+                          selectedProduct
+                        }
+                        onProductChange={
+                          handleProductChange
+                        }
+                        search={search}
+                        onSearchChange={
+                          setSearch
+                        }
+                        quantity={quantity}
+                        onQuantityChange={
+                          setQuantity
+                        }
+                        reason={reason}
+                        onReasonChange={
+                          setReason
+                        }
+                        notes={notes}
+                        onNotesChange={
+                          setNotes
+                        }
+                        onReview={
+                          handleReview
+                        }
+                      />
+
+                    </div>
+
                   </div>
 
-                  <div className="p-5">
-                    <StockOperationForm
-                      operationType={
-                        operationType
-                      }
-                      products={
-                        filteredProducts
-                      }
-                      selectedProduct={
-                        selectedProduct
-                      }
-                      onProductChange={
-                        handleProductChange
-                      }
-                      search={search}
-                      onSearchChange={
-                        setSearch
-                      }
-                      quantity={quantity}
-                      onQuantityChange={
-                        setQuantity
-                      }
-                      reason={reason}
-                      onReasonChange={
-                        setReason
-                      }
-                      notes={notes}
-                      onNotesChange={
-                        setNotes
-                      }
-                      onReview={
-                        handleReview
-                      }
-                    />
-                  </div>
+                  {/* =================================================
+                      RECENT OPERATIONS
+                  ================================================== */}
+
+                  <RecentOperations
+                    movements={
+                      movements
+                    }
+                  />
+
                 </div>
 
-                {/* RECENT OPERATIONS */}
-                <RecentOperations
-                  movements={movements}
-                />
-              </div>
+              </>
             )}
+
           </div>
+
         </main>
+
       </div>
 
-      {/* REVIEW MODAL */}
+      {/* =====================================================
+          REVIEW MODAL
+      ====================================================== */}
+
       <OperationReviewModal
-        open={reviewOpen}
+        open={
+          reviewOpen
+        }
         operationType={
           operationType
         }
-        product={selectedProduct}
-        quantity={quantity}
-        reason={reason}
-        notes={notes}
-        loading={submitting}
-        onClose={() =>
-          setReviewOpen(false)
+        product={
+          selectedProduct
         }
-        onConfirm={handleConfirm}
+        quantity={
+          quantity
+        }
+        reason={
+          reason
+        }
+        notes={
+          notes
+        }
+        loading={
+          submitting
+        }
+        onClose={() =>
+          setReviewOpen(
+            false
+          )
+        }
+        onConfirm={
+          handleConfirm
+        }
       />
+
     </div>
   );
 };

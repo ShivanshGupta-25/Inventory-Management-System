@@ -7,6 +7,8 @@ const RecentOperations = ({
 }) => {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* HEADER */}
+
       <div className="border-b border-slate-200 px-5 py-4">
         <div className="flex items-center gap-2">
           <History
@@ -26,6 +28,8 @@ const RecentOperations = ({
         </div>
       </div>
 
+      {/* OPERATIONS */}
+
       {movements.length === 0 ? (
         <div className="p-8 text-center">
           <p className="text-xs text-slate-400">
@@ -33,7 +37,17 @@ const RecentOperations = ({
           </p>
         </div>
       ) : (
-        <div>
+        <div
+          className="
+            max-h-[520px]
+            overflow-y-auto
+            overscroll-contain
+            scrollbar-thin
+            scrollbar-track-slate-50
+            scrollbar-thumb-slate-300
+            hover:scrollbar-thumb-slate-400
+          "
+        >
           {movements.map((movement) => (
             <OperationRow
               key={movement._id}

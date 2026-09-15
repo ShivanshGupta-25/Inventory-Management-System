@@ -1,43 +1,78 @@
-import { ClipboardList, Minus, Plus } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Package,
+  Bell,
+  History,
+} from "lucide-react";
 
 import QuickAction from "./QuickAction";
 
-const StaffQuickActions = ({ onNavigate }) => {
+const StaffQuickActions = ({
+  onNavigate,
+}) => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+
+      {/* HEADER */}
+
+      <div className="mb-5">
+        <h2 className="text-sm font-bold text-slate-800">
           Quick Actions
         </h2>
 
-        <p className="mt-0.5 text-xs text-slate-400">
-          Common inventory operations
+        <p className="mt-1 text-xs text-slate-400">
+          Quickly access common inventory operations.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-        <QuickAction
-          icon={Plus}
-          title="Stock In"
-          description="Add stock"
-          onClick={() => onNavigate("/staff/stock-in")}
-        />
+      {/* ACTIONS */}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
         <QuickAction
-          icon={Minus}
-          title="Stock Out"
-          description="Issue stock"
-          onClick={() => onNavigate("/staff/stock-out")}
-        />
-
-        <QuickAction
-          icon={ClipboardList}
-          title="Request Stock"
-          description="Create request"
+          icon={ArrowLeftRight}
+          title="Stock Operation"
+          description="Manage stock in and stock out."
           onClick={() =>
-            onNavigate("/staff/purchase-requests/create")
+            onNavigate(
+              "/staff/stock-operations"
+            )
           }
         />
+
+        <QuickAction
+          icon={Package}
+          title="View Inventory"
+          description="Browse current inventory and products."
+          onClick={() =>
+            onNavigate(
+              "/staff/inventory"
+            )
+          }
+        />
+
+        <QuickAction
+          icon={Bell}
+          title="View Alerts"
+          description="Check low stock and inventory alerts."
+          onClick={() =>
+            onNavigate(
+              "/staff/alerts"
+            )
+          }
+        />
+
+        <QuickAction
+          icon={History}
+          title="View History"
+          description="Review recent stock activities."
+          onClick={() =>
+            onNavigate(
+              "/staff/stock-history"
+            )
+          }
+        />
+
       </div>
     </div>
   );

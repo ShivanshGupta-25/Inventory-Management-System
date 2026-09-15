@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+
 import {
   Search,
   SlidersHorizontal,
   Package,
-  Plus,
-  Minus,
-  Eye,
   RefreshCw,
   ChevronDown,
   Boxes,
+  MoreHorizontal,
+  Eye,
+  ArrowRightLeft,
 } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 
 import StaffSidebar from "../../../components/staff/StaffSidebar";
@@ -42,6 +44,10 @@ const Inventory = () => {
   const [showFilters, setShowFilters] =
     useState(false);
 
+  /* =========================================================
+     FETCH INVENTORY
+  ========================================================= */
+
   const fetchInventory = async () => {
     try {
       setLoading(true);
@@ -51,8 +57,12 @@ const Inventory = () => {
 
       /*
        * Supports both:
-       *   getInventory() -> array
-       *   getInventory() -> { data: [...] }
+       *
+       * getInventory() -> array
+       *
+       * OR
+       *
+       * getInventory() -> { data: [...] }
        */
 
       const inventoryData = Array.isArray(response)
@@ -88,7 +98,10 @@ const Inventory = () => {
       .map((product) => product.category)
       .filter(Boolean);
 
-    return ["all", ...new Set(values)];
+    return [
+      "all",
+      ...new Set(values),
+    ];
   }, [products]);
 
   /* =========================================================
@@ -106,7 +119,8 @@ const Inventory = () => {
         product.name ||
         "";
 
-      const sku = product.sku || "";
+      const sku =
+        product.sku || "";
 
       const matchesSearch =
         !query ||
@@ -129,18 +143,29 @@ const Inventory = () => {
 
       let matchesStatus = true;
 
-      if (stockStatus === "in-stock") {
+      if (
+        stockStatus ===
+        "in-stock"
+      ) {
         matchesStatus =
-          currentStock > minimumStock;
+          currentStock >
+          minimumStock;
       }
 
-      if (stockStatus === "low-stock") {
+      if (
+        stockStatus ===
+        "low-stock"
+      ) {
         matchesStatus =
           currentStock > 0 &&
-          currentStock <= minimumStock;
+          currentStock <=
+            minimumStock;
       }
 
-      if (stockStatus === "out-of-stock") {
+      if (
+        stockStatus ===
+        "out-of-stock"
+      ) {
         matchesStatus =
           currentStock <= 0;
       }
@@ -162,31 +187,46 @@ const Inventory = () => {
      SUMMARY
   ========================================================= */
 
-  const totalProducts = products.length;
+  const totalProducts =
+    products.length;
 
-  const lowStockCount = products.filter(
-    (product) => {
-      const stock =
-        Number(product.currentStock) || 0;
+  const lowStockCount =
+    products.filter(
+      (product) => {
+        const stock =
+          Number(
+            product.currentStock
+          ) || 0;
 
-      const minimum =
-        Number(product.minStock) || 0;
+        const minimum =
+          Number(
+            product.minStock
+          ) || 0;
 
-      return stock > 0 && stock <= minimum;
-    }
-  ).length;
+        return (
+          stock > 0 &&
+          stock <= minimum
+        );
+      }
+    ).length;
 
-  const outOfStockCount = products.filter(
-    (product) =>
-      (Number(product.currentStock) || 0) <= 0
-  ).length;
+  const outOfStockCount =
+    products.filter(
+      (product) =>
+        (Number(
+          product.currentStock
+        ) || 0) <= 0
+    ).length;
 
-  const totalUnits = products.reduce(
-    (total, product) =>
-      total +
-      (Number(product.currentStock) || 0),
-    0
-  );
+  const totalUnits =
+    products.reduce(
+      (total, product) =>
+        total +
+        (Number(
+          product.currentStock
+        ) || 0),
+      0
+    );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -196,15 +236,21 @@ const Inventory = () => {
       ====================================================== */}
 
       <StaffSidebar
-        collapsed={sidebarCollapsed}
-        mobileOpen={mobileSidebarOpen}
+        collapsed={
+          sidebarCollapsed
+        }
+        mobileOpen={
+          mobileSidebarOpen
+        }
         onCollapse={() =>
           setSidebarCollapsed(
             !sidebarCollapsed
           )
         }
         onMobileClose={() =>
-          setMobileSidebarOpen(false)
+          setMobileSidebarOpen(
+            false
+          )
         }
       />
 
@@ -214,7 +260,9 @@ const Inventory = () => {
         <div
           className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px] lg:hidden"
           onClick={() =>
-            setMobileSidebarOpen(false)
+            setMobileSidebarOpen(
+              false
+            )
           }
         />
       )}
@@ -230,13 +278,17 @@ const Inventory = () => {
             : "lg:pl-64"
         }`}
       >
+
         <StaffHeader
           onMenuClick={() =>
-            setMobileSidebarOpen(true)
+            setMobileSidebarOpen(
+              true
+            )
           }
         />
 
         <main className="p-4 sm:p-6">
+
           <div className="mx-auto max-w-[1600px]">
 
             {/* =================================================
@@ -246,6 +298,7 @@ const Inventory = () => {
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
 
               <div>
+
                 <p className="text-xs font-medium text-slate-400">
                   Workspace
                 </p>
@@ -258,11 +311,14 @@ const Inventory = () => {
                   View and manage available
                   inventory stock.
                 </p>
+
               </div>
 
               <button
                 type="button"
-                onClick={fetchInventory}
+                onClick={
+                  fetchInventory
+                }
                 disabled={loading}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -277,8 +333,8 @@ const Inventory = () => {
 
                 Refresh
               </button>
-            </div>
 
+            </div>
 
             {/* =================================================
                 SUMMARY CARDS
@@ -288,7 +344,9 @@ const Inventory = () => {
 
               <SummaryCard
                 label="Products"
-                value={totalProducts}
+                value={
+                  totalProducts
+                }
                 icon={Boxes}
               />
 
@@ -300,20 +358,25 @@ const Inventory = () => {
 
               <SummaryCard
                 label="Low Stock"
-                value={lowStockCount}
-                icon={SlidersHorizontal}
+                value={
+                  lowStockCount
+                }
+                icon={
+                  SlidersHorizontal
+                }
                 warning
               />
 
               <SummaryCard
                 label="Out of Stock"
-                value={outOfStockCount}
+                value={
+                  outOfStockCount
+                }
                 icon={Package}
                 danger
               />
 
             </div>
-
 
             {/* =================================================
                 SEARCH + FILTERS
@@ -326,6 +389,7 @@ const Inventory = () => {
                 {/* Search */}
 
                 <div className="relative flex-1">
+
                   <Search
                     size={17}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -342,6 +406,7 @@ const Inventory = () => {
                     placeholder="Search by product name or SKU..."
                     className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-50"
                   />
+
                 </div>
 
                 {/* Mobile filters */}
@@ -376,12 +441,16 @@ const Inventory = () => {
 
                   <FilterSelect
                     value={category}
-                    onChange={(event) =>
+                    onChange={(
+                      event
+                    ) =>
                       setCategory(
                         event.target.value
                       )
                     }
-                    options={categories}
+                    options={
+                      categories
+                    }
                     labelMap={{
                       all: "All Categories",
                     }}
@@ -390,8 +459,12 @@ const Inventory = () => {
                   {/* Stock status */}
 
                   <FilterSelect
-                    value={stockStatus}
-                    onChange={(event) =>
+                    value={
+                      stockStatus
+                    }
+                    onChange={(
+                      event
+                    ) =>
                       setStockStatus(
                         event.target.value
                       )
@@ -404,14 +477,17 @@ const Inventory = () => {
                     ]}
                     labelMap={{
                       all: "All Stock",
-                      "in-stock": "In Stock",
-                      "low-stock": "Low Stock",
+                      "in-stock":
+                        "In Stock",
+                      "low-stock":
+                        "Low Stock",
                       "out-of-stock":
                         "Out of Stock",
                     }}
                   />
 
                 </div>
+
               </div>
 
               {/* Result count */}
@@ -419,27 +495,42 @@ const Inventory = () => {
               <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
 
                 <p className="text-xs text-slate-400">
+
                   Showing{" "}
+
                   <span className="font-semibold text-slate-600">
-                    {filteredProducts.length}
+                    {
+                      filteredProducts.length
+                    }
                   </span>{" "}
+
                   of{" "}
+
                   <span className="font-semibold text-slate-600">
-                    {products.length}
+                    {
+                      products.length
+                    }
                   </span>{" "}
+
                   products
+
                 </p>
 
                 {(search ||
-                  category !== "all" ||
+                  category !==
+                    "all" ||
                   stockStatus !==
                     "all") && (
                   <button
                     type="button"
                     onClick={() => {
                       setSearch("");
-                      setCategory("all");
-                      setStockStatus("all");
+                      setCategory(
+                        "all"
+                      );
+                      setStockStatus(
+                        "all"
+                      );
                     }}
                     className="text-xs font-medium text-blue-600 hover:text-blue-700"
                   >
@@ -448,40 +539,46 @@ const Inventory = () => {
                 )}
 
               </div>
-            </div>
 
+            </div>
 
             {/* =================================================
                 ERROR
             ================================================== */}
 
-            {!loading && error && (
-              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-5">
+            {!loading &&
+              error && (
+                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-5">
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-                  <div>
-                    <h2 className="text-sm font-semibold text-red-800">
-                      Unable to load inventory
-                    </h2>
+                    <div>
 
-                    <p className="mt-1 text-sm text-red-600">
-                      {error}
-                    </p>
+                      <h2 className="text-sm font-semibold text-red-800">
+                        Unable to load
+                        inventory
+                      </h2>
+
+                      <p className="mt-1 text-sm text-red-600">
+                        {error}
+                      </p>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={
+                        fetchInventory
+                      }
+                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                    >
+                      Try Again
+                    </button>
+
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={fetchInventory}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                  >
-                    Try Again
-                  </button>
-
                 </div>
-              </div>
-            )}
-
+              )}
 
             {/* =================================================
                 LOADING
@@ -504,7 +601,6 @@ const Inventory = () => {
               </div>
             )}
 
-
             {/* =================================================
                 INVENTORY TABLE
             ================================================== */}
@@ -516,9 +612,11 @@ const Inventory = () => {
                   {/* Desktop */}
 
                   <div className="hidden overflow-x-auto md:block">
+
                     <table className="w-full text-left">
 
                       <thead>
+
                         <tr className="border-b border-slate-100 bg-slate-50/70">
 
                           <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -546,6 +644,7 @@ const Inventory = () => {
                           </th>
 
                         </tr>
+
                       </thead>
 
                       <tbody className="divide-y divide-slate-100">
@@ -553,12 +652,14 @@ const Inventory = () => {
                         {filteredProducts.length ===
                         0 ? (
                           <tr>
+
                             <td
                               colSpan={6}
                               className="px-5 py-16"
                             >
                               <EmptyInventory />
                             </td>
+
                           </tr>
                         ) : (
                           filteredProducts.map(
@@ -580,9 +681,10 @@ const Inventory = () => {
                         )}
 
                       </tbody>
-                    </table>
-                  </div>
 
+                    </table>
+
+                  </div>
 
                   {/* Mobile */}
 
@@ -616,8 +718,11 @@ const Inventory = () => {
               )}
 
           </div>
+
         </main>
+
       </div>
+
     </div>
   );
 };
@@ -640,6 +745,7 @@ const SummaryCard = ({
       <div className="flex items-center justify-between gap-3">
 
         <div>
+
           <p className="text-[11px] font-medium text-slate-400 sm:text-xs">
             {label}
           </p>
@@ -647,6 +753,7 @@ const SummaryCard = ({
           <p className="mt-1.5 text-xl font-bold text-slate-900 sm:text-2xl">
             {value}
           </p>
+
         </div>
 
         <div
@@ -662,6 +769,7 @@ const SummaryCard = ({
         </div>
 
       </div>
+
     </div>
   );
 };
@@ -685,15 +793,21 @@ const FilterSelect = ({
         onChange={onChange}
         className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-9 text-sm text-slate-600 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-50"
       >
-        {options.map((option) => (
-          <option
-            key={option}
-            value={option}
-          >
-            {labelMap[option] ||
-              formatLabel(option)}
-          </option>
-        ))}
+
+        {options.map(
+          (option) => (
+            <option
+              key={option}
+              value={option}
+            >
+              {labelMap[option] ||
+                formatLabel(
+                  option
+                )}
+            </option>
+          )
+        )}
+
       </select>
 
       <ChevronDown
@@ -720,18 +834,24 @@ const InventoryRow = ({
     "Unnamed Product";
 
   const sku =
-    product.sku || "No SKU";
+    product.sku ||
+    "No SKU";
 
   const stock =
-    Number(product.currentStock) || 0;
+    Number(
+      product.currentStock
+    ) || 0;
 
   const minimum =
-    Number(product.minStock) || 0;
+    Number(
+      product.minStock
+    ) || 0;
 
-  const status = getStockStatus(
-    stock,
-    minimum
-  );
+  const status =
+    getStockStatus(
+      stock,
+      minimum
+    );
 
   return (
     <tr className="transition hover:bg-slate-50/70">
@@ -747,6 +867,7 @@ const InventoryRow = ({
           </div>
 
           <div className="min-w-0">
+
             <p className="max-w-[230px] truncate text-sm font-semibold text-slate-800">
               {name}
             </p>
@@ -754,6 +875,7 @@ const InventoryRow = ({
             <p className="mt-0.5 text-[11px] text-slate-400">
               SKU: {sku}
             </p>
+
           </div>
 
         </div>
@@ -763,97 +885,205 @@ const InventoryRow = ({
       {/* Category */}
 
       <td className="px-5 py-4">
+
         <span className="text-xs text-slate-600">
           {product.category ||
             "Uncategorized"}
         </span>
+
       </td>
 
-      {/* Current stock */}
+      {/* Current Stock */}
 
       <td className="px-5 py-4">
+
         <span className="text-sm font-semibold text-slate-800">
           {stock}
         </span>
 
         <span className="ml-1 text-[11px] text-slate-400">
-          {product.unit || "units"}
+          {product.unit ||
+            "units"}
         </span>
+
       </td>
 
       {/* Minimum */}
 
       <td className="px-5 py-4">
+
         <span className="text-xs text-slate-600">
           {minimum}
         </span>
+
       </td>
 
       {/* Status */}
 
       <td className="px-5 py-4">
-        <StockBadge status={status} />
+
+        <StockBadge
+          status={status}
+        />
+
       </td>
 
       {/* Actions */}
 
       <td className="px-5 py-4">
 
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex justify-end">
 
-          <button
-            type="button"
-            title="View product"
-            onClick={() =>
-              navigate(
-                `/staff/inventory/${
-                  product._id ||
-                  product.id
-                }`
-              )
-            }
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          >
-            <Eye size={16} />
-          </button>
-
-          <button
-            type="button"
-            title="Stock in"
-            onClick={() =>
-              navigate(
-                `/staff/stock-in?product=${
-                  product._id ||
-                  product.id
-                }`
-              )
-            }
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
-          >
-            <Plus size={16} />
-          </button>
-
-          <button
-            type="button"
-            title="Stock out"
-            onClick={() =>
-              navigate(
-                `/staff/stock-out?product=${
-                  product._id ||
-                  product.id
-                }`
-              )
-            }
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-          >
-            <Minus size={16} />
-          </button>
+          <InventoryActions
+            product={product}
+            navigate={navigate}
+          />
 
         </div>
 
       </td>
 
     </tr>
+  );
+};
+
+
+/* =========================================================
+   INVENTORY ACTIONS
+========================================================= */
+
+const InventoryActions = ({
+  product,
+  navigate,
+}) => {
+  const [open, setOpen] =
+    useState(false);
+
+  const id =
+    product._id ||
+    product.id;
+
+  const handleDetails =
+    () => {
+      setOpen(false);
+
+      navigate(
+        `/staff/inventory/${id}`
+      );
+    };
+
+  const handleStockOperation =
+    () => {
+      setOpen(false);
+
+      navigate(
+        `/staff/stock-operations?product=${id}`
+      );
+    };
+
+  return (
+    <div className="relative">
+
+      <button
+        type="button"
+        onClick={() =>
+          setOpen(
+            (current) =>
+              !current
+          )
+        }
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+      >
+
+        <MoreHorizontal
+          size={15}
+        />
+
+        {/* <span>
+          Actions
+        </span> */}
+
+        <ChevronDown
+          size={14}
+          className={`transition-transform ${
+            open
+              ? "rotate-180"
+              : ""
+          }`}
+        />
+
+      </button>
+
+      {open && (
+        <>
+
+          {/* Click outside */}
+
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() =>
+              setOpen(false)
+            }
+          />
+
+          {/* Dropdown */}
+
+          <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+
+            {/* Product Details */}
+
+            <button
+              type="button"
+              onClick={
+                handleDetails
+              }
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+
+                <Eye
+                  size={15}
+                />
+
+              </span>
+
+              <span>
+                Product Details
+              </span>
+
+            </button>
+
+            {/* Stock Operation */}
+
+            <button
+              type="button"
+              onClick={
+                handleStockOperation
+              }
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-600">
+
+                <ArrowRightLeft
+                  size={15}
+                />
+
+              </span>
+
+              <span>
+                Stock Operation
+              </span>
+
+            </button>
+
+          </div>
+
+        </>
+      )}
+
+    </div>
   );
 };
 
@@ -872,21 +1102,24 @@ const MobileInventoryCard = ({
     "Unnamed Product";
 
   const sku =
-    product.sku || "No SKU";
+    product.sku ||
+    "No SKU";
 
   const stock =
-    Number(product.currentStock) || 0;
+    Number(
+      product.currentStock
+    ) || 0;
 
   const minimum =
-    Number(product.minStock) || 0;
+    Number(
+      product.minStock
+    ) || 0;
 
-  const status = getStockStatus(
-    stock,
-    minimum
-  );
-
-  const id =
-    product._id || product.id;
+  const status =
+    getStockStatus(
+      stock,
+      minimum
+    );
 
   return (
     <div className="p-4">
@@ -900,6 +1133,7 @@ const MobileInventoryCard = ({
           </div>
 
           <div className="min-w-0">
+
             <p className="truncate text-sm font-semibold text-slate-800">
               {name}
             </p>
@@ -907,18 +1141,21 @@ const MobileInventoryCard = ({
             <p className="mt-0.5 text-[11px] text-slate-400">
               SKU: {sku}
             </p>
+
           </div>
 
         </div>
 
-        <StockBadge status={status} />
+        <StockBadge
+          status={status}
+        />
 
       </div>
-
 
       <div className="mt-4 grid grid-cols-3 gap-3 rounded-lg bg-slate-50 p-3">
 
         <div>
+
           <p className="text-[10px] text-slate-400">
             Stock
           </p>
@@ -926,9 +1163,11 @@ const MobileInventoryCard = ({
           <p className="mt-1 text-sm font-semibold text-slate-700">
             {stock}
           </p>
+
         </div>
 
         <div>
+
           <p className="text-[10px] text-slate-400">
             Minimum
           </p>
@@ -936,9 +1175,11 @@ const MobileInventoryCard = ({
           <p className="mt-1 text-sm font-semibold text-slate-700">
             {minimum}
           </p>
+
         </div>
 
         <div>
+
           <p className="text-[10px] text-slate-400">
             Category
           </p>
@@ -947,51 +1188,19 @@ const MobileInventoryCard = ({
             {product.category ||
               "—"}
           </p>
+
         </div>
 
       </div>
 
+      {/* Mobile Actions */}
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 flex justify-end">
 
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              `/staff/inventory/${id}`
-            )
-          }
-          className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-        >
-          <Eye size={14} />
-          View
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              `/staff/stock-in?product=${id}`
-            )
-          }
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-600 transition hover:bg-emerald-100"
-        >
-          <Plus size={14} />
-          Stock In
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              `/staff/stock-out?product=${id}`
-            )
-          }
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-100"
-        >
-          <Minus size={14} />
-          Stock Out
-        </button>
+        <InventoryActions
+          product={product}
+          navigate={navigate}
+        />
 
       </div>
 
@@ -1004,7 +1213,9 @@ const MobileInventoryCard = ({
    STOCK BADGE
 ========================================================= */
 
-const StockBadge = ({ status }) => {
+const StockBadge = ({
+  status,
+}) => {
   const config = {
     "in-stock": {
       label: "In Stock",
@@ -1068,7 +1279,9 @@ const EmptyInventory = () => {
     <div className="flex flex-col items-center justify-center py-10 text-center">
 
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+
         <Boxes size={21} />
+
       </div>
 
       <p className="text-sm font-semibold text-slate-700">
@@ -1089,11 +1302,15 @@ const EmptyInventory = () => {
    FORMAT LABEL
 ========================================================= */
 
-const formatLabel = (value) => {
+const formatLabel = (
+  value
+) => {
   return value
     .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) =>
-      char.toUpperCase()
+    .replace(
+      /\b\w/g,
+      (char) =>
+        char.toUpperCase()
     );
 };
 
