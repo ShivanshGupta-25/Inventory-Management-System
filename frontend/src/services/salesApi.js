@@ -1,121 +1,76 @@
-// const API_URL = "http://localhost:5000/api/sales";
-
-// export const getSales = async (params = {}) => {
-//   const query = new URLSearchParams();
-
-//   Object.entries(params).forEach(([key, value]) => {
-//     if (value) {
-//       query.append(key, value);
-//     }
-//   });
-
-//   const response = await fetch(
-//     `${API_URL}?${query.toString()}`
-//   );
-
-//   const data = await response.json();
-
-//   if (!response.ok) {
-//     throw new Error(
-//       data.message || "Failed to fetch sales"
-//     );
-//   }
-
-//   return data;
-// };
-
-// export const getSalesStats = async () => {
-//   const response = await fetch(`${API_URL}/stats`);
-
-//   const data = await response.json();
-
-//   if (!response.ok) {
-//     throw new Error(
-//       data.message || "Failed to fetch sales statistics"
-//     );
-//   }
-
-//   return data;
-// };
-
-// export const getSaleById = async (id) => {
-//   const response = await fetch(`${API_URL}/${id}`);
-
-//   const data = await response.json();
-
-//   if (!response.ok) {
-//     throw new Error(
-//       data.message || "Failed to fetch sale"
-//     );
-//   }
-
-//   return data;
-// };
-
-// export const createSale = async (saleData) => {
-//   const response = await fetch(API_URL, {
-//     method: "POST",
-//     headers: {
-//       "Content-Type": "application/json",
-//     },
-//     body: JSON.stringify(saleData),
-//   });
-
-//   const data = await response.json();
-
-//   if (!response.ok) {
-//     throw new Error(
-//       data.message || "Failed to create sale"
-//     );
-//   }
-
-//   return data;
-// };
-
-// export const updateSale = async (
-//   id,
-//   saleData
-// ) => {
-//   const response = await fetch(
-//     `${API_URL}/${id}`,
-//     {
-//       method: "PUT",
-//       headers: {
-//         "Content-Type":
-//           "application/json",
-//       },
-//       body: JSON.stringify(
-//         saleData
-//       ),
-//     }
-//   );
-
-//   const data =
-//     await response.json();
-
-//   if (!response.ok) {
-//     throw new Error(
-//       data.message ||
-//         "Failed to update sale"
-//     );
-//   }
-
-//   return data;
-// };
-
-
-
-
-
-
-
-
-
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api";
 
-/* Generic request helper */
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+|
+| Your backend JWT contains:
+|
+| {
+|   userId: user._id,
+|   role: user.role
+| }
+|
+| authMiddleware reads the token and sets:
+|
+| req.user = decoded
+|
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Get the currently stored authentication token.
+ *
+ * "token" is the primary key.
+ * The fallbacks make the service compatible if
+ * the authentication code uses another common key.
+ */
+const getAuthToken = () => {
+  const tokenKeys = [
+    "token",
+    "authToken",
+    "accessToken",
+  ];
+
+  for (const key of tokenKeys) {
+    const token =
+      localStorage.getItem(key);
+
+    if (token) {
+      return token;
+    }
+  }
+
+  return null;
+};
+
+/*
+ * Build authentication headers.
+ */
+const getAuthHeaders = () => {
+  const token = getAuthToken();
+
+  if (!token) {
+    console.warn(
+      "Sales API: No authentication token found in localStorage."
+    );
+
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| Generic request helper
+|--------------------------------------------------------------------------
+*/
 
 const request = async (
   method,
@@ -129,6 +84,11 @@ const request = async (
       url: `${API_URL}${endpoint}`,
       data,
       params,
+
+      /*
+       * Send JWT with every Sales request.
+       */
+      headers: getAuthHeaders(),
     });
 
     return response.data;
@@ -142,9 +102,11 @@ const request = async (
   }
 };
 
-/* =========================
-   GET SALES
-========================= */
+/*
+|--------------------------------------------------------------------------
+| GET SALES
+|--------------------------------------------------------------------------
+*/
 
 export const getSales = async (
   params = {}
@@ -157,9 +119,11 @@ export const getSales = async (
   );
 };
 
-/* =========================
-   GET SALES STATISTICS
-========================= */
+/*
+|--------------------------------------------------------------------------
+| GET SALES STATISTICS
+|--------------------------------------------------------------------------
+*/
 
 export const getSalesStats = async () => {
   return request(
@@ -168,22 +132,30 @@ export const getSalesStats = async () => {
   );
 };
 
-/* =========================
-   GET SALE BY ID
-========================= */
+/*
+|--------------------------------------------------------------------------
+| GET SALE BY ID
+|--------------------------------------------------------------------------
+*/
 
-export const getSaleById = async (id) => {
+export const getSaleById = async (
+  id
+) => {
   return request(
     "GET",
     `/sales/${id}`
   );
 };
 
-/* =========================
-   CREATE SALE
-========================= */
+/*
+|--------------------------------------------------------------------------
+| CREATE SALE
+|--------------------------------------------------------------------------
+*/
 
-export const createSale = async (data) => {
+export const createSale = async (
+  data
+) => {
   return request(
     "POST",
     "/sales",
@@ -191,9 +163,11 @@ export const createSale = async (data) => {
   );
 };
 
-/* =========================
-   UPDATE SALE
-========================= */
+/*
+|--------------------------------------------------------------------------
+| UPDATE SALE
+|--------------------------------------------------------------------------
+*/
 
 export const updateSale = async (
   id,
@@ -206,20 +180,35 @@ export const updateSale = async (
   );
 };
 
-/* =========================
-   DELETE SALE
-========================= */
+/*
+|--------------------------------------------------------------------------
+| DELETE SALE
+|--------------------------------------------------------------------------
+|
+| NOTE:
+| Your current backend salesRoutes.js does not
+| define a DELETE /sales/:id route.
+|
+| This function is kept for compatibility with
+| existing frontend imports, but the backend
+| currently uses the cancel endpoint instead.
+|--------------------------------------------------------------------------
+*/
 
-export const deleteSale = async (id) => {
+export const deleteSale = async (
+  id
+) => {
   return request(
     "DELETE",
     `/sales/${id}`
   );
 };
 
-/* =========================
-   UPDATE PAYMENT
-========================= */
+/*
+|--------------------------------------------------------------------------
+| UPDATE PAYMENT
+|--------------------------------------------------------------------------
+*/
 
 export const updateSalePayment = async (
   id,
@@ -232,31 +221,43 @@ export const updateSalePayment = async (
   );
 };
 
-/* =========================
-   GET SALE PAYMENT
-========================= */
+/*
+|--------------------------------------------------------------------------
+| GET SALE MOVEMENTS
+|--------------------------------------------------------------------------
+*/
 
-export const getSaleMovements = async (id) => {
+export const getSaleMovements = async (
+  id
+) => {
   return request(
     "GET",
     `/sales/${id}/movements`
   );
 };
 
-/* =========================
-   CANCEL SALE
-========================= */
+/*
+|--------------------------------------------------------------------------
+| CANCEL SALE
+|--------------------------------------------------------------------------
+*/
 
-export const cancelSale = async (id) => {
+export const cancelSale = async (
+  id,
+  data = {}
+) => {
   return request(
     "PATCH",
-    `/sales/${id}/cancel`
+    `/sales/${id}/cancel`,
+    data
   );
 };
 
-/* =========================
-   RETURN SALE
-========================= */
+/*
+|--------------------------------------------------------------------------
+| RETURN SALE
+|--------------------------------------------------------------------------
+*/
 
 export const returnSale = async (
   id,

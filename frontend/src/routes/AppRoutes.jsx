@@ -22,6 +22,9 @@ import StaffStockHistoryPage from "../components/staff/dashboard/StaffStockHisto
 // Staff Inventory
 import StaffInventory from "../pages/Staff/Inventory/Inventory";
 
+// Staff Stock Operations
+import StockOperationsPage from "../pages/Staff/StockOperationsPage";
+
 // Manager
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Profile from "../pages/Manager/Profile";
@@ -200,6 +203,11 @@ const AppRoutes = () => {
         <Route
           path="/staff/stock-history"
           element={<StaffStockHistoryPage />}
+        />
+
+        <Route
+          path="/staff/stock-operations"
+          element={<StockOperationsPage />}
         />
       </Route>
 

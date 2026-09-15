@@ -10,20 +10,70 @@ const {
   cancelPurchaseOrder,
 } = require("../controllers/purchaseOrderController");
 
+const authMiddleware = require("../middleware/authMiddleware");
+const roleMiddleware = require("../middleware/roleMiddleware");
+
 const router = express.Router();
 
-router.get("/", getPurchaseOrders);
+/*
+ * All purchase-order routes require authentication.
+ */
+router.get(
+  "/",
+  authMiddleware,
+  getPurchaseOrders
+);
 
-router.get("/:id", getPurchaseOrderById);
+router.get(
+  "/:id",
+  authMiddleware,
+  getPurchaseOrderById
+);
 
-router.post("/", createPurchaseOrder);
+/*
+ * Creating/editing/deleting PO operations
+ * are restricted to admin and manager.
+ */
+router.post(
+  "/",
+  authMiddleware,
+  roleMiddleware("admin", "manager"),
+  createPurchaseOrder
+);
 
-router.put("/:id", updatePurchaseOrder);
+router.put(
+  "/:id",
+  authMiddleware,
+  roleMiddleware("admin", "manager"),
+  updatePurchaseOrder
+);
 
-router.post("/:id/confirm", confirmPurchaseOrder);
+router.post(
+  "/:id/confirm",
+  authMiddleware,
+  roleMiddleware("admin", "manager"),
+  confirmPurchaseOrder
+);
 
-router.post("/:id/receive", receivePurchaseOrder);
+/*
+ * Receiving stock can be performed by
+ * admin, manager, or staff.
+ */
+router.post(
+  "/:id/receive",
+  authMiddleware,
+  roleMiddleware("admin", "manager", "staff"),
+  receivePurchaseOrder
+);
 
-router.post("/:id/cancel", cancelPurchaseOrder);
+/*
+ * Cancellation restricted to admin/manager.
+ */
+router.post(
+  "/:id/cancel",
+  authMiddleware,
+  roleMiddleware("admin", "manager"),
+  cancelPurchaseOrder
+);
 
 module.exports = router;

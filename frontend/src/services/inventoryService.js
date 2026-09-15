@@ -114,12 +114,14 @@ export const adjustStock = async (id, data) => {
 export const stockIn = async (
   id,
   quantity,
-  reason
+  reason,
+  notes = ""
 ) => {
   return adjustStock(id, {
     type: "IN",
     quantity,
     reason,
+    notes,
   });
 };
 
@@ -130,12 +132,14 @@ export const stockIn = async (
 export const stockOut = async (
   id,
   quantity,
-  reason
+  reason,
+  notes = ""
 ) => {
   return adjustStock(id, {
     type: "OUT",
     quantity,
     reason,
+    notes,
   });
 };
 
@@ -149,6 +153,31 @@ export const getStockMovements = async (
   const response = await axios.get(
     `${API_URL}/stock-movements/${inventoryId}`,
     {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem(
+          "token"
+        )}`,
+      },
+    }
+  );
+
+  return response.data;
+};
+
+
+/* =========================================================
+   RECENT STOCK MOVEMENTS
+========================================================= */
+
+export const getRecentStockMovements = async (
+  limit = 10
+) => {
+  const response = await axios.get(
+    `${API_URL}/stock-movements`,
+    {
+      params: {
+        limit,
+      },
       headers: {
         Authorization: `Bearer ${localStorage.getItem(
           "token"

@@ -3,8 +3,13 @@ const dotenv = require("dotenv");
 
 const Inventory = require("../models/Inventory");
 const StockMovement = require("../models/StockMovement");
+const User = require("../models/User");
 
 dotenv.config();
+
+/* =====================================================
+   INVENTORY SEED DATA
+===================================================== */
 
 const inventoryData = [
   {
@@ -20,6 +25,7 @@ const inventoryData = [
     minStock: 10,
     maxStock: 100,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -35,6 +41,7 @@ const inventoryData = [
     minStock: 10,
     maxStock: 80,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -50,6 +57,7 @@ const inventoryData = [
     minStock: 10,
     maxStock: 60,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -65,6 +73,7 @@ const inventoryData = [
     minStock: 20,
     maxStock: 100,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -80,6 +89,7 @@ const inventoryData = [
     minStock: 10,
     maxStock: 80,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -95,6 +105,7 @@ const inventoryData = [
     minStock: 10,
     maxStock: 50,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -110,6 +121,7 @@ const inventoryData = [
     minStock: 10,
     maxStock: 100,
     warehouse: "Main Warehouse",
+    status: "Active",
   },
 
   {
@@ -125,49 +137,252 @@ const inventoryData = [
     minStock: 10,
     maxStock: 60,
     warehouse: "Main Warehouse",
+    status: "Active",
+  },
+
+  {
+    productName: "Wireless Headphones",
+    sku: "HP-009",
+    category: "Audio",
+    brand: "SoundMax",
+    unit: "pcs",
+    purchasePrice: 2200,
+    sellingPrice: 3499,
+    currentStock: 28,
+    reservedStock: 3,
+    minStock: 10,
+    maxStock: 70,
+    warehouse: "Main Warehouse",
+    status: "Active",
+  },
+
+  {
+    productName: "USB-C Charging Cable",
+    sku: "CB-010",
+    category: "Accessories",
+    brand: "ConnectX",
+    unit: "pcs",
+    purchasePrice: 250,
+    sellingPrice: 499,
+    currentStock: 18,
+    reservedStock: 2,
+    minStock: 10,
+    maxStock: 100,
+    warehouse: "Main Warehouse",
+    status: "Active",
   },
 ];
 
+/* =====================================================
+   FIND USER FOR STOCK MOVEMENTS
+===================================================== */
+
+const getPerformer = async () => {
+  /*
+    StockMovement.performedBy is required.
+
+    Prefer a staff user because these records will
+    be used for testing Staff Stock Operations.
+
+    Fallback:
+      staff → manager → admin
+  */
+
+  const performer =
+    await User.findOne({
+      role: "staff",
+    }) ||
+    await User.findOne({
+      role: "manager",
+    }) ||
+    await User.findOne({
+      role: "admin",
+    });
+
+  if (!performer) {
+    throw new Error(
+      "No staff, manager, or admin user found. Please seed/create a user first."
+    );
+  }
+
+  console.log(
+    `Using ${performer.role} "${performer.name || performer.email}" as stock movement performer`
+  );
+
+  return performer;
+};
+
+/* =====================================================
+   SEED DATABASE
+===================================================== */
+
 const seedDatabase = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(
+      process.env.MONGO_URI
+    );
 
     console.log("MongoDB connected");
+
+    /* =================================================
+       FIND PERFORMER BEFORE DELETING DATA
+    ================================================= */
+
+    const performer =
+      await getPerformer();
+
+    /* =================================================
+       CLEAR OLD INVENTORY + MOVEMENTS
+    ================================================= */
 
     await StockMovement.deleteMany({});
     await Inventory.deleteMany({});
 
+    console.log(
+      "Existing inventory and stock movements cleared"
+    );
+
+    /* =================================================
+       INSERT INVENTORY
+    ================================================= */
+
     const inventory =
-      await Inventory.insertMany(inventoryData);
+      await Inventory.insertMany(
+        inventoryData
+      );
 
     console.log(
       `${inventory.length} inventory items inserted`
     );
 
-    const initialMovements =
-      inventory.map((item) => ({
-        inventory: item._id,
-        type: "ADJUSTMENT",
-        quantity: item.currentStock,
-        previousStock: 0,
-        newStock: item.currentStock,
-        reason: "Initial inventory setup",
-        referenceType: "MANUAL",
-      }));
+    /* =================================================
+       CREATE INITIAL STOCK MOVEMENTS
+    ================================================= */
 
-    await StockMovement.insertMany(
-      initialMovements
-    );
+    /*
+      Only products with initial stock > 0 get
+      an initial IN movement.
+
+      A product with 0 stock does not need a movement
+      because no stock actually entered the inventory.
+    */
+
+    const initialMovements =
+      inventory
+        .filter(
+          (item) =>
+            Number(item.currentStock) > 0
+        )
+        .map((item) => ({
+          inventory: item._id,
+
+          performedBy:
+            performer._id,
+
+          type: "IN",
+
+          quantity:
+            item.currentStock,
+
+          previousStock: 0,
+
+          newStock:
+            item.currentStock,
+
+          reason: "Initial Stock",
+
+          referenceType: "MANUAL",
+        }));
+
+    if (initialMovements.length > 0) {
+      await StockMovement.insertMany(
+        initialMovements
+      );
+    }
 
     console.log(
-      `${initialMovements.length} stock movements inserted`
+      `${initialMovements.length} initial stock movements inserted`
     );
 
-    console.log("Database seeded successfully");
+    /* =================================================
+       SUMMARY
+    ================================================= */
+
+    const totalStock =
+      inventory.reduce(
+        (sum, item) =>
+          sum +
+          Number(
+            item.currentStock || 0
+          ),
+        0
+      );
+
+    const lowStock =
+      inventory.filter(
+        (item) =>
+          item.currentStock > 0 &&
+          item.currentStock <=
+            item.minStock
+      ).length;
+
+    const outOfStock =
+      inventory.filter(
+        (item) =>
+          item.currentStock <= 0
+      ).length;
+
+    const overstock =
+      inventory.filter(
+        (item) =>
+          item.maxStock &&
+          item.currentStock >=
+            item.maxStock
+      ).length;
+
+    console.log("");
+    console.log(
+      "======================================"
+    );
+    console.log(
+      "       DATABASE SEED COMPLETE"
+    );
+    console.log(
+      "======================================"
+    );
+    console.log(
+      `Products:      ${inventory.length}`
+    );
+    console.log(
+      `Total Stock:   ${totalStock}`
+    );
+    console.log(
+      `Low Stock:     ${lowStock}`
+    );
+    console.log(
+      `Out of Stock:  ${outOfStock}`
+    );
+    console.log(
+      `Overstock:     ${overstock}`
+    );
+    console.log(
+      `Movements:     ${initialMovements.length}`
+    );
+    console.log(
+      `Performed By:  ${performer.name || performer.email}`
+    );
+    console.log(
+      "======================================"
+    );
+    console.log("");
 
     process.exit(0);
   } catch (error) {
-    console.error("Seed error:", error);
+    console.error(
+      "Seed error:",
+      error.message
+    );
+
     process.exit(1);
   }
 };

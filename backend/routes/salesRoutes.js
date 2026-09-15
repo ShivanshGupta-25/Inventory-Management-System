@@ -12,24 +12,136 @@ const {
   returnSale,
 } = require("../controllers/salesController");
 
+const authMiddleware = require("../middleware/authMiddleware");
+const roleMiddleware = require("../middleware/roleMiddleware");
+
 const router = express.Router();
 
-router.get("/", getSales);
+/*
+|--------------------------------------------------------------------------
+| Sales Routes
+|--------------------------------------------------------------------------
+|
+| All routes require authentication.
+|
+| Viewing:
+|   Admin / Manager / Staff
+|
+| Sales operations:
+|   Admin / Manager / Staff
+|
+|--------------------------------------------------------------------------
+*/
 
-router.get("/stats", getSalesStats);
+/*
+ * GET /api/sales
+ */
+router.get(
+  "/",
+  authMiddleware,
+  getSales
+);
 
-router.post("/", createSale);
+/*
+ * GET /api/sales/stats
+ */
+router.get(
+  "/stats",
+  authMiddleware,
+  getSalesStats
+);
 
-router.put("/:id", updateSale);
+/*
+ * POST /api/sales
+ *
+ * Staff can create sales.
+ */
+router.post(
+  "/",
+  authMiddleware,
+  roleMiddleware(
+    "admin",
+    "manager",
+    "staff"
+  ),
+  createSale
+);
 
-router.patch("/:id/payment", updateSalePayment);
+/*
+ * PUT /api/sales/:id
+ *
+ * Staff can edit unpaid completed sales
+ * according to controller validation.
+ */
+router.put(
+  "/:id",
+  authMiddleware,
+  roleMiddleware(
+    "admin",
+    "manager",
+    "staff"
+  ),
+  updateSale
+);
 
-router.patch("/:id/cancel", cancelSale);
+/*
+ * PATCH /api/sales/:id/payment
+ */
+router.patch(
+  "/:id/payment",
+  authMiddleware,
+  roleMiddleware(
+    "admin",
+    "manager",
+    "staff"
+  ),
+  updateSalePayment
+);
 
-router.patch("/:id/return", returnSale);
+/*
+ * PATCH /api/sales/:id/cancel
+ */
+router.patch(
+  "/:id/cancel",
+  authMiddleware,
+  roleMiddleware(
+    "admin",
+    "manager",
+    "staff"
+  ),
+  cancelSale
+);
 
-router.get("/:id/movements", getSaleMovements);
+/*
+ * PATCH /api/sales/:id/return
+ */
+router.patch(
+  "/:id/return",
+  authMiddleware,
+  roleMiddleware(
+    "admin",
+    "manager",
+    "staff"
+  ),
+  returnSale
+);
 
-router.get("/:id", getSaleById);
+/*
+ * GET /api/sales/:id/movements
+ */
+router.get(
+  "/:id/movements",
+  authMiddleware,
+  getSaleMovements
+);
+
+/*
+ * GET /api/sales/:id
+ */
+router.get(
+  "/:id",
+  authMiddleware,
+  getSaleById
+);
 
 module.exports = router;

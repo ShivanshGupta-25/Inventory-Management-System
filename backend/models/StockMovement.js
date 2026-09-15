@@ -44,6 +44,12 @@ const stockMovementSchema = new mongoose.Schema(
       trim: true,
     },
 
+    notes: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     referenceType: {
       type: String,
       enum: [

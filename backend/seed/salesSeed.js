@@ -1,12 +1,11 @@
 require("dotenv").config();
 
-const mongoose = require("mongoose");
-
 const connectDB = require("../config/db");
 
 const Sale = require("../models/Sale");
 const Inventory = require("../models/Inventory");
 const StockMovement = require("../models/StockMovement");
+const User = require("../models/User");
 
 /*
 |--------------------------------------------------------------------------
@@ -23,7 +22,8 @@ const StockMovement = require("../models/StockMovement");
 | 3. Create Sale records
 | 4. Deduct sold quantity from Inventory
 | 5. Create StockMovement records
-| 6. Avoid duplicate sales when run again
+| 6. Attach a valid performedBy user
+| 7. Avoid duplicate sales when run again
 |--------------------------------------------------------------------------
 */
 
@@ -236,6 +236,50 @@ const calculatePaymentStatus = (
 
 /*
 |--------------------------------------------------------------------------
+| Find Stock Movement Performer
+|--------------------------------------------------------------------------
+*/
+
+const getPerformer = async () => {
+  /*
+   * StockMovement.performedBy is required.
+   *
+   * Prefer staff because these records represent
+   * inventory operations.
+   *
+   * Fallback:
+   * staff → manager → admin
+   */
+
+  const performer =
+    await User.findOne({
+      role: "staff",
+    }) ||
+    await User.findOne({
+      role: "manager",
+    }) ||
+    await User.findOne({
+      role: "admin",
+    });
+
+  if (!performer) {
+    throw new Error(
+      "No staff, manager, or admin user found. Please seed/create a user first."
+    );
+  }
+
+  console.log(
+    `Stock movements will be performed by: ${
+      performer.name ||
+      performer.email
+    } (${performer.role})`
+  );
+
+  return performer;
+};
+
+/*
+|--------------------------------------------------------------------------
 | Seed Sales
 |--------------------------------------------------------------------------
 */
@@ -249,7 +293,14 @@ const seedSales = async () => {
     );
 
     /*
-     * We process every sale individually.
+     * Find a valid user before creating
+     * stock movement records.
+     */
+    const performer =
+      await getPerformer();
+
+    /*
+     * Process every sale individually.
      */
     for (const saleData of salesData) {
       /*
@@ -571,6 +622,9 @@ const seedSales = async () => {
           inventory:
             inventory._id,
 
+          performedBy:
+            performer._id,
+
           type: "OUT",
 
           quantity,
@@ -609,6 +663,16 @@ const seedSales = async () => {
 
     console.log(
       `Total sales in database: ${totalSales}`
+    );
+
+    /*
+     * Print stock movement count.
+     */
+    const totalMovements =
+      await StockMovement.countDocuments();
+
+    console.log(
+      `Total stock movements in database: ${totalMovements}`
     );
 
     process.exit(0);

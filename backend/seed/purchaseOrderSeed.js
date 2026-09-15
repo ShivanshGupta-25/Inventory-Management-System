@@ -1,11 +1,13 @@
 require("dotenv").config();
 
-const mongoose = require("mongoose");
-
 const connectDB = require("../config/db");
 
 const Inventory = require("../models/Inventory");
 const PurchaseOrder = require("../models/PurchaseOrder");
+
+/* =====================================================
+   PURCHASE ORDER SEED DATA
+===================================================== */
 
 const purchaseOrders = [
   {
@@ -207,18 +209,21 @@ const purchaseOrders = [
   },
 ];
 
+/* =====================================================
+   SEED PURCHASE ORDERS
+===================================================== */
+
 const seedPurchaseOrders = async () => {
   try {
     await connectDB();
 
     console.log("Connected to MongoDB");
 
-    /*
-     * Build Purchase Order items from existing Inventory.
-     * This avoids creating duplicate product records.
-     */
-
     const ordersToInsert = [];
+
+    /* =================================================
+       BUILD PURCHASE ORDERS
+    ================================================= */
 
     for (const order of purchaseOrders) {
       const populatedItems = [];
@@ -240,62 +245,76 @@ const seedPurchaseOrders = async () => {
         populatedItems.push({
           inventory: inventory._id,
 
-          productName: inventory.productName,
+          productName:
+            inventory.productName,
 
-          sku: inventory.sku,
+          sku:
+            inventory.sku,
 
-          quantity: item.quantity,
+          quantity:
+            item.quantity,
 
           receivedQuantity:
             item.receivedQuantity,
 
-          unitPrice: item.unitPrice,
+          unitPrice:
+            item.unitPrice,
 
           totalPrice,
         });
       }
 
-      const subtotal = populatedItems.reduce(
-        (total, item) =>
-          total + item.totalPrice,
-        0
-      );
+      /* ===============================================
+         CALCULATE TOTALS
+      =============================================== */
+
+      const subtotal =
+        populatedItems.reduce(
+          (total, item) =>
+            total + item.totalPrice,
+          0
+        );
 
       const totalAmount =
-        subtotal + order.tax;
+        subtotal + (order.tax || 0);
 
       ordersToInsert.push({
-        orderNumber: order.orderNumber,
+        orderNumber:
+          order.orderNumber,
 
-        supplier: order.supplier,
+        supplier:
+          order.supplier,
 
-        items: populatedItems,
+        items:
+          populatedItems,
 
         subtotal,
 
-        tax: order.tax,
+        tax:
+          order.tax || 0,
 
         totalAmount,
 
         expectedDate:
           order.expectedDate,
 
-        status: order.status,
+        status:
+          order.status,
 
-        notes: order.notes,
+        notes:
+          order.notes,
       });
     }
 
-    /*
-     * Upsert orders.
-     * Running the seeder multiple times will not
-     * create duplicate purchase orders.
-     */
+    /* =================================================
+       UPSERT PURCHASE ORDERS
+    ================================================= */
 
     for (const order of ordersToInsert) {
       await PurchaseOrder.findOneAndUpdate(
         {
-          orderNumber: order.orderNumber,
+          orderNumber:
+            order.orderNumber,
         },
         order,
         {
@@ -306,9 +325,94 @@ const seedPurchaseOrders = async () => {
       );
     }
 
+    /* =================================================
+       SUMMARY
+    ================================================= */
+
+    const received =
+      ordersToInsert.filter(
+        (order) =>
+          order.status === "Received"
+      ).length;
+
+    const partiallyReceived =
+      ordersToInsert.filter(
+        (order) =>
+          order.status ===
+          "Partially Received"
+      ).length;
+
+    const pending =
+      ordersToInsert.filter(
+        (order) =>
+          order.status === "Pending"
+      ).length;
+
+    const draft =
+      ordersToInsert.filter(
+        (order) =>
+          order.status === "Draft"
+      ).length;
+
+    const cancelled =
+      ordersToInsert.filter(
+        (order) =>
+          order.status === "Cancelled"
+      ).length;
+
+    console.log("");
     console.log(
-      `Successfully seeded ${ordersToInsert.length} purchase orders`
+      "======================================"
     );
+    console.log(
+      "   PURCHASE ORDER SEED COMPLETE"
+    );
+    console.log(
+      "======================================"
+    );
+
+    console.log(
+      `Total Orders:       ${ordersToInsert.length}`
+    );
+
+    console.log(
+      `Received:            ${received}`
+    );
+
+    console.log(
+      `Partially Received:  ${partiallyReceived}`
+    );
+
+    console.log(
+      `Pending:             ${pending}`
+    );
+
+    console.log(
+      `Draft:               ${draft}`
+    );
+
+    console.log(
+      `Cancelled:           ${cancelled}`
+    );
+
+    console.log(
+      "======================================"
+    );
+
+    console.log("");
+    console.log(
+      "Purchase orders seeded successfully."
+    );
+
+    console.log(
+      "Note: Purchase orders do not modify inventory stock."
+    );
+
+    console.log(
+      "Use Staff Stock Operations to record actual stock IN/OUT."
+    );
+
+    console.log("");
 
     process.exit(0);
   } catch (error) {

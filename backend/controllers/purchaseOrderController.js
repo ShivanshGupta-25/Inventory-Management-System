@@ -16,28 +16,20 @@ const generateOrderNumber = async () => {
   }
 
   const lastNumber = Number(
-    lastOrder.orderNumber.replace(
-      "PO-",
-      ""
-    )
+    lastOrder.orderNumber.replace("PO-", "")
   );
 
   if (Number.isNaN(lastNumber)) {
     return "PO-0001";
   }
 
-  return `PO-${String(
-    lastNumber + 1
-  ).padStart(4, "0")}`;
+  return `PO-${String(lastNumber + 1).padStart(4, "0")}`;
 };
 
 /*
  * GET /api/purchase-orders
  */
-const getPurchaseOrders = async (
-  req,
-  res
-) => {
+const getPurchaseOrders = async (req, res) => {
   try {
     const {
       search = "",
@@ -90,8 +82,7 @@ const getPurchaseOrders = async (
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to fetch purchase orders",
+      message: "Failed to fetch purchase orders",
     });
   }
 };
@@ -99,10 +90,7 @@ const getPurchaseOrders = async (
 /*
  * GET /api/purchase-orders/:id
  */
-const getPurchaseOrderById = async (
-  req,
-  res
-) => {
+const getPurchaseOrderById = async (req, res) => {
   try {
     const order =
       await PurchaseOrder.findById(
@@ -115,8 +103,7 @@ const getPurchaseOrderById = async (
     if (!order) {
       return res.status(404).json({
         success: false,
-        message:
-          "Purchase order not found",
+        message: "Purchase order not found",
       });
     }
 
@@ -132,8 +119,7 @@ const getPurchaseOrderById = async (
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to fetch purchase order",
+      message: "Failed to fetch purchase order",
     });
   }
 };
@@ -148,10 +134,7 @@ const getPurchaseOrderById = async (
  * Inventory changes only when items
  * are received.
  */
-const createPurchaseOrder = async (
-  req,
-  res
-) => {
+const createPurchaseOrder = async (req, res) => {
   try {
     const {
       supplier,
@@ -170,8 +153,7 @@ const createPurchaseOrder = async (
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Supplier name is required",
+        message: "Supplier name is required",
       });
     }
 
@@ -184,8 +166,7 @@ const createPurchaseOrder = async (
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "At least one product is required",
+        message: "At least one product is required",
       });
     }
 
@@ -200,8 +181,7 @@ const createPurchaseOrder = async (
       if (!item.inventory) {
         return res.status(400).json({
           success: false,
-          message:
-            "Inventory reference is required",
+          message: "Inventory reference is required",
         });
       }
 
@@ -302,8 +282,7 @@ const createPurchaseOrder = async (
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid tax amount",
+        message: "Invalid tax amount",
       });
     }
 
@@ -379,10 +358,7 @@ const createPurchaseOrder = async (
  *
  * Only Draft orders can be edited.
  */
-const updatePurchaseOrder = async (
-  req,
-  res
-) => {
+const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -400,8 +376,7 @@ const updatePurchaseOrder = async (
     if (!order) {
       return res.status(404).json({
         success: false,
-        message:
-          "Purchase order not found",
+        message: "Purchase order not found",
       });
     }
 
@@ -425,8 +400,7 @@ const updatePurchaseOrder = async (
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Supplier name is required",
+        message: "Supplier name is required",
       });
     }
 
@@ -535,8 +509,7 @@ const updatePurchaseOrder = async (
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid tax amount",
+        message: "Invalid tax amount",
       });
     }
 
@@ -596,10 +569,7 @@ const updatePurchaseOrder = async (
 /*
  * POST /api/purchase-orders/:id/confirm
  */
-const confirmPurchaseOrder = async (
-  req,
-  res
-) => {
+const confirmPurchaseOrder = async (req, res) => {
   try {
     const order =
       await PurchaseOrder.findById(
@@ -609,8 +579,7 @@ const confirmPurchaseOrder = async (
     if (!order) {
       return res.status(404).json({
         success: false,
-        message:
-          "Purchase order not found",
+        message: "Purchase order not found",
       });
     }
 
@@ -628,8 +597,7 @@ const confirmPurchaseOrder = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Purchase order confirmed",
+      message: "Purchase order confirmed",
       data: order,
     });
   } catch (error) {
@@ -661,11 +629,21 @@ const confirmPurchaseOrder = async (
  *      ↓
  * PO receivedQuantity += quantity
  */
-const receivePurchaseOrder = async (
-  req,
-  res
-) => {
+const receivePurchaseOrder = async (req, res) => {
   try {
+    /*
+     * Authentication check
+     *
+     * performedBy is required by the
+     * StockMovement schema.
+     */
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
     const order =
       await PurchaseOrder.findById(
         req.params.id
@@ -674,8 +652,7 @@ const receivePurchaseOrder = async (
     if (!order) {
       return res.status(404).json({
         success: false,
-        message:
-          "Purchase order not found",
+        message: "Purchase order not found",
       });
     }
 
@@ -701,8 +678,7 @@ const receivePurchaseOrder = async (
     if (receivedItems.length === 0) {
       return res.status(400).json({
         success: false,
-        message:
-          "No received items provided",
+        message: "No received items provided",
       });
     }
 
@@ -827,6 +803,10 @@ const receivePurchaseOrder = async (
 
       /*
        * Create audit movement
+       *
+       * IMPORTANT:
+       * performedBy identifies the logged-in
+       * user who received the purchase order.
        */
       await StockMovement.create({
         inventory: inventory._id,
@@ -846,6 +826,8 @@ const receivePurchaseOrder = async (
 
         referenceId:
           order._id.toString(),
+
+        performedBy: req.user.userId,
       });
     }
 
@@ -909,10 +891,7 @@ const receivePurchaseOrder = async (
 /*
  * POST /api/purchase-orders/:id/cancel
  */
-const cancelPurchaseOrder = async (
-  req,
-  res
-) => {
+const cancelPurchaseOrder = async (req, res) => {
   try {
     const order =
       await PurchaseOrder.findById(
@@ -922,8 +901,7 @@ const cancelPurchaseOrder = async (
     if (!order) {
       return res.status(404).json({
         success: false,
-        message:
-          "Purchase order not found",
+        message: "Purchase order not found",
       });
     }
 
@@ -968,8 +946,7 @@ const cancelPurchaseOrder = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Purchase order cancelled",
+      message: "Purchase order cancelled",
       data: order,
     });
   } catch (error) {

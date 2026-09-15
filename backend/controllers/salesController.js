@@ -71,7 +71,10 @@ const mergeSaleItems = (items = []) => {
 
     const quantity = Number(item.quantity);
 
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
       continue;
     }
 
@@ -81,7 +84,10 @@ const mergeSaleItems = (items = []) => {
         merged.get(inventoryId) + quantity
       );
     } else {
-      merged.set(inventoryId, quantity);
+      merged.set(
+        inventoryId,
+        quantity
+      );
     }
   }
 
@@ -166,7 +172,8 @@ const getSales = async (req, res) => {
       paymentStatus &&
       paymentStatus !== "All"
     ) {
-      query.paymentStatus = paymentStatus;
+      query.paymentStatus =
+        paymentStatus;
     }
 
     /*
@@ -176,15 +183,17 @@ const getSales = async (req, res) => {
       query.createdAt = {};
 
       if (startDate) {
-        query.createdAt.$gte = new Date(
-          `${startDate}T00:00:00`
-        );
+        query.createdAt.$gte =
+          new Date(
+            `${startDate}T00:00:00`
+          );
       }
 
       if (endDate) {
-        query.createdAt.$lte = new Date(
-          `${endDate}T23:59:59.999`
-        );
+        query.createdAt.$lte =
+          new Date(
+            `${endDate}T23:59:59.999`
+          );
       }
     }
 
@@ -194,12 +203,16 @@ const getSales = async (req, res) => {
     );
 
     const limitNumber = Math.min(
-      Math.max(Number(limit) || 10, 1),
+      Math.max(
+        Number(limit) || 10,
+        1
+      ),
       100
     );
 
     const skip =
-      (pageNumber - 1) * limitNumber;
+      (pageNumber - 1) *
+      limitNumber;
 
     const [sales, total] =
       await Promise.all([
@@ -229,7 +242,8 @@ const getSales = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch sales",
+      message:
+        "Failed to fetch sales",
     });
   }
 };
@@ -240,7 +254,10 @@ const getSales = async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-const getSalesStats = async (req, res) => {
+const getSalesStats = async (
+  req,
+  res
+) => {
   try {
     const result =
       await Sale.aggregate([
@@ -334,13 +351,14 @@ const getSalesStats = async (req, res) => {
         },
       ]);
 
-    const stats = result[0] || {
-      orders: 0,
-      salesValue: 0,
-      amountCollected: 0,
-      outstanding: 0,
-      itemsSold: 0,
-    };
+    const stats =
+      result[0] || {
+        orders: 0,
+        salesValue: 0,
+        amountCollected: 0,
+        outstanding: 0,
+        itemsSold: 0,
+      };
 
     delete stats._id;
 
@@ -356,7 +374,8 @@ const getSalesStats = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch sales statistics",
+      message:
+        "Failed to fetch sales statistics",
     });
   }
 };
@@ -367,11 +386,15 @@ const getSalesStats = async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-const getSaleById = async (req, res) => {
+const getSaleById = async (
+  req,
+  res
+) => {
   try {
-    const sale = await Sale.findById(
-      req.params.id
-    );
+    const sale =
+      await Sale.findById(
+        req.params.id
+      );
 
     if (!sale) {
       return res.status(404).json({
@@ -392,7 +415,8 @@ const getSaleById = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch sale",
+      message:
+        "Failed to fetch sale",
     });
   }
 };
@@ -409,8 +433,11 @@ const getSaleMovements = async (
 ) => {
   try {
     const sale =
-      await Sale.findById(req.params.id)
-        .select("_id saleNumber");
+      await Sale.findById(
+        req.params.id
+      ).select(
+        "_id saleNumber"
+      );
 
     if (!sale) {
       return res.status(404).json({
@@ -421,16 +448,27 @@ const getSaleMovements = async (
 
     const movements =
       await StockMovement.find({
-        referenceId: sale._id.toString(),
+        referenceId:
+          sale._id.toString(),
+
         referenceType: {
-          $in: ["SALE", "RETURN"],
+          $in: [
+            "SALE",
+            "RETURN",
+          ],
         },
       })
         .populate(
           "inventory",
           "productName sku category unit"
         )
-        .sort({ createdAt: 1 });
+        .populate(
+          "performedBy",
+          "name email role"
+        )
+        .sort({
+          createdAt: 1,
+        });
 
     return res.status(200).json({
       success: true,
@@ -457,7 +495,24 @@ const getSaleMovements = async (
 |--------------------------------------------------------------------------
 */
 
-const createSale = async (req, res) => {
+const createSale = async (
+  req,
+  res
+) => {
+  /*
+   * Authentication check
+   */
+  if (
+    !req.user ||
+    !req.user.userId
+  ) {
+    return res.status(401).json({
+      success: false,
+      message:
+        "Authentication required",
+    });
+  }
+
   const session =
     await mongoose.startSession();
 
@@ -494,14 +549,16 @@ const createSale = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid payment method",
+        message:
+          "Invalid payment method",
       });
     }
 
     const numericDiscount =
       Number(discount);
 
-    const numericTax = Number(tax);
+    const numericTax =
+      Number(tax);
 
     const numericPaidAmount =
       Number(paidAmount);
@@ -514,17 +571,21 @@ const createSale = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid discount",
+        message:
+          "Invalid discount",
       });
     }
 
     if (
-      !Number.isFinite(numericTax) ||
+      !Number.isFinite(
+        numericTax
+      ) ||
       numericTax < 0
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid tax",
+        message:
+          "Invalid tax",
       });
     }
 
@@ -536,14 +597,17 @@ const createSale = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid paid amount",
+        message:
+          "Invalid paid amount",
       });
     }
 
     const normalizedItems =
       mergeSaleItems(items);
 
-    if (!normalizedItems.length) {
+    if (
+      !normalizedItems.length
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -576,7 +640,8 @@ const createSale = async (req, res) => {
       }
 
       if (
-        inventory.status === "Inactive"
+        inventory.status ===
+        "Inactive"
       ) {
         throw new Error(
           `${inventory.productName} is inactive`
@@ -626,18 +691,22 @@ const createSale = async (req, res) => {
     /*
      * Calculate totals
      */
-    if (numericDiscount > subtotal) {
+    if (
+      numericDiscount >
+      subtotal
+    ) {
       throw new Error(
         "Discount cannot exceed subtotal"
       );
     }
 
-    const totalAmount = Math.max(
-      0,
-      subtotal -
-        numericDiscount +
-        numericTax
-    );
+    const totalAmount =
+      Math.max(
+        0,
+        subtotal -
+          numericDiscount +
+          numericTax
+      );
 
     if (
       numericPaidAmount >
@@ -669,7 +738,8 @@ const createSale = async (req, res) => {
           "Walk-in Customer",
 
         customerContact:
-          customerContact?.trim() || "",
+          customerContact?.trim() ||
+          "",
 
         items: saleItems,
 
@@ -699,11 +769,14 @@ const createSale = async (req, res) => {
 
         activityLog: [
           {
-            action: "CREATED",
+            action:
+              "CREATED",
 
-            message: `Sale ${saleNumber} created`,
+            message:
+              `Sale ${saleNumber} created`,
 
-            status: "Completed",
+            status:
+              "Completed",
 
             paymentStatus,
 
@@ -741,6 +814,11 @@ const createSale = async (req, res) => {
         session,
       });
 
+      /*
+       * IMPORTANT:
+       * performedBy is required by
+       * StockMovement schema.
+       */
       await StockMovement.create(
         [
           {
@@ -766,9 +844,14 @@ const createSale = async (req, res) => {
 
             referenceId:
               sale._id.toString(),
+
+            performedBy:
+              req.user.userId,
           },
         ],
-        { session }
+        {
+          session,
+        }
       );
     }
 
@@ -781,7 +864,8 @@ const createSale = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Sale created successfully",
+      message:
+        "Sale created successfully",
       data: createdSale,
     });
   } catch (error) {
@@ -811,12 +895,30 @@ const createSale = async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-const updateSale = async (req, res) => {
+const updateSale = async (
+  req,
+  res
+) => {
+  /*
+   * Authentication check
+   */
+  if (
+    !req.user ||
+    !req.user.userId
+  ) {
+    return res.status(401).json({
+      success: false,
+      message:
+        "Authentication required",
+    });
+  }
+
   const session =
     await mongoose.startSession();
 
   try {
-    const saleId = req.params.id;
+    const saleId =
+      req.params.id;
 
     const {
       customerName,
@@ -845,7 +947,8 @@ const updateSale = async (req, res) => {
      * Only completed sales can be edited.
      */
     if (
-      sale.status !== "Completed"
+      sale.status !==
+      "Completed"
     ) {
       throw new Error(
         "Only completed sales can be edited"
@@ -857,8 +960,9 @@ const updateSale = async (req, res) => {
      * editing the sale is locked.
      */
     if (
-      Number(sale.paidAmount || 0) >
-      0
+      Number(
+        sale.paidAmount || 0
+      ) > 0
     ) {
       throw new Error(
         "Paid sales cannot be edited"
@@ -903,7 +1007,9 @@ const updateSale = async (req, res) => {
     }
 
     if (
-      !Number.isFinite(numericTax) ||
+      !Number.isFinite(
+        numericTax
+      ) ||
       numericTax < 0
     ) {
       throw new Error(
@@ -914,7 +1020,9 @@ const updateSale = async (req, res) => {
     const normalizedItems =
       mergeSaleItems(items);
 
-    if (!normalizedItems.length) {
+    if (
+      !normalizedItems.length
+    ) {
       throw new Error(
         "Sale must contain valid items"
       );
@@ -950,7 +1058,8 @@ const updateSale = async (req, res) => {
      * Build fresh sale item snapshots
      * using CURRENT inventory prices.
      */
-    const updatedSaleItems = [];
+    const updatedSaleItems =
+      [];
 
     let subtotal = 0;
 
@@ -967,7 +1076,8 @@ const updateSale = async (req, res) => {
       }
 
       if (
-        inventory.status === "Inactive"
+        inventory.status ===
+        "Inactive"
       ) {
         throw new Error(
           `${inventory.productName} is inactive`
@@ -1037,7 +1147,6 @@ const updateSale = async (req, res) => {
      */
     for (const [
       inventoryId,
-      oldQuantity,
     ] of oldQuantities) {
       if (
         !newQuantities.has(
@@ -1058,19 +1167,21 @@ const updateSale = async (req, res) => {
     }
 
     if (
-      numericDiscount > subtotal
+      numericDiscount >
+      subtotal
     ) {
       throw new Error(
         "Discount cannot exceed subtotal"
       );
     }
 
-    const totalAmount = Math.max(
-      0,
-      subtotal -
-        numericDiscount +
-        numericTax
-    );
+    const totalAmount =
+      Math.max(
+        0,
+        subtotal -
+          numericDiscount +
+          numericTax
+      );
 
     /*
      * Sale was unpaid before editing,
@@ -1106,7 +1217,9 @@ const updateSale = async (req, res) => {
         newQuantity -
         oldQuantity;
 
-      if (difference === 0) {
+      if (
+        difference === 0
+      ) {
         continue;
       }
 
@@ -1126,7 +1239,9 @@ const updateSale = async (req, res) => {
 
       let stockAfter;
 
-      if (difference > 0) {
+      if (
+        difference > 0
+      ) {
         /*
          * Additional quantity sold.
          */
@@ -1174,9 +1289,14 @@ const updateSale = async (req, res) => {
 
               referenceId:
                 sale._id.toString(),
+
+              performedBy:
+                req.user.userId,
             },
           ],
-          { session }
+          {
+            session,
+          }
         );
       } else {
         /*
@@ -1184,7 +1304,9 @@ const updateSale = async (req, res) => {
          * Return difference to inventory.
          */
         const returnedQuantity =
-          Math.abs(difference);
+          Math.abs(
+            difference
+          );
 
         stockAfter =
           stockBefore +
@@ -1222,9 +1344,14 @@ const updateSale = async (req, res) => {
 
               referenceId:
                 sale._id.toString(),
+
+              performedBy:
+                req.user.userId,
             },
           ],
-          { session }
+          {
+            session,
+          }
         );
       }
     }
@@ -1237,7 +1364,8 @@ const updateSale = async (req, res) => {
       "Walk-in Customer";
 
     sale.customerContact =
-      customerContact?.trim() || "";
+      customerContact?.trim() ||
+      "";
 
     sale.items =
       updatedSaleItems;
@@ -1268,7 +1396,8 @@ const updateSale = async (req, res) => {
       notes?.trim() || "";
 
     sale.activityLog.push({
-      action: "EDITED",
+      action:
+        "EDITED",
 
       message:
         `Sale ${sale.saleNumber} was edited`,
@@ -1296,7 +1425,8 @@ const updateSale = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Sale updated successfully",
+      message:
+        "Sale updated successfully",
       data: updatedSale,
     });
   } catch (error) {
@@ -1328,12 +1458,24 @@ const updateSalePayment = async (
   req,
   res
 ) => {
+  /*
+   * Authentication check
+   */
+  if (
+    !req.user ||
+    !req.user.userId
+  ) {
+    return res.status(401).json({
+      success: false,
+      message:
+        "Authentication required",
+    });
+  }
+
   const session =
     await mongoose.startSession();
 
   try {
-    const saleId = req.params.id;
-
     const {
       paidAmount,
       paymentMethod,
@@ -1372,7 +1514,7 @@ const updateSalePayment = async (
 
     const sale =
       await Sale.findById(
-        saleId
+        req.params.id
       ).session(session);
 
     if (!sale) {
@@ -1382,7 +1524,8 @@ const updateSalePayment = async (
     }
 
     if (
-      sale.status !== "Completed"
+      sale.status !==
+      "Completed"
     ) {
       throw new Error(
         "Payment can only be updated for completed sales"
@@ -1454,7 +1597,9 @@ const updateSalePayment = async (
         paymentMethod;
     }
 
-    if (paymentDifference > 0) {
+    if (
+      paymentDifference > 0
+    ) {
       sale.activityLog.push({
         action:
           "PAYMENT_UPDATED",
@@ -1518,6 +1663,20 @@ const cancelSale = async (
   req,
   res
 ) => {
+  /*
+   * Authentication check
+   */
+  if (
+    !req.user ||
+    !req.user.userId
+  ) {
+    return res.status(401).json({
+      success: false,
+      message:
+        "Authentication required",
+    });
+  }
+
   const session =
     await mongoose.startSession();
 
@@ -1551,7 +1710,8 @@ const cancelSale = async (
     }
 
     if (
-      sale.status !== "Completed"
+      sale.status !==
+      "Completed"
     ) {
       throw new Error(
         "Only completed sales can be cancelled"
@@ -1559,8 +1719,9 @@ const cancelSale = async (
     }
 
     if (
-      Number(sale.paidAmount || 0) >
-      0
+      Number(
+        sale.paidAmount || 0
+      ) > 0
     ) {
       throw new Error(
         "A sale with recorded payment cannot be cancelled. Use Return Sale instead."
@@ -1621,9 +1782,14 @@ const cancelSale = async (
 
             referenceId:
               sale._id.toString(),
+
+            performedBy:
+              req.user.userId,
           },
         ],
-        { session }
+        {
+          session,
+        }
       );
     }
 
@@ -1700,6 +1866,20 @@ const returnSale = async (
   req,
   res
 ) => {
+  /*
+   * Authentication check
+   */
+  if (
+    !req.user ||
+    !req.user.userId
+  ) {
+    return res.status(401).json({
+      success: false,
+      message:
+        "Authentication required",
+    });
+  }
+
   const session =
     await mongoose.startSession();
 
@@ -1733,7 +1913,8 @@ const returnSale = async (
     }
 
     if (
-      sale.status !== "Completed"
+      sale.status !==
+      "Completed"
     ) {
       throw new Error(
         "Only completed sales can be returned"
@@ -1745,7 +1926,9 @@ const returnSale = async (
         sale.paidAmount || 0
       );
 
-    if (paidAmount <= 0) {
+    if (
+      paidAmount <= 0
+    ) {
       throw new Error(
         "An unpaid sale cannot be returned. Cancel it instead."
       );
@@ -1805,9 +1988,14 @@ const returnSale = async (
 
             referenceId:
               sale._id.toString(),
+
+            performedBy:
+              req.user.userId,
           },
         ],
-        { session }
+        {
+          session,
+        }
       );
     }
 

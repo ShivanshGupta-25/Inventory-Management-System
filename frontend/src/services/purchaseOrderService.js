@@ -1,8 +1,23 @@
 import axios from "axios";
 
-const API_URL =
-  "http://localhost:5000/api";
+const API_URL = "http://localhost:5000/api";
 
+/*
+ * Get authentication headers
+ */
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+};
+
+/*
+ * GET /api/purchase-orders
+ */
 export const getPurchaseOrders = async (
   params = {}
 ) => {
@@ -10,63 +25,111 @@ export const getPurchaseOrders = async (
     `${API_URL}/purchase-orders`,
     {
       params,
+      headers: getAuthHeaders(),
     }
   );
 
   return response.data;
 };
 
-export const getPurchaseOrderById =
-  async (id) => {
-    const response = await axios.get(
-      `${API_URL}/purchase-orders/${id}`
-    );
+/*
+ * GET /api/purchase-orders/:id
+ */
+export const getPurchaseOrderById = async (
+  id
+) => {
+  const response = await axios.get(
+    `${API_URL}/purchase-orders/${id}`,
+    {
+      headers: getAuthHeaders(),
+    }
+  );
 
-    return response.data;
-  };
+  return response.data;
+};
 
-export const createPurchaseOrder =
-  async (data) => {
-    const response = await axios.post(
-      `${API_URL}/purchase-orders`,
-      data
-    );
+/*
+ * POST /api/purchase-orders
+ */
+export const createPurchaseOrder = async (
+  data
+) => {
+  const response = await axios.post(
+    `${API_URL}/purchase-orders`,
+    data,
+    {
+      headers: getAuthHeaders(),
+    }
+  );
 
-    return response.data;
-  };
+  return response.data;
+};
 
-export const confirmPurchaseOrder =
-  async (id) => {
-    const response = await axios.post(
-      `${API_URL}/purchase-orders/${id}/confirm`
-    );
+/*
+ * POST /api/purchase-orders/:id/confirm
+ */
+export const confirmPurchaseOrder = async (
+  id
+) => {
+  const response = await axios.post(
+    `${API_URL}/purchase-orders/${id}/confirm`,
+    {},
+    {
+      headers: getAuthHeaders(),
+    }
+  );
 
-    return response.data;
-  };
+  return response.data;
+};
 
-export const receivePurchaseOrder =
-  async (id, data) => {
-    const response = await axios.post(
-      `${API_URL}/purchase-orders/${id}/receive`,
-      data
-    );
+/*
+ * POST /api/purchase-orders/:id/receive
+ */
+export const receivePurchaseOrder = async (
+  id,
+  data
+) => {
+  const response = await axios.post(
+    `${API_URL}/purchase-orders/${id}/receive`,
+    data,
+    {
+      headers: getAuthHeaders(),
+    }
+  );
 
-    return response.data;
-  };
+  return response.data;
+};
 
-export const cancelPurchaseOrder =
-  async (id) => {
-    const response = await axios.post(
-      `${API_URL}/purchase-orders/${id}/cancel`
-    );
+/*
+ * POST /api/purchase-orders/:id/cancel
+ */
+export const cancelPurchaseOrder = async (
+  id
+) => {
+  const response = await axios.post(
+    `${API_URL}/purchase-orders/${id}/cancel`,
+    {},
+    {
+      headers: getAuthHeaders(),
+    }
+  );
 
-    return response.data;
-  };
+  return response.data;
+};
 
-export const updatePurchaseOrder = async (id, data) => {
+/*
+ * PUT /api/purchase-orders/:id
+ */
+export const updatePurchaseOrder = async (
+  id,
+  data
+) => {
   const response = await axios.put(
     `${API_URL}/purchase-orders/${id}`,
-    data
+    data,
+    {
+      headers: getAuthHeaders(),
+    }
   );
 
   return response.data;

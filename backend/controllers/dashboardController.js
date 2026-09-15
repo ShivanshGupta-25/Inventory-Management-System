@@ -614,18 +614,36 @@ const getStockHistory = async (req, res) => {
 
     const query = {};
 
+    /* =====================================================
+       TYPE FILTER
+    ===================================================== */
+
     if (type) {
       query.type = type.toUpperCase();
     }
+
+    /* =====================================================
+       FETCH STOCK MOVEMENTS
+    ===================================================== */
 
     let movements = await StockMovement.find(query)
       .populate(
         "inventory",
         "productName sku unit"
       )
+      .populate(
+        "performedBy",
+        "name email role"
+      )
       .sort({ createdAt: -1 })
-      .limit(Math.min(Number(limit) || 50, 100))
+      .limit(
+        Math.min(Number(limit) || 50, 100)
+      )
       .lean();
+
+    /* =====================================================
+       SEARCH FILTER
+    ===================================================== */
 
     if (search) {
       const searchLower =
@@ -645,36 +663,84 @@ const getStockHistory = async (req, res) => {
       );
     }
 
+    /* =====================================================
+       FORMAT RESPONSE
+    ===================================================== */
+
     const data = movements.map(
       (movement) => ({
         _id: movement._id,
+
         type: movement.type,
+
         quantity: movement.quantity,
+
         previousStock:
           movement.previousStock,
-        newStock: movement.newStock,
-        reason: movement.reason,
+
+        newStock:
+          movement.newStock,
+
+        reason:
+          movement.reason,
+
         referenceType:
           movement.referenceType,
+
         referenceId:
           movement.referenceId,
+
         createdAt:
           movement.createdAt,
 
-        product: movement.inventory
-          ? {
-              _id:
-                movement.inventory._id,
-              productName:
-                movement.inventory.productName,
-              sku:
-                movement.inventory.sku,
-              unit:
-                movement.inventory.unit,
-            }
-          : null,
+        /* =================================================
+           PERFORMER
+        ================================================= */
+
+        performedBy:
+          movement.performedBy
+            ? {
+                _id:
+                  movement.performedBy._id,
+
+                name:
+                  movement.performedBy.name,
+
+                email:
+                  movement.performedBy.email,
+
+                role:
+                  movement.performedBy.role,
+              }
+            : null,
+
+        /* =================================================
+           PRODUCT
+        ================================================= */
+
+        product:
+          movement.inventory
+            ? {
+                _id:
+                  movement.inventory._id,
+
+                productName:
+                  movement.inventory
+                    .productName,
+
+                sku:
+                  movement.inventory.sku,
+
+                unit:
+                  movement.inventory.unit,
+              }
+            : null,
       })
     );
+
+    /* =====================================================
+       RESPONSE
+    ===================================================== */
 
     return res.status(200).json({
       success: true,
