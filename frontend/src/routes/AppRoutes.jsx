@@ -26,6 +26,17 @@ import StaffInventoryDetails from "../pages/Staff/Inventory/InventoryDetails";
 // Staff Stock Operations
 import StockOperationsPage from "../pages/Staff/StockOperationsPage";
 
+// Staff Sales
+import StaffSales from "../pages/Staff/Sales/StaffSales";
+import StaffCreateSale from "../pages/Staff/Sales/StaffCreateSale";
+import StaffSaleDetails from "../pages/Staff/Sales/StaffSaleDetails";
+import StaffEditSale from "../pages/Staff/Sales/StaffEditSale";
+
+// Staff Returns
+import Returns from "../pages/Staff/Returns/Returns";
+import ProcessReturn from "../pages/Staff/Returns/ProcessReturn";
+import ReturnDetails from "../pages/Staff/Returns/ReturnDetails";
+
 // Manager
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Profile from "../pages/Manager/Profile";
@@ -203,6 +214,7 @@ const AppRoutes = () => {
           element={<StaffAlertsPage />}
         />
 
+        {/* Staff Stock History */}
         <Route
           path="/staff/stock-history"
           element={<StaffStockHistoryPage />}
@@ -211,6 +223,43 @@ const AppRoutes = () => {
         <Route
           path="/staff/stock-operations"
           element={<StockOperationsPage />}
+        />
+
+        {/* Staff Sales */}
+        <Route
+          path="/staff/sales"
+          element={<StaffSales />}
+        />
+
+        <Route
+          path="/staff/sales/create"
+          element={<StaffCreateSale />}
+        />
+
+        <Route
+          path="/staff/sales/:id"
+          element={<StaffSaleDetails />}
+        />
+
+        <Route
+          path="/staff/sales/:id/edit"
+          element={<StaffEditSale />}  
+        />
+
+        {/* Staff Returns */}
+        <Route
+          path="/staff/returns"
+          element={<Returns />}
+        />
+
+        <Route
+          path="/staff/returns/process"
+          element={<ProcessReturn />}
+        />
+
+        <Route
+          path="/staff/returns/:id"
+          element={<ReturnDetails />}
         />
       </Route>
 

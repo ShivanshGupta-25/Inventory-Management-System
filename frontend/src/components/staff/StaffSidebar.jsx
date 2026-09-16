@@ -45,10 +45,15 @@ const menuItems = [
     path: "/staff/sales",
   },
   {
-    label: "Activity",
-    icon: Bell,
-    path: "/staff/activity",
-  },
+    label: "Returns",
+    icon: ArrowUpFromLine,
+    path: "/staff/returns",
+  }
+  // {
+  //   label: "Activity",
+  //   icon: Bell,
+  //   path: "/staff/activity",
+  // },
 ];
 
 const accountItems = [
