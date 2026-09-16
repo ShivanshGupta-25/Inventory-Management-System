@@ -23,21 +23,43 @@ const generateOrderNumber = async () => {
     return "PO-0001";
   }
 
-  return `PO-${String(lastNumber + 1).padStart(4, "0")}`;
+  return `PO-${String(
+    lastNumber + 1
+  ).padStart(4, "0")}`;
 };
 
 /*
  * GET /api/purchase-orders
+ *
+ * Supports:
+ *
+ * search
+ * status
+ * requestType
+ * mine
+ *
+ * Staff can request:
+ *
+ * requestType=Purchase Request
+ * mine=true
+ *
+ * This ensures Staff only sees
+ * their own purchase requests.
  */
 const getPurchaseOrders = async (req, res) => {
   try {
     const {
       search = "",
       status = "",
+      requestType = "",
+      mine = "",
     } = req.query;
 
     const query = {};
 
+    /*
+     * Search
+     */
     if (search.trim()) {
       query.$or = [
         {
@@ -55,8 +77,34 @@ const getPurchaseOrders = async (req, res) => {
       ];
     }
 
-    if (status) {
+    /*
+     * Status filter
+     */
+    if (status && status !== "All") {
       query.status = status;
+    }
+
+    /*
+     * Request type filter
+     */
+    if (
+      requestType &&
+      requestType !== "All"
+    ) {
+      query.requestType = requestType;
+    }
+
+    /*
+     * Staff "my requests" filter
+     *
+     * Only Staff users can use this
+     * ownership filter.
+     */
+    if (
+      mine === "true" &&
+      req.user?.role === "staff"
+    ) {
+      query.createdBy = req.user.userId;
     }
 
     const orders =
@@ -64,6 +112,10 @@ const getPurchaseOrders = async (req, res) => {
         .populate(
           "items.inventory",
           "productName sku category currentStock unit purchasePrice"
+        )
+        .populate(
+          "createdBy",
+          "name email role"
         )
         .sort({
           createdAt: -1,
@@ -82,7 +134,8 @@ const getPurchaseOrders = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch purchase orders",
+      message:
+        "Failed to fetch purchase orders",
     });
   }
 };
@@ -90,21 +143,51 @@ const getPurchaseOrders = async (req, res) => {
 /*
  * GET /api/purchase-orders/:id
  */
-const getPurchaseOrderById = async (req, res) => {
+const getPurchaseOrderById = async (
+  req,
+  res
+) => {
   try {
     const order =
       await PurchaseOrder.findById(
         req.params.id
-      ).populate(
-        "items.inventory",
-        "productName sku category currentStock unit purchasePrice"
-      );
+      )
+        .populate(
+          "items.inventory",
+          "productName sku category currentStock unit purchasePrice"
+        )
+        .populate(
+          "createdBy",
+          "name email role"
+        );
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Purchase order not found",
+        message:
+          "Purchase order not found",
       });
+    }
+
+    /*
+     * Staff can only view their own
+     * Purchase Requests.
+     */
+    if (
+      req.user.role === "staff" &&
+      order.requestType ===
+        "Purchase Request"
+    ) {
+      if (
+        order.createdBy?._id?.toString() !==
+        req.user.userId.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You do not have permission to view this purchase request",
+        });
+      }
     }
 
     return res.status(200).json({
@@ -119,7 +202,8 @@ const getPurchaseOrderById = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch purchase order",
+      message:
+        "Failed to fetch purchase order",
     });
   }
 };
@@ -127,118 +211,241 @@ const getPurchaseOrderById = async (req, res) => {
 /*
  * POST /api/purchase-orders
  *
- * IMPORTANT:
- * Creating a purchase order DOES NOT
- * modify inventory.
+ * Admin / Manager:
+ *     Creates Purchase Order
  *
- * Inventory changes only when items
- * are received.
+ * Staff:
+ *     Creates Purchase Request
+ *
+ * IMPORTANT:
+ * Creating a Purchase Order or
+ * Purchase Request DOES NOT modify
+ * inventory.
+ *
+ * Inventory changes only when
+ * stock is received.
  */
 const createPurchaseOrder = async (req, res) => {
   try {
     const {
-      supplier,
-      items,
+      supplier = {},
+      items = [],
       tax = 0,
-      expectedDate,
+      expectedDate = null,
+      priority = "Medium",
       notes = "",
     } = req.body;
 
-    /*
-     * Supplier validation
-     */
-    if (
-      !supplier?.name ||
-      !supplier.name.trim()
-    ) {
-      return res.status(400).json({
+    if (!req.user?.userId) {
+      return res.status(401).json({
         success: false,
-        message: "Supplier name is required",
+        message: "Unauthorized user.",
+      });
+    }
+
+    const isStaff = req.user.role === "staff";
+
+    const requestType = isStaff
+      ? "Purchase Request"
+      : "Purchase Order";
+
+    /*
+     * --------------------------------------------------
+     * STAFF PURCHASE REQUEST
+     * --------------------------------------------------
+     */
+
+    if (isStaff) {
+      if (!items.length) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "At least one product is required.",
+        });
+      }
+
+      const orderItems = [];
+
+      for (const item of items) {
+        if (!item.inventory) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Each requested item must have an inventory product.",
+          });
+        }
+
+        const quantity = Number(item.quantity);
+
+        if (!quantity || quantity <= 0) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Requested quantity must be greater than zero.",
+          });
+        }
+
+        const inventory = await Inventory.findById(
+          item.inventory
+        );
+
+        if (!inventory) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "One of the selected inventory products was not found.",
+          });
+        }
+
+        if (inventory.status !== "Active") {
+          return res.status(400).json({
+            success: false,
+            message: `${inventory.productName} is inactive.`,
+          });
+        }
+
+        orderItems.push({
+          inventory: inventory._id,
+          productName: inventory.productName,
+          sku: inventory.sku,
+          quantity,
+          receivedQuantity: 0,
+          unitPrice: 0,
+          totalPrice: 0,
+        });
+      }
+
+      const orderNumber =
+        await generateOrderNumber();
+
+      const purchaseRequest =
+        await PurchaseOrder.create({
+          orderNumber,
+          createdBy: req.user.userId,
+          requestType: "Purchase Request",
+
+          supplier: {
+            name: "",
+            email: "",
+            phone: "",
+          },
+
+          items: orderItems,
+
+          subtotal: 0,
+          tax: 0,
+          totalAmount: 0,
+
+          expectedDate:
+            expectedDate || null,
+
+          priority,
+
+          notes: notes.trim(),
+
+          status: "Draft",
+        });
+
+      await purchaseRequest.populate(
+        "createdBy",
+        "name email role"
+      );
+
+      await purchaseRequest.populate(
+        "items.inventory",
+        "productName sku category currentStock unit purchasePrice"
+      );
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Purchase request created successfully.",
+        data: purchaseRequest,
       });
     }
 
     /*
-     * Items validation
+     * --------------------------------------------------
+     * MANAGER / ADMIN PURCHASE ORDER
+     * --------------------------------------------------
      */
-    if (
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
+
+    if (!items.length) {
       return res.status(400).json({
         success: false,
-        message: "At least one product is required",
+        message:
+          "At least one product is required.",
+      });
+    }
+
+    if (!supplier?.name?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Supplier name is required.",
+      });
+    }
+
+    const numericTax = Number(tax || 0);
+
+    if (numericTax < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Tax cannot be negative.",
       });
     }
 
     const orderItems = [];
     let subtotal = 0;
 
-    /*
-     * Validate every product and
-     * create snapshot information.
-     */
     for (const item of items) {
       if (!item.inventory) {
         return res.status(400).json({
           success: false,
-          message: "Inventory reference is required",
+          message:
+            "Each item must have an inventory product.",
         });
       }
 
-      const inventory =
-        await Inventory.findById(
-          item.inventory
-        );
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice);
+
+      if (!quantity || quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Quantity must be greater than zero.",
+        });
+      }
+
+      if (
+        item.unitPrice === undefined ||
+        item.unitPrice === null ||
+        item.unitPrice === "" ||
+        unitPrice < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Each item must have a valid unit price.",
+        });
+      }
+
+      const inventory = await Inventory.findById(
+        item.inventory
+      );
 
       if (!inventory) {
         return res.status(404).json({
           success: false,
           message:
-            "One of the selected products was not found in inventory",
+            "One of the selected inventory products was not found.",
         });
       }
 
       if (inventory.status !== "Active") {
         return res.status(400).json({
           success: false,
-          message:
-            `${inventory.productName} is inactive and cannot be added`,
-        });
-      }
-
-      const quantity = Number(
-        item.quantity
-      );
-
-      const unitPrice = Number(
-        item.unitPrice
-      );
-
-      /*
-       * Quantity
-       */
-      if (
-        !Number.isInteger(quantity) ||
-        quantity <= 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            `Invalid quantity for ${inventory.productName}`,
-        });
-      }
-
-      /*
-       * Price
-       */
-      if (
-        Number.isNaN(unitPrice) ||
-        unitPrice < 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            `Invalid unit price for ${inventory.productName}`,
+          message: `${inventory.productName} is inactive.`,
         });
       }
 
@@ -249,95 +456,69 @@ const createPurchaseOrder = async (req, res) => {
 
       orderItems.push({
         inventory: inventory._id,
-
-        /*
-         * Snapshot values
-         */
-        productName:
-          inventory.productName,
-
+        productName: inventory.productName,
         sku: inventory.sku,
-
         quantity,
-
         receivedQuantity: 0,
-
         unitPrice,
-
         totalPrice,
       });
     }
 
-    /*
-     * Tax validation
-     *
-     * Tax is currently stored as a
-     * fixed monetary amount.
-     */
-    const numericTax = Number(tax);
-
-    if (
-      Number.isNaN(numericTax) ||
-      numericTax < 0
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid tax amount",
-      });
-    }
+    const taxAmount =
+      (subtotal * numericTax) / 100;
 
     const totalAmount =
-      subtotal + numericTax;
+      subtotal + taxAmount;
 
-    /*
-     * Generate order number
-     */
     const orderNumber =
       await generateOrderNumber();
 
-    /*
-     * Always create as Draft.
-     *
-     * The client should not be allowed
-     * to create a Pending/Received order
-     * directly.
-     */
-    const order =
+    const purchaseOrder =
       await PurchaseOrder.create({
         orderNumber,
 
+        createdBy: req.user.userId,
+
+        requestType: "Purchase Order",
+
         supplier: {
           name: supplier.name.trim(),
-          email:
-            supplier.email?.trim() || "",
-          phone:
-            supplier.phone?.trim() || "",
+          email: supplier.email?.trim() || "",
+          phone: supplier.phone?.trim() || "",
         },
 
         items: orderItems,
 
         subtotal,
-
         tax: numericTax,
-
         totalAmount,
 
         expectedDate:
           expectedDate || null,
 
-        notes:
-          typeof notes === "string"
-            ? notes.trim()
-            : "",
+        priority,
+
+        notes: notes.trim(),
 
         status: "Draft",
       });
 
+    await purchaseOrder.populate(
+      "createdBy",
+      "name email role"
+    );
+
+    await purchaseOrder.populate(
+      "items.inventory",
+      "productName sku category currentStock unit purchasePrice"
+    );
+
     return res.status(201).json({
       success: true,
       message:
-        "Purchase order created successfully",
-      data: order,
+        "Purchase order created successfully.",
+      data: purchaseOrder,
     });
   } catch (error) {
     console.error(
@@ -348,7 +529,8 @@ const createPurchaseOrder = async (req, res) => {
     return res.status(500).json({
       success: false,
       message:
-        "Failed to create purchase order",
+        "Failed to create purchase order.",
+      error: error.message,
     });
   }
 };
@@ -357,21 +539,24 @@ const createPurchaseOrder = async (req, res) => {
  * PUT /api/purchase-orders/:id
  *
  * Only Draft orders can be edited.
+ *
+ * Staff can edit only their own
+ * Purchase Requests.
  */
 const updatePurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params;
 
     const {
-      supplier,
+      supplier = {},
       items,
       tax = 0,
-      expectedDate,
+      expectedDate = null,
+      priority = "Medium",
       notes = "",
     } = req.body;
 
-    const order =
-      await PurchaseOrder.findById(id);
+    const order = await PurchaseOrder.findById(id);
 
     if (!order) {
       return res.status(404).json({
@@ -381,40 +566,61 @@ const updatePurchaseOrder = async (req, res) => {
     }
 
     /*
-     * Only Draft can be modified.
+     * Only Draft orders can be modified.
      */
     if (order.status !== "Draft") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only draft purchase orders can be edited",
+        message: "Only draft purchase orders can be edited",
       });
     }
 
+    const isStaff = req.user.role === "staff";
+    const isPurchaseRequest =
+      order.requestType === "Purchase Request";
+
     /*
-     * Supplier
+     * Staff ownership and request type check.
      */
-    if (
-      !supplier?.name ||
-      !supplier.name.trim()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Supplier name is required",
-      });
+    if (isStaff) {
+      if (!isPurchaseRequest) {
+        return res.status(403).json({
+          success: false,
+          message: "Staff can only edit purchase requests",
+        });
+      }
+
+      if (
+        order.createdBy.toString() !==
+        req.user.userId.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You can only edit your own purchase requests",
+        });
+      }
     }
 
     /*
-     * Items
+     * Items validation.
      */
-    if (
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
         message:
           "Purchase order must contain at least one item",
+      });
+    }
+
+    /*
+     * Supplier validation only for
+     * normal Purchase Orders.
+     */
+    if (!isPurchaseRequest && !supplier?.name?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Supplier name is required",
       });
     }
 
@@ -430,10 +636,9 @@ const updatePurchaseOrder = async (req, res) => {
         });
       }
 
-      const inventory =
-        await Inventory.findById(
-          item.inventory
-        );
+      const inventory = await Inventory.findById(
+        item.inventory
+      );
 
       if (!inventory) {
         return res.status(404).json({
@@ -446,23 +651,13 @@ const updatePurchaseOrder = async (req, res) => {
       if (inventory.status !== "Active") {
         return res.status(400).json({
           success: false,
-          message:
-            `${inventory.productName} is inactive`,
+          message: `${inventory.productName} is inactive`,
         });
       }
 
-      const quantity = Number(
-        item.quantity
-      );
+      const quantity = Number(item.quantity);
 
-      const unitPrice = Number(
-        item.unitPrice
-      );
-
-      if (
-        !Number.isInteger(quantity) ||
-        quantity <= 0
-      ) {
+      if (!Number.isInteger(quantity) || quantity <= 0) {
         return res.status(400).json({
           success: false,
           message:
@@ -470,26 +665,37 @@ const updatePurchaseOrder = async (req, res) => {
         });
       }
 
-      if (
-        Number.isNaN(unitPrice) ||
-        unitPrice < 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            `Invalid unit price for ${inventory.productName}`,
-        });
+      /*
+       * Staff requests do not require pricing.
+       * Manager/Admin purchase orders do.
+       */
+      let unitPrice = 0;
+
+      if (!isPurchaseRequest) {
+        unitPrice = Number(item.unitPrice);
+
+        if (
+          item.unitPrice === undefined ||
+          item.unitPrice === null ||
+          item.unitPrice === "" ||
+          Number.isNaN(unitPrice) ||
+          unitPrice < 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              `Invalid unit price for ${inventory.productName}`,
+          });
+        }
       }
 
-      const totalPrice =
-        quantity * unitPrice;
+      const totalPrice = quantity * unitPrice;
 
       subtotal += totalPrice;
 
       updatedItems.push({
         inventory: inventory._id,
-        productName:
-          inventory.productName,
+        productName: inventory.productName,
         sku: inventory.sku,
         quantity,
         receivedQuantity: 0,
@@ -499,57 +705,86 @@ const updatePurchaseOrder = async (req, res) => {
     }
 
     /*
-     * Tax
+     * Tax handling.
+     *
+     * Staff purchase requests always
+     * have zero tax and total.
      */
-    const numericTax = Number(tax);
+    let numericTax = 0;
+    let totalAmount = 0;
 
-    if (
-      Number.isNaN(numericTax) ||
-      numericTax < 0
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid tax amount",
-      });
+    if (!isPurchaseRequest) {
+      numericTax = Number(tax);
+
+      if (
+        Number.isNaN(numericTax) ||
+        numericTax < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid tax amount",
+        });
+      }
+
+      totalAmount =
+        subtotal + (subtotal * numericTax) / 100;
     }
 
-    const totalAmount =
-      subtotal + numericTax;
+    /*
+     * Update supplier details.
+     *
+     * Staff requests keep supplier
+     * information empty.
+     */
+    if (isPurchaseRequest) {
+      order.supplier = {
+        name: "",
+        email: "",
+        phone: "",
+      };
+    } else {
+      order.supplier = {
+        name: supplier.name.trim(),
+        email: supplier.email?.trim() || "",
+        phone: supplier.phone?.trim() || "",
+      };
+    }
 
     /*
-     * Update order
+     * Update order data.
      */
-    order.supplier = {
-      name: supplier.name.trim(),
-      email:
-        supplier.email?.trim() || "",
-      phone:
-        supplier.phone?.trim() || "",
-    };
-
     order.items = updatedItems;
 
     order.subtotal = subtotal;
-
     order.tax = numericTax;
-
     order.totalAmount = totalAmount;
 
-    order.expectedDate =
-      expectedDate || null;
+    order.expectedDate = expectedDate || null;
+
+    order.priority = priority;
 
     order.notes =
       typeof notes === "string"
         ? notes.trim()
         : "";
 
-    const updatedOrder =
-      await order.save();
+    const updatedOrder = await order.save();
+
+    await updatedOrder.populate(
+      "createdBy",
+      "name email role"
+    );
+
+    await updatedOrder.populate(
+      "items.inventory",
+      "productName sku category currentStock unit purchasePrice"
+    );
 
     return res.status(200).json({
       success: true,
-      message:
-        "Purchase order updated successfully",
+      message: isPurchaseRequest
+        ? "Purchase request updated successfully"
+        : "Purchase order updated successfully",
       data: updatedOrder,
     });
   } catch (error) {
@@ -560,16 +795,29 @@ const updatePurchaseOrder = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to update purchase order",
+      message: "Failed to update purchase order",
+      error: error.message,
     });
   }
 };
 
 /*
  * POST /api/purchase-orders/:id/confirm
+ *
+ * Manager/Admin:
+ *     Confirm a normal Purchase Order
+ *
+ * Staff:
+ *     Submit their own Purchase Request
+ *
+ * Both transition:
+ *
+ * Draft → Pending
  */
-const confirmPurchaseOrder = async (req, res) => {
+const confirmPurchaseOrder = async (
+  req,
+  res
+) => {
   try {
     const order =
       await PurchaseOrder.findById(
@@ -579,25 +827,80 @@ const confirmPurchaseOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Purchase order not found",
+        message:
+          "Purchase order not found",
       });
     }
 
+    /*
+     * Only Draft orders can
+     * be submitted/confirmed.
+     */
     if (order.status !== "Draft") {
       return res.status(400).json({
         success: false,
         message:
-          "Only draft orders can be confirmed",
+          "Only draft orders can be submitted",
       });
     }
 
+    /*
+     * STAFF
+     *
+     * Staff can only submit their
+     * own Purchase Request.
+     */
+    if (
+      req.user.role === "staff"
+    ) {
+      if (
+        order.requestType !==
+        "Purchase Request"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Staff can only submit purchase requests",
+        });
+      }
+
+      if (
+        order.createdBy.toString() !==
+        req.user.userId.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You can only submit your own purchase requests",
+        });
+      }
+    }
+
+    /*
+     * Manager/Admin can confirm
+     * normal Purchase Orders.
+     *
+     * They can also process a
+     * Purchase Request because
+     * that request is now entering
+     * the management workflow.
+     */
     order.status = "Pending";
 
     await order.save();
 
+    await order.populate(
+      "createdBy",
+      "name email role"
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Purchase order confirmed",
+      message:
+        order.requestType ===
+        "Purchase Request"
+          ? "Purchase request submitted successfully"
+          : "Purchase order confirmed",
       data: order,
     });
   } catch (error) {
@@ -609,7 +912,7 @@ const confirmPurchaseOrder = async (req, res) => {
     return res.status(500).json({
       success: false,
       message:
-        "Failed to confirm purchase order",
+        "Failed to submit purchase request",
     });
   }
 };
@@ -617,7 +920,8 @@ const confirmPurchaseOrder = async (req, res) => {
 /*
  * POST /api/purchase-orders/:id/receive
  *
- * This is the important Inventory connection.
+ * This is the important Inventory
+ * connection.
  *
  * Pending PO
  *      ↓
@@ -629,15 +933,18 @@ const confirmPurchaseOrder = async (req, res) => {
  *      ↓
  * PO receivedQuantity += quantity
  */
-const receivePurchaseOrder = async (req, res) => {
+const receivePurchaseOrder = async (
+  req,
+  res
+) => {
   try {
     /*
      * Authentication check
-     *
-     * performedBy is required by the
-     * StockMovement schema.
      */
-    if (!req.user || !req.user.userId) {
+    if (
+      !req.user ||
+      !req.user.userId
+    ) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
@@ -652,8 +959,35 @@ const receivePurchaseOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Purchase order not found",
+        message:
+          "Purchase order not found",
       });
+    }
+
+    /*
+     * Staff can receive stock,
+     * but if this is a Purchase Request,
+     * only the request owner can receive it.
+     *
+     * This prevents one staff member
+     * from processing another staff
+     * member's request.
+     */
+    if (
+      req.user.role === "staff" &&
+      order.requestType ===
+        "Purchase Request"
+    ) {
+      if (
+        order.createdBy.toString() !==
+        req.user.userId.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You can only receive stock for your own purchase requests",
+        });
+      }
     }
 
     /*
@@ -661,7 +995,8 @@ const receivePurchaseOrder = async (req, res) => {
      */
     if (
       order.status !== "Pending" &&
-      order.status !== "Partially Received"
+      order.status !==
+        "Partially Received"
     ) {
       return res.status(400).json({
         success: false,
@@ -675,10 +1010,13 @@ const receivePurchaseOrder = async (req, res) => {
         ? req.body.items
         : [];
 
-    if (receivedItems.length === 0) {
+    if (
+      receivedItems.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "No received items provided",
+        message:
+          "No received items provided",
       });
     }
 
@@ -686,9 +1024,6 @@ const receivePurchaseOrder = async (req, res) => {
      * ------------------------------------------------
      * STEP 1: Validate EVERYTHING first.
      * ------------------------------------------------
-     *
-     * We don't modify inventory until all
-     * requested quantities are known to be valid.
      */
     const validatedItems = [];
 
@@ -754,7 +1089,9 @@ const receivePurchaseOrder = async (req, res) => {
         });
       }
 
-      if (inventory.status !== "Active") {
+      if (
+        inventory.status !== "Active"
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -782,7 +1119,9 @@ const receivePurchaseOrder = async (req, res) => {
       } = item;
 
       const previousStock =
-        Number(inventory.currentStock) || 0;
+        Number(
+          inventory.currentStock
+        ) || 0;
 
       const newStock =
         previousStock + quantity;
@@ -803,13 +1142,10 @@ const receivePurchaseOrder = async (req, res) => {
 
       /*
        * Create audit movement
-       *
-       * IMPORTANT:
-       * performedBy identifies the logged-in
-       * user who received the purchase order.
        */
       await StockMovement.create({
-        inventory: inventory._id,
+        inventory:
+          inventory._id,
 
         type: "IN",
 
@@ -822,12 +1158,14 @@ const receivePurchaseOrder = async (req, res) => {
         reason:
           `Purchase Order ${order.orderNumber}`,
 
-        referenceType: "PURCHASE",
+        referenceType:
+          "PURCHASE",
 
         referenceId:
           order._id.toString(),
 
-        performedBy: req.user.userId,
+        performedBy:
+          req.user.userId,
       });
     }
 
@@ -836,7 +1174,6 @@ const receivePurchaseOrder = async (req, res) => {
      * STEP 3: Update PO status
      * ------------------------------------------------
      */
-
     const fullyReceived =
       order.items.every(
         (item) =>
@@ -851,8 +1188,11 @@ const receivePurchaseOrder = async (req, res) => {
       );
 
     if (fullyReceived) {
-      order.status = "Received";
-    } else if (partiallyReceived) {
+      order.status =
+        "Received";
+    } else if (
+      partiallyReceived
+    ) {
       order.status =
         "Partially Received";
     }
@@ -860,11 +1200,16 @@ const receivePurchaseOrder = async (req, res) => {
     await order.save();
 
     /*
-     * Populate inventory references in response.
+     * Populate references
      */
     await order.populate(
       "items.inventory",
       "productName sku category currentStock unit purchasePrice"
+    );
+
+    await order.populate(
+      "createdBy",
+      "name email role"
     );
 
     return res.status(200).json({
@@ -890,8 +1235,18 @@ const receivePurchaseOrder = async (req, res) => {
 
 /*
  * POST /api/purchase-orders/:id/cancel
+ *
+ * Admin/Manager:
+ *     Can cancel orders.
+ *
+ * Staff:
+ *     Can cancel only their own
+ *     Draft Purchase Requests.
  */
-const cancelPurchaseOrder = async (req, res) => {
+const cancelPurchaseOrder = async (
+  req,
+  res
+) => {
   try {
     const order =
       await PurchaseOrder.findById(
@@ -901,14 +1256,59 @@ const cancelPurchaseOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Purchase order not found",
+        message:
+          "Purchase order not found",
       });
     }
 
     /*
-     * Received orders cannot be cancelled.
+     * Staff ownership check
      */
-    if (order.status === "Received") {
+    if (
+      req.user.role === "staff"
+    ) {
+      if (
+        order.requestType !==
+        "Purchase Request"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Staff can only cancel purchase requests",
+        });
+      }
+
+      if (
+        order.createdBy.toString() !==
+        req.user.userId.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You can only cancel your own purchase requests",
+        });
+      }
+
+      /*
+       * Staff can only cancel
+       * Draft requests.
+       */
+      if (order.status !== "Draft") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Only draft purchase requests can be cancelled by staff",
+        });
+      }
+    }
+
+    /*
+     * Received orders cannot be
+     * cancelled.
+     */
+    if (
+      order.status === "Received"
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -917,9 +1317,8 @@ const cancelPurchaseOrder = async (req, res) => {
     }
 
     /*
-     * Partially received orders should
-     * also not be cancelled because some
-     * stock has already entered inventory.
+     * Partially received orders
+     * cannot be cancelled.
      */
     if (
       order.status ===
@@ -932,7 +1331,12 @@ const cancelPurchaseOrder = async (req, res) => {
       });
     }
 
-    if (order.status === "Cancelled") {
+    /*
+     * Already cancelled
+     */
+    if (
+      order.status === "Cancelled"
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -940,13 +1344,23 @@ const cancelPurchaseOrder = async (req, res) => {
       });
     }
 
-    order.status = "Cancelled";
+    order.status =
+      "Cancelled";
 
     await order.save();
 
+    await order.populate(
+      "createdBy",
+      "name email role"
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Purchase order cancelled",
+      message:
+        order.requestType ===
+        "Purchase Request"
+          ? "Purchase request cancelled successfully"
+          : "Purchase order cancelled",
       data: order,
     });
   } catch (error) {

@@ -26,6 +26,11 @@ import StaffInventoryDetails from "../pages/Staff/Inventory/InventoryDetails";
 // Staff Stock Operations
 import StockOperationsPage from "../pages/Staff/StockOperationsPage";
 
+// Staff Purchase Requests
+import PurchaseRequests from "../pages/Staff/PurchaseRequests/PurchaseRequests";
+import CreatePurchaseRequest from "../pages/Staff/PurchaseRequests/CreatePurchaseRequest";
+import PurchaseRequestDetails from "../pages/Staff/PurchaseRequests/PurchaseRequestDetails";
+
 // Staff Sales
 import StaffSales from "../pages/Staff/Sales/StaffSales";
 import StaffCreateSale from "../pages/Staff/Sales/StaffCreateSale";
@@ -224,6 +229,28 @@ const AppRoutes = () => {
           path="/staff/stock-operations"
           element={<StockOperationsPage />}
         />
+
+        {/* Staff Purchase Requests */}
+        <Route
+          path="/staff/purchase-requests"
+          element={<PurchaseRequests />}
+        />
+
+        <Route
+          path="/staff/purchase-requests/create"
+          element={<CreatePurchaseRequest />}
+        />
+
+        <Route
+          path="/staff/purchase-requests/:id"
+          element={<PurchaseRequestDetails />}
+        />
+
+        <Route
+          path="/staff/purchase-requests/:id/edit"
+          element={<CreatePurchaseRequest />}
+        />
+
 
         {/* Staff Sales */}
         <Route
