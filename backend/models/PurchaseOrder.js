@@ -137,6 +137,23 @@ const purchaseOrderSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    managerNote: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    sourceRequest: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PurchaseOrder",
+      required: false,
+    },
+    purchaseOrder: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PurchaseOrder",
+      default: null,
+    },
   },
   {
     timestamps: true,

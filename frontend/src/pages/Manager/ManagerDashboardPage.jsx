@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import ManagerSidebar from "../../components/layout/ManagerSidebar";
 import ManagerHeader from "../../components/layout/ManagerHeader";
@@ -12,23 +12,23 @@ import LowStockProducts from "../../components/manager/dashboard/LowStockProduct
 import RecentTransactions from "../../components/manager/dashboard/RecentTransactions";
 import InventoryAlerts from "../../components/manager/dashboard/InventoryAlerts";
 import QuickActions from "../../components/manager/dashboard/QuickActions";
+import PendingPurchaseRequests from "../../components/manager/dashboard/PendingPurchaseRequests";
 
 import { getDashboard } from "../../services/dashboardApi";
 
 const ManagerDashboardPage = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
-
-  const [mobileSidebarOpen, setMobileSidebarOpen] =
-    useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const [dashboard, setDashboard] = useState(null);
-
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState("");
 
-  const fetchDashboard = async () => {
+  /* =====================================================
+     FETCH DASHBOARD
+  ===================================================== */
+
+  const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -37,105 +37,121 @@ const ManagerDashboardPage = () => {
 
       setDashboard(data);
     } catch (err) {
-      console.error(
-        "Failed to load dashboard:",
-        err
-      );
+      console.error("Failed to load dashboard:", err);
 
       setError(
-        err.message ||
+        err?.response?.data?.message ||
+          err?.message ||
           "Unable to load dashboard data."
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [fetchDashboard]);
+
+  /* =====================================================
+     FORMAT LAST UPDATED
+  ===================================================== */
 
   const formatLastUpdated = (date) => {
     if (!date) {
       return "Not available";
     }
 
-    return new Date(date).toLocaleString(
-      "en-IN",
-      {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }
-    );
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Not available";
+    }
+
+    return parsedDate.toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
   };
+
+  /* =====================================================
+     RENDER
+  ===================================================== */
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sidebar */}
+      {/* =================================================
+          SIDEBAR
+      ================================================= */}
+
       <ManagerSidebar
         collapsed={sidebarCollapsed}
         mobileOpen={mobileSidebarOpen}
         onCollapse={() =>
-          setSidebarCollapsed(
-            !sidebarCollapsed
-          )
+          setSidebarCollapsed((prev) => !prev)
         }
-        onMobileClose={() =>
-          setMobileSidebarOpen(false)
-        }
+        onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
-      {/* Mobile Overlay */}
+      {/* =================================================
+          MOBILE OVERLAY
+      ================================================= */}
+
       {mobileSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px] lg:hidden"
-          onClick={() =>
-            setMobileSidebarOpen(false)
-          }
+          onClick={() => setMobileSidebarOpen(false)}
         />
       )}
 
-      {/* Main */}
+      {/* =================================================
+          MAIN CONTENT
+      ================================================= */}
+
       <div
-        className={`transition-all duration-300 ${
+        className={`min-h-screen transition-all duration-300 ${
           sidebarCollapsed
             ? "lg:pl-20"
             : "lg:pl-64"
         }`}
       >
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
         <ManagerHeader
-          onMenuClick={() =>
-            setMobileSidebarOpen(true)
-          }
+          onMenuClick={() => setMobileSidebarOpen(true)}
         />
 
         <main className="p-4 sm:p-6">
-          <div className="mx-auto max-w-[1600px]">
+          <div className="mx-auto w-full max-w-[1600px]">
+            {/* =================================================
+                PAGE HEADING
+            ================================================= */}
 
-            {/* Heading */}
             <div className="mb-6">
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
-                  <p className="text-xs font-medium text-slate-400">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                     Overview
                   </p>
 
-                  <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                  <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                     Dashboard
                   </h1>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Here's what's happening with
-                    your inventory today.
+                  <p className="mt-1 max-w-xl text-sm text-slate-500">
+                    Here's what's happening with your inventory
+                    today.
                   </p>
                 </div>
 
-                <div className="sm:text-right">
-                  <p className="text-xs text-slate-400">
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 sm:min-w-[210px] sm:text-right">
+                  <p className="text-xs font-medium text-slate-400">
                     Last updated
                   </p>
 
-                  <p className="mt-1 text-sm font-medium text-slate-600">
+                  <p className="mt-1 text-sm font-semibold text-slate-700">
                     {formatLastUpdated(
                       dashboard?.lastUpdated
                     )}
@@ -144,26 +160,32 @@ const ManagerDashboardPage = () => {
               </div>
             </div>
 
-            {/* Loading */}
-            {loading && (
-              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-                <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
+            {/* =================================================
+                LOADING STATE
+            ================================================= */}
 
-                <p className="text-sm font-medium text-slate-700">
+            {loading && (
+              <div className="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm">
+                <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
+
+                <p className="text-sm font-semibold text-slate-700">
                   Loading dashboard...
                 </p>
 
                 <p className="mt-1 text-xs text-slate-400">
-                  Fetching the latest inventory,
-                  sales and purchase data.
+                  Fetching the latest inventory, sales, and
+                  purchase data.
                 </p>
               </div>
             )}
 
-            {/* Error */}
+            {/* =================================================
+                ERROR STATE
+            ================================================= */}
+
             {!loading && error && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-red-800">
                       Unable to load dashboard
@@ -185,76 +207,105 @@ const ManagerDashboardPage = () => {
               </div>
             )}
 
-            {/* Dashboard */}
-            {!loading &&
-              !error &&
-              dashboard && (
-                <>
-                  {/* Statistics */}
-                  <DashboardStats
-                    data={dashboard.stats}
-                  />
+            {/* =================================================
+                DASHBOARD CONTENT
+            ================================================= */}
 
-                  {/* Analytics Overview */}
-                  <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
+            {!loading && !error && dashboard && (
+              <div className="space-y-5">
+                {/* =================================================
+                    STATISTICS
+                ================================================= */}
 
-                    {/* Stock Level */}
-                    <div className="lg:col-span-5">
-                      <StockLevelChart
-                        data={dashboard.inventory}
-                      />
-                    </div>
+                <DashboardStats data={dashboard.stats} />
 
-                    {/* Inventory Overview */}
-                    <div className="lg:col-span-3">
-                      <InventoryOverview
-                        data={dashboard.inventory}
-                      />
-                    </div>
+                {/* =================================================
+                    ANALYTICS OVERVIEW
+                ================================================= */}
 
-                    {/* Sales Overview */}
-                    <div className="lg:col-span-4">
-                      <SalesOverview
-                        data={dashboard.sales}
-                      />
-                    </div>
+                <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                  {/* Stock Level Chart */}
+
+                  <div className="min-w-0 lg:col-span-5">
+                    <StockLevelChart
+                      data={dashboard.inventory}
+                    />
                   </div>
 
-                  {/* Inventory / Purchase Overview */}
-                  <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
-                    <div className="xl:col-span-1">
+                  {/* Inventory Overview */}
+
+                  <div className="min-w-0 lg:col-span-3">
+                    <InventoryOverview
+                      data={dashboard.inventory}
+                    />
+                  </div>
+
+                  {/* Sales Overview */}
+
+                  <div className="min-w-0 lg:col-span-4">
+                    <SalesOverview
+                      data={dashboard.sales}
+                    />
+                  </div>
+                </section>
+
+                {/* =================================================
+                    INVENTORY AND PURCHASE OVERVIEW
+                ================================================= */}
+
+                <section className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-3">
+                  {/* Low Stock and Pending Requests */}
+
+                  <div className="flex min-w-0 flex-col gap-5">
+                    <div className="min-h-0">
                       <LowStockProducts
                         data={dashboard.lowStockProducts}
                       />
                     </div>
 
-                    <div className="xl:col-span-1">
-                      <PurchaseOrdersOverview
-                        data={dashboard.purchases}
-                      />
-                    </div>
-
-                    <div className="xl:col-span-1">
-                      <InventoryAlerts
-                        data={dashboard.alerts}
-                      />
+                    <div className="min-h-0">
+                      <PendingPurchaseRequests />
                     </div>
                   </div>
 
-                  {/* Transactions / Actions */}
-                  <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
-                    <div className="xl:col-span-2">
-                      <RecentTransactions
-                        data={
-                          dashboard.recentTransactions
-                        }
-                      />
-                    </div>
+                  {/* Purchase Orders */}
 
+                  <div className="min-w-0">
+                    <PurchaseOrdersOverview
+                      data={dashboard.purchases}
+                    />
+                  </div>
+
+                  {/* Inventory Alerts */}
+
+                  <div className="min-w-0">
+                    <InventoryAlerts
+                      data={dashboard.alerts}
+                    />
+                  </div>
+                </section>
+
+                {/* =================================================
+                    TRANSACTIONS AND QUICK ACTIONS
+                ================================================= */}
+
+                <section className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-3">
+                  {/* Recent Transactions */}
+
+                  <div className="min-w-0 xl:col-span-2">
+                    <RecentTransactions
+                      data={dashboard.recentTransactions}
+                    />
+                  </div>
+
+                  {/* Quick Actions */}
+
+                  <div className="min-w-0">
                     <QuickActions />
                   </div>
-                </>
-              )}
+                </section>
+              </div>
+            )}
           </div>
         </main>
       </div>

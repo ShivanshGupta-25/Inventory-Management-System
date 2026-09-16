@@ -55,6 +55,10 @@ import InventoryDetails from "../pages/Manager/inventory/InventoryDetails";
 import PurchaseOrders from "../pages/Manager/purchaseOrders/PurchaseOrders";
 import PurchaseOrderDetails from "../pages/Manager/purchaseOrders/PurchaseOrderDetails";
 
+// Purchase Requests
+import ManagerPurchaseRequests from "../pages/Manager/PurchaseRequests/ManagerPurchaseRequests";
+import CreatePurchaseOrder from "../pages/Manager/PurchaseRequests/CreatePurchaseOrder";
+
 // Sales
 import Sales from "../pages/Manager/Sales/Sales";
 import CreateSale from "../pages/Manager/Sales/CreateSale";
@@ -163,6 +167,18 @@ const AppRoutes = () => {
         <Route
           path="/manager/purchase-orders/:id"
           element={<PurchaseOrderDetails />}
+        />
+
+        {/* Purchase Requests */}
+        <Route
+          path="/manager/purchase-requests"
+          element={<ManagerPurchaseRequests />}
+        />
+
+        {/* Create Purchase Order */}
+        <Route
+          path="/manager/purchase-requests/:requestId/create-order"
+          element={<CreatePurchaseOrder />}
         />
 
         {/* Sales */}

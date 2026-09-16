@@ -1377,6 +1377,494 @@ const cancelPurchaseOrder = async (
   }
 };
 
+
+/*
+ * GET /api/purchase-orders/manager/requests
+ *
+ * Manager/Admin:
+ * Fetch all staff purchase requests.
+ *
+ * Supports:
+ * search
+ * status
+ * priority
+ */
+const getManagerPurchaseRequests = async (req, res) => {
+  try {
+    const {
+      search = "",
+      status = "",
+      priority = "",
+    } = req.query;
+
+    const query = {
+      requestType: "Purchase Request",
+    };
+
+    /*
+     * Status filter
+     */
+    if (status && status !== "All") {
+      query.status = status;
+    }
+
+    /*
+     * Priority filter
+     */
+    if (priority && priority !== "All") {
+      query.priority = priority;
+    }
+
+    /*
+     * Search by order number,
+     * supplier name, or notes.
+     */
+    if (search.trim()) {
+      query.$or = [
+        {
+          orderNumber: {
+            $regex: search.trim(),
+            $options: "i",
+          },
+        },
+        {
+          notes: {
+            $regex: search.trim(),
+            $options: "i",
+          },
+        },
+      ];
+    }
+
+    const requests = await PurchaseOrder.find(query)
+      .populate(
+        "items.inventory",
+        "productName sku category currentStock unit purchasePrice"
+      )
+      .populate(
+        "createdBy",
+        "name email role"
+      )
+      .sort({
+        createdAt: -1,
+      });
+
+    /*
+     * Statistics for manager panel
+     */
+    const statistics = {
+      total: requests.length,
+
+      pending: requests.filter(
+        (request) => request.status === "Pending"
+      ).length,
+
+      approved: requests.filter(
+        (request) => request.status === "Approved"
+      ).length,
+
+      rejected: requests.filter(
+        (request) => request.status === "Rejected"
+      ).length,
+
+      highPriority: requests.filter(
+        (request) =>
+          request.priority === "High" ||
+          request.priority === "Urgent"
+      ).length,
+    };
+
+    return res.status(200).json({
+      success: true,
+      count: requests.length,
+      statistics,
+      data: requests,
+    });
+  } catch (error) {
+    console.error(
+      "Get manager purchase requests error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to fetch manager purchase requests",
+    });
+  }
+};
+
+
+const approvePurchaseRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { managerNote = "" } = req.body;
+
+    const request = await PurchaseOrder.findById(id);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase request not found",
+      });
+    }
+
+    if (request.requestType !== "Purchase Request") {
+      return res.status(400).json({
+        success: false,
+        message: "This is not a purchase request",
+      });
+    }
+
+    if (request.status !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Only pending purchase requests can be approved",
+      });
+    }
+
+    request.status = "Approved";
+    request.managerNote =
+      typeof managerNote === "string"
+        ? managerNote.trim()
+        : "";
+
+    const updatedRequest = await request.save();
+
+    await updatedRequest.populate(
+      "createdBy",
+      "name email role"
+    );
+
+    await updatedRequest.populate(
+      "items.inventory",
+      "productName sku category currentStock unit purchasePrice"
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Purchase request approved successfully",
+      data: updatedRequest,
+    });
+  } catch (error) {
+    console.error(
+      "Approve purchase request error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to approve purchase request",
+    });
+  }
+};
+
+
+const rejectPurchaseRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { managerNote = "" } = req.body;
+
+    const request = await PurchaseOrder.findById(id);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase request not found",
+      });
+    }
+
+    if (request.requestType !== "Purchase Request") {
+      return res.status(400).json({
+        success: false,
+        message: "This is not a purchase request",
+      });
+    }
+
+    if (request.status !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Only pending purchase requests can be rejected",
+      });
+    }
+
+    if (
+      typeof managerNote !== "string" ||
+      !managerNote.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "A rejection reason is required",
+      });
+    }
+
+    request.status = "Rejected";
+    request.managerNote = managerNote.trim();
+
+    const updatedRequest = await request.save();
+
+    await updatedRequest.populate(
+      "createdBy",
+      "name email role"
+    );
+
+    await updatedRequest.populate(
+      "items.inventory",
+      "productName sku category currentStock unit purchasePrice"
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Purchase request rejected successfully",
+      data: updatedRequest,
+    });
+  } catch (error) {
+    console.error(
+      "Reject purchase request error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reject purchase request",
+    });
+  }
+};
+
+
+const createPurchaseOrderFromRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      supplier = {},
+      items,
+      tax = 0,
+      expectedDate = null,
+      priority,
+      notes = "",
+    } = req.body;
+
+    /*
+     * Find the existing purchase request.
+     * We will update this same document instead
+     * of creating a second PurchaseOrder.
+     */
+    const request = await PurchaseOrder.findById(id);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase request not found",
+      });
+    }
+
+    /*
+     * Prevent duplicate conversion.
+     */
+    if (request.requestType !== "Purchase Request") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This request has already been converted into a purchase order. Duplicate orders are not allowed.",
+      });
+    }
+
+    /*
+     * Only approved requests can be converted.
+     */
+    if (request.status !== "Approved") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Only approved purchase requests can be converted",
+      });
+    }
+
+    /*
+     * Validate supplier.
+     */
+    if (!supplier?.name?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Supplier name is required",
+      });
+    }
+
+    /*
+     * Validate items.
+     */
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one item is required",
+      });
+    }
+
+    const updatedItems = [];
+    let subtotal = 0;
+
+    /*
+     * Validate inventory items and calculate subtotal.
+     */
+    for (const item of items) {
+      if (!item.inventory) {
+        return res.status(400).json({
+          success: false,
+          message: "Inventory reference is required",
+        });
+      }
+
+      const inventory = await Inventory.findById(
+        item.inventory
+      );
+
+      if (!inventory) {
+        return res.status(404).json({
+          success: false,
+          message: "Inventory product not found",
+        });
+      }
+
+      if (inventory.status !== "Active") {
+        return res.status(400).json({
+          success: false,
+          message: `${inventory.productName} is inactive`,
+        });
+      }
+
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice);
+
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Invalid quantity for ${inventory.productName}`,
+        });
+      }
+
+      if (
+        item.unitPrice === undefined ||
+        item.unitPrice === null ||
+        item.unitPrice === "" ||
+        !Number.isFinite(unitPrice) ||
+        unitPrice < 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Invalid unit price for ${inventory.productName}`,
+        });
+      }
+
+      const totalPrice = quantity * unitPrice;
+
+      subtotal += totalPrice;
+
+      updatedItems.push({
+        inventory: inventory._id,
+        productName: inventory.productName,
+        sku: inventory.sku,
+        quantity,
+        receivedQuantity: 0,
+        unitPrice,
+        totalPrice,
+      });
+    }
+
+    /*
+     * Validate tax percentage.
+     */
+    const numericTax = Number(tax);
+
+    if (
+      !Number.isFinite(numericTax) ||
+      numericTax < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid tax percentage",
+      });
+    }
+
+    const totalAmount =
+      subtotal + (subtotal * numericTax) / 100;
+
+    /*
+     * Convert the existing request into a PO.
+     *
+     * No new PurchaseOrder document is created.
+     */
+    request.orderNumber = `PO-${Date.now()}`;
+
+    request.requestType = "Purchase Order";
+
+    request.supplier = {
+      name: supplier.name.trim(),
+      email: supplier.email?.trim() || "",
+      phone: supplier.phone?.trim() || "",
+    };
+
+    request.items = updatedItems;
+
+    request.subtotal = subtotal;
+    request.tax = numericTax;
+    request.totalAmount = totalAmount;
+
+    request.expectedDate = expectedDate || null;
+
+    request.priority =
+      priority || request.priority || "Medium";
+
+    /*
+     * Keep the converted order as Draft.
+     * The user can confirm it once.
+     */
+    request.status = "Draft";
+
+    request.notes =
+      typeof notes === "string"
+        ? notes.trim()
+        : "";
+
+    const purchaseOrder = await request.save();
+
+    /*
+     * Populate response data.
+     */
+    await purchaseOrder.populate(
+      "createdBy",
+      "name email role"
+    );
+
+    await purchaseOrder.populate(
+      "items.inventory",
+      "productName sku category currentStock unit purchasePrice"
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Purchase request converted into purchase order successfully",
+      data: purchaseOrder,
+    });
+  } catch (error) {
+    console.error(
+      "Create purchase order from request error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to create purchase order from request",
+    });
+  }
+};
+
 module.exports = {
   getPurchaseOrders,
   getPurchaseOrderById,
@@ -1385,4 +1873,8 @@ module.exports = {
   confirmPurchaseOrder,
   receivePurchaseOrder,
   cancelPurchaseOrder,
+  getManagerPurchaseRequests,
+  approvePurchaseRequest,
+  rejectPurchaseRequest,
+  createPurchaseOrderFromRequest,
 };

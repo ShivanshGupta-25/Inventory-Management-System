@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   Package,
@@ -26,22 +26,18 @@ const CreatePurchaseOrderModal = ({
   const [tax, setTax] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Inventory products
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
 
-  // IMPORTANT:
-  // This is completely independent from supplier state.
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
-  const [loadingProducts, setLoadingProducts] =
-    useState(true);
-
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [error, setError] = useState("");
 
-  /*
-   * Load active inventory products
-   */
+  const searchContainerRef = useRef(null);
+
+  // Load inventory products
   useEffect(() => {
     let mounted = true;
 
@@ -54,29 +50,46 @@ const CreatePurchaseOrderModal = ({
 
         if (!mounted) return;
 
-        const inventoryData = Array.isArray(
-          response
-        )
+        console.log("Inventory API response:", response);
+
+        /*
+         * Supports common API response formats:
+         *
+         * 1. response = []
+         * 2. response = { data: [] }
+         * 3. response = { data: { data: [] } }
+         * 4. response = { inventory: [] }
+         * 5. response = { products: [] }
+         */
+        const inventoryData = Array.isArray(response)
           ? response
           : Array.isArray(response?.data)
           ? response.data
+          : Array.isArray(response?.data?.data)
+          ? response.data.data
+          : Array.isArray(response?.inventory)
+          ? response.inventory
+          : Array.isArray(response?.products)
+          ? response.products
           : [];
 
         const activeProducts = inventoryData.filter(
-            (product) => product.status === "Active"
-            );
+          (product) =>
+            product &&
+            (product.status === "Active" ||
+              product.status === "active" ||
+              !product.status)
+        );
 
         setProducts(activeProducts);
       } catch (error) {
-        console.error(
-          "Failed to load inventory products:",
-          error
-        );
+        console.error("Failed to load inventory products:", error);
 
         if (mounted) {
           setProducts([]);
           setError(
-            error.response?.data?.message ||
+            error?.response?.data?.message ||
+              error?.message ||
               "Failed to load products from inventory."
           );
         }
@@ -94,25 +107,38 @@ const CreatePurchaseOrderModal = ({
     };
   }, []);
 
-  /*
-   * Search inventory
-   */
+  // Close product dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target)
+      ) {
+        setSearchFocused(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Filter inventory products
   const filteredProducts = useMemo(() => {
-    const value = search
-      .toLowerCase()
-      .trim();
+    const value = String(search || "").toLowerCase().trim();
 
     if (!value) {
       return products;
     }
 
     return products.filter((product) => {
-      const productName =
-        product.productName
-          ?.toLowerCase() || "";
+      const productName = String(
+        product.productName || ""
+      ).toLowerCase();
 
-      const sku =
-        product.sku?.toLowerCase() || "";
+      const sku = String(product.sku || "").toLowerCase();
 
       return (
         productName.includes(value) ||
@@ -121,77 +147,60 @@ const CreatePurchaseOrderModal = ({
     });
   }, [products, search]);
 
-  /*
-   * Supplier fields
-   */
-  const handleSupplierChange = (e) => {
-    const { name, value } = e.target;
+  // Handle supplier fields
+  const handleSupplierChange = (event) => {
+    const { name, value } = event.target;
 
-    setSupplier((prev) => ({
-      ...prev,
+    setSupplier((previous) => ({
+      ...previous,
       [name]: value,
     }));
   };
 
-  /*
-   * Add inventory product to PO
-   */
+  // Add inventory product
   const addProduct = (product) => {
+    if (!product?._id) {
+      setError("Invalid inventory product selected.");
+      return;
+    }
+
     const alreadyAdded = items.some(
-      (item) =>
-        item.inventory === product._id
+      (item) => item.inventory === product._id
     );
 
     if (alreadyAdded) {
       return;
     }
 
-    setItems((prev) => [
-      ...prev,
+    setItems((previous) => [
+      ...previous,
       {
-        // IMPORTANT:
-        // This is the Inventory document ID.
         inventory: product._id,
-
-        // Snapshot product information
-        productName:
-          product.productName,
-
-        sku: product.sku,
-
+        productName: product.productName || "Unnamed Product",
+        sku: product.sku || "",
         quantity: 1,
-
-        unitPrice:
-          Number(product.purchasePrice) || 0,
+        unitPrice: Number(product.purchasePrice) || 0,
       },
     ]);
 
-    // Clear product search after selection
     setSearch("");
+    setSearchFocused(false);
+    setError("");
   };
 
-  /*
-   * Remove product
-   */
+  // Remove product
   const removeProduct = (inventoryId) => {
-    setItems((prev) =>
-      prev.filter(
-        (item) =>
-          item.inventory !== inventoryId
+    setItems((previous) =>
+      previous.filter(
+        (item) => item.inventory !== inventoryId
       )
     );
   };
 
-  /*
-   * Update quantity / price
-   */
-  const updateItem = (
-    inventoryId,
-    field,
-    value
-  ) => {
-    setItems((prev) =>
-      prev.map((item) =>
+  // Update quantity or unit price
+  const updateItem = (inventoryId, field, value) => {
+    setItems((previous) =>
+      previous.map((item) =>
         item.inventory === inventoryId
           ? {
               ...item,
@@ -202,78 +211,48 @@ const CreatePurchaseOrderModal = ({
     );
   };
 
-  /*
-   * Subtotal
-   */
+  // Calculate subtotal
   const subtotal = useMemo(() => {
-    return items.reduce(
-      (sum, item) => {
-        const quantity =
-          Number(item.quantity) || 0;
+    return items.reduce((sum, item) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
 
-        const unitPrice =
-          Number(item.unitPrice) || 0;
-
-        return (
-          sum + quantity * unitPrice
-        );
-      },
-      0
-    );
+      return sum + quantity * unitPrice;
+    }, 0);
   }, [items]);
 
-  /*
-   * Tax is currently treated as a fixed amount.
-   */
-  const numericTax =
-    Number(tax) || 0;
+  // Tax is treated as a fixed amount
+  const numericTax = Number(tax) || 0;
+  const totalAmount = subtotal + numericTax;
 
-  const totalAmount =
-    subtotal + numericTax;
-
-  /*
-   * Submit Draft
-   */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Submit purchase order draft
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     setError("");
 
     if (!supplier.name.trim()) {
-      setError(
-        "Supplier name is required."
-      );
+      setError("Supplier name is required.");
       return;
     }
 
     if (items.length === 0) {
-      setError(
-        "Add at least one product to the order."
-      );
+      setError("Add at least one product to the order.");
       return;
     }
 
     for (const item of items) {
-      const quantity =
-        Number(item.quantity);
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice);
 
-      const unitPrice =
-        Number(item.unitPrice);
-
-      if (
-        !Number.isInteger(quantity) ||
-        quantity <= 0
-      ) {
+      if (!Number.isInteger(quantity) || quantity <= 0) {
         setError(
           `Enter a valid whole-number quantity for ${item.productName}.`
         );
         return;
       }
 
-      if (
-        Number.isNaN(unitPrice) ||
-        unitPrice < 0
-      ) {
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         setError(
           `Enter a valid price for ${item.productName}.`
         );
@@ -281,23 +260,11 @@ const CreatePurchaseOrderModal = ({
       }
     }
 
-    if (
-      Number.isNaN(numericTax) ||
-      numericTax < 0
-    ) {
-      setError(
-        "Enter a valid tax amount."
-      );
+    if (!Number.isFinite(numericTax) || numericTax < 0) {
+      setError("Enter a valid tax amount.");
       return;
     }
 
-    /*
-     * IMPORTANT:
-     * Creating the PO does NOT change inventory.
-     *
-     * Inventory will be updated only when
-     * this PO is received.
-     */
     await onSubmit({
       supplier: {
         name: supplier.name.trim(),
@@ -308,18 +275,12 @@ const CreatePurchaseOrderModal = ({
       items: items.map((item) => ({
         inventory: item.inventory,
         quantity: Number(item.quantity),
-        unitPrice: Number(
-          item.unitPrice
-        ),
+        unitPrice: Number(item.unitPrice),
       })),
 
       tax: numericTax,
-
-      expectedDate:
-        expectedDate || null,
-
+      expectedDate: expectedDate || null,
       notes: notes.trim(),
-
       status: "Draft",
     });
   };
@@ -327,7 +288,6 @@ const CreatePurchaseOrderModal = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
       <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>
@@ -336,8 +296,7 @@ const CreatePurchaseOrderModal = ({
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
-              Add supplier and products for the
-              incoming purchase.
+              Add supplier and products for the incoming purchase.
             </p>
           </div>
 
@@ -356,7 +315,6 @@ const CreatePurchaseOrderModal = ({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-
             {/* Error */}
             {error && (
               <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -364,14 +322,13 @@ const CreatePurchaseOrderModal = ({
               </div>
             )}
 
-            {/* Supplier */}
+            {/* Supplier Information */}
             <div>
               <h3 className="text-sm font-semibold text-slate-900">
                 Supplier Information
               </h3>
 
               <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
-
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-slate-700">
                     Supplier Name *
@@ -380,9 +337,7 @@ const CreatePurchaseOrderModal = ({
                   <input
                     name="name"
                     value={supplier.name}
-                    onChange={
-                      handleSupplierChange
-                    }
+                    onChange={handleSupplierChange}
                     placeholder="ABC Suppliers"
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   />
@@ -397,9 +352,7 @@ const CreatePurchaseOrderModal = ({
                     type="email"
                     name="email"
                     value={supplier.email}
-                    onChange={
-                      handleSupplierChange
-                    }
+                    onChange={handleSupplierChange}
                     placeholder="supplier@example.com"
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   />
@@ -413,20 +366,16 @@ const CreatePurchaseOrderModal = ({
                   <input
                     name="phone"
                     value={supplier.phone}
-                    onChange={
-                      handleSupplierChange
-                    }
+                    onChange={handleSupplierChange}
                     placeholder="+91 98765 43210"
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   />
                 </div>
-
               </div>
             </div>
 
-            {/* Products */}
+            {/* Order Items */}
             <div className="mt-7">
-
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-900">
@@ -440,15 +389,15 @@ const CreatePurchaseOrderModal = ({
 
                 <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">
                   {items.length}{" "}
-                  {items.length === 1
-                    ? "item"
-                    : "items"}
+                  {items.length === 1 ? "item" : "items"}
                 </span>
               </div>
 
-              {/* Search */}
-              <div className="relative mt-3">
-
+              {/* Inventory Search */}
+              <div
+                ref={searchContainerRef}
+                className="relative mt-3"
+              >
                 <Search
                   size={17}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -457,19 +406,18 @@ const CreatePurchaseOrderModal = ({
                 <input
                   type="text"
                   value={search}
-                  onChange={(e) =>
-                    setSearch(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setSearchFocused(true);
+                  }}
+                  onFocus={() => setSearchFocused(true)}
                   placeholder="Search inventory products by name or SKU..."
                   className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                 />
 
-                {/* Search Results */}
-                {search.trim() && (
-                  <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
-
+                {/* Product Dropdown */}
+                {searchFocused && (
+                  <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
                     {loadingProducts ? (
                       <div className="flex items-center justify-center gap-2 px-4 py-5 text-sm text-slate-500">
                         <RefreshCw
@@ -478,94 +426,72 @@ const CreatePurchaseOrderModal = ({
                         />
                         Loading products...
                       </div>
-                    ) : filteredProducts.length ===
-                      0 ? (
+                    ) : error && products.length === 0 ? (
+                      <div className="px-4 py-5 text-center text-sm text-red-500">
+                        {error}
+                      </div>
+                    ) : filteredProducts.length === 0 ? (
                       <div className="px-4 py-5 text-center text-sm text-slate-400">
                         No products found.
                       </div>
                     ) : (
-                      filteredProducts.map(
-                        (product) => {
-                          const alreadyAdded =
-                            items.some(
-                              (item) =>
-                                item.inventory ===
-                                product._id
-                            );
+                      filteredProducts.map((product) => {
+                        const alreadyAdded = items.some(
+                          (item) =>
+                            item.inventory === product._id
+                        );
 
-                          return (
-                            <button
-                              key={
-                                product._id
-                              }
-                              type="button"
-                              disabled={
-                                alreadyAdded
-                              }
-                              onClick={() =>
-                                addProduct(
-                                  product
-                                )
-                              }
-                              className="flex w-full items-center justify-between border-b border-slate-100 px-4 py-3 text-left transition last:border-0 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <div className="flex items-center gap-3">
-
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
-                                  <Package
-                                    size={17}
-                                    className="text-slate-500"
-                                  />
-                                </div>
-
-                                <div>
-                                  <p className="text-sm font-medium text-slate-700">
-                                    {
-                                      product.productName
-                                    }
-                                  </p>
-
-                                  <p className="mt-0.5 text-xs text-slate-400">
-                                    SKU:{" "}
-                                    {
-                                      product.sku
-                                    }
-                                  </p>
-                                </div>
-
+                        return (
+                          <button
+                            key={product._id}
+                            type="button"
+                            disabled={alreadyAdded}
+                            onClick={() => addProduct(product)}
+                            className="flex w-full items-center justify-between border-b border-slate-100 px-4 py-3 text-left transition last:border-0 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
+                                <Package
+                                  size={17}
+                                  className="text-slate-500"
+                                />
                               </div>
 
-                              <div className="text-right">
-                                <p className="text-xs text-slate-400">
-                                  Current Stock
-                                </p>
-
+                              <div>
                                 <p className="text-sm font-medium text-slate-700">
-                                  {Number(
-                                    product.currentStock ||
-                                      0
-                                  ).toLocaleString(
-                                    "en-IN"
-                                  )}
+                                  {product.productName ||
+                                    "Unnamed Product"}
+                                </p>
+
+                                <p className="mt-0.5 text-xs text-slate-400">
+                                  SKU: {product.sku || "N/A"}
                                 </p>
                               </div>
+                            </div>
 
-                            </button>
-                          );
-                        }
-                      )
+                            <div className="text-right">
+                              <p className="text-xs text-slate-400">
+                                Current Stock
+                              </p>
+
+                              <p className="text-sm font-medium text-slate-700">
+                                {Number(
+                                  product.currentStock || 0
+                                ).toLocaleString("en-IN")}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })
                     )}
-
                   </div>
                 )}
               </div>
 
               {/* Selected Items */}
               <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-
                 {items.length === 0 ? (
                   <div className="px-5 py-10 text-center">
-
                     <Package
                       size={24}
                       className="mx-auto text-slate-300"
@@ -576,18 +502,14 @@ const CreatePurchaseOrderModal = ({
                     </p>
 
                     <p className="mt-1 text-xs text-slate-400">
-                      Search above to add products.
+                      Click the search field to browse inventory.
                     </p>
-
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-
                     <table className="w-full min-w-[700px] text-left">
-
                       <thead>
                         <tr className="border-b border-slate-100 bg-slate-50">
-
                           <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
                             Product
                           </th>
@@ -605,24 +527,15 @@ const CreatePurchaseOrderModal = ({
                           </th>
 
                           <th className="w-14 px-4 py-3" />
-
                         </tr>
                       </thead>
 
                       <tbody className="divide-y divide-slate-100">
-
                         {items.map((item) => (
-                          <tr
-                            key={
-                              item.inventory
-                            }
-                          >
-
+                          <tr key={item.inventory}>
                             <td className="px-4 py-3">
                               <p className="text-sm font-medium text-slate-700">
-                                {
-                                  item.productName
-                                }
+                                {item.productName}
                               </p>
 
                               <p className="mt-0.5 text-xs text-slate-400">
@@ -635,14 +548,12 @@ const CreatePurchaseOrderModal = ({
                                 type="number"
                                 min="1"
                                 step="1"
-                                value={
-                                  item.quantity
-                                }
-                                onChange={(e) =>
+                                value={item.quantity}
+                                onChange={(event) =>
                                   updateItem(
                                     item.inventory,
                                     "quantity",
-                                    e.target.value
+                                    event.target.value
                                   )
                                 }
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
@@ -654,14 +565,12 @@ const CreatePurchaseOrderModal = ({
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={
-                                  item.unitPrice
-                                }
-                                onChange={(e) =>
+                                value={item.unitPrice}
+                                onChange={(event) =>
                                   updateItem(
                                     item.inventory,
                                     "unitPrice",
-                                    e.target.value
+                                    event.target.value
                                   )
                                 }
                                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
@@ -672,17 +581,9 @@ const CreatePurchaseOrderModal = ({
                               <p className="text-sm font-semibold text-slate-700">
                                 ₹
                                 {(
-                                  Number(
-                                    item.quantity ||
-                                      0
-                                  ) *
-                                  Number(
-                                    item.unitPrice ||
-                                      0
-                                  )
-                                ).toLocaleString(
-                                  "en-IN"
-                                )}
+                                  Number(item.quantity || 0) *
+                                  Number(item.unitPrice || 0)
+                                ).toLocaleString("en-IN")}
                               </p>
                             </td>
 
@@ -690,41 +591,30 @@ const CreatePurchaseOrderModal = ({
                               <button
                                 type="button"
                                 onClick={() =>
-                                  removeProduct(
-                                    item.inventory
-                                  )
+                                  removeProduct(item.inventory)
                                 }
                                 className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                               >
-                                <Trash2
-                                  size={16}
-                                />
+                                <Trash2 size={16} />
                               </button>
                             </td>
-
                           </tr>
                         ))}
-
                       </tbody>
-
                     </table>
-
                   </div>
                 )}
-
               </div>
             </div>
 
             {/* Additional Details */}
             <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-2">
-
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   Expected Delivery
                 </label>
 
                 <div className="relative">
-
                   <Calendar
                     size={17}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -733,14 +623,11 @@ const CreatePurchaseOrderModal = ({
                   <input
                     type="date"
                     value={expectedDate}
-                    onChange={(e) =>
-                      setExpectedDate(
-                        e.target.value
-                      )
+                    onChange={(event) =>
+                      setExpectedDate(event.target.value)
                     }
                     className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                   />
-
                 </div>
               </div>
 
@@ -754,21 +641,15 @@ const CreatePurchaseOrderModal = ({
                   min="0"
                   step="0.01"
                   value={tax}
-                  onChange={(e) =>
-                    setTax(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => setTax(event.target.value)}
                   placeholder="0"
                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                 />
               </div>
-
             </div>
 
             {/* Notes */}
             <div className="mt-4">
-
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Notes
               </label>
@@ -776,78 +657,55 @@ const CreatePurchaseOrderModal = ({
               <textarea
                 rows="3"
                 value={notes}
-                onChange={(e) =>
-                  setNotes(
-                    e.target.value
-                  )
-                }
+                onChange={(event) => setNotes(event.target.value)}
                 placeholder="Add delivery instructions or other notes..."
                 className="w-full resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
               />
-
             </div>
 
             {/* Summary */}
             <div className="mt-6 ml-auto max-w-sm rounded-2xl bg-slate-50 p-5">
-
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">
-                  Subtotal
-                </span>
+                <span className="text-slate-500">Subtotal</span>
 
                 <span className="font-medium text-slate-700">
                   ₹
-                  {subtotal.toLocaleString(
-                    "en-IN",
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
+                  {subtotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
                 </span>
               </div>
 
               <div className="mt-3 flex justify-between text-sm">
-                <span className="text-slate-500">
-                  Tax
-                </span>
+                <span className="text-slate-500">Tax</span>
 
                 <span className="font-medium text-slate-700">
                   ₹
-                  {numericTax.toLocaleString(
-                    "en-IN",
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
+                  {numericTax.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
                 </span>
               </div>
 
               <div className="my-4 border-t border-slate-200" />
 
               <div className="flex justify-between">
-
                 <span className="font-semibold text-slate-800">
                   Total
                 </span>
 
                 <span className="text-lg font-bold text-slate-900">
                   ₹
-                  {totalAmount.toLocaleString(
-                    "en-IN",
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
+                  {totalAmount.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
                 </span>
-
               </div>
-
             </div>
           </div>
 
           {/* Footer */}
           <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-
             <button
               type="button"
               onClick={onClose}
@@ -859,19 +717,12 @@ const CreatePurchaseOrderModal = ({
 
             <button
               type="submit"
-              disabled={
-                loading ||
-                loadingProducts
-              }
+              disabled={loading || loadingProducts}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-
               {loading ? (
                 <>
-                  <RefreshCw
-                    size={16}
-                    className="animate-spin"
-                  />
+                  <RefreshCw size={16} className="animate-spin" />
                   Creating...
                 </>
               ) : (
@@ -880,9 +731,7 @@ const CreatePurchaseOrderModal = ({
                   Create Draft
                 </>
               )}
-
             </button>
-
           </div>
         </form>
       </div>
