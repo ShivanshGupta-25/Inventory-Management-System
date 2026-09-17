@@ -18,6 +18,8 @@ import ProtectedRoute from "./ProtectedRoute";
 import StaffDashboardPage from "../pages/Staff/StaffDashboardPage";
 import StaffAlertsPage from "../components/staff/dashboard/StaffAlertsPage";
 import StaffStockHistoryPage from "../components/staff/dashboard/StaffStockHistoryPage";
+import StaffProfilePage from "../pages/Staff/StaffProfilePage";
+import StaffSettingsPage from "../pages/Staff/StaffSettingsPage";
 
 // Staff Inventory
 import StaffInventory from "../pages/Staff/Inventory/Inventory";
@@ -222,6 +224,17 @@ const AppRoutes = () => {
           path="/staff/dashboard"
           element={<StaffDashboardPage />}
         />
+
+        {/* Staff Profile */}
+
+        <Route path="/staff/profile" element={<StaffProfilePage />}
+        />
+
+        {/* Staff Settings */}
+
+        <Route path="/staff/settings" element={<StaffSettingsPage />}
+        />
+        {/* Staff Inventory */}
 
         <Route
           path="/staff/inventory"
