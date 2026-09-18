@@ -11,7 +11,6 @@ import SignupPage from "../pages/auth/SignupPage";
 import ContactPage from "../pages/contact/ContactPage";
 import PricingPage from "../pages/pricing/PricingPage";
 
-// Authentication
 import ProtectedRoute from "./ProtectedRoute";
 
 // Staff
@@ -44,14 +43,15 @@ import Returns from "../pages/Staff/Returns/Returns";
 import ProcessReturn from "../pages/Staff/Returns/ProcessReturn";
 import ReturnDetails from "../pages/Staff/Returns/ReturnDetails";
 
+// Communication
+import CommunicationPage from "../pages/communication/CommunicationPage";
+
 // Manager
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Profile from "../pages/Manager/Profile";
 import Settings from "../pages/Manager/Settings";
-import ManagerChatPage from "../pages/Manager/ManagerChatPage";
-import ChatPage from "../pages/chat/ChatPage";
 
-// Inventory
+// Manager Inventory
 import Inventory from "../pages/Manager/inventory/Inventory";
 import InventoryDetails from "../pages/Manager/inventory/InventoryDetails";
 
@@ -71,7 +71,6 @@ import EditSale from "../pages/Manager/Sales/EditSale";
 
 // Analytics
 import Analytics from "../pages/Manager/Analytics/Analytics";
-
 
 const AppRoutes = () => {
   return (
@@ -108,59 +107,34 @@ const AppRoutes = () => {
 
 
       {/* =====================================================
-          PROTECTED ROUTES
+          MANAGER
       ====================================================== */}
-
-      {/* ==================== ADMIN ==================== */}
-
-      {/* <Route
-        element={
-          <ProtectedRoute allowedRoles={["admin"]} />
-        }
-      >
-        <Route
-          path="/admin/dashboard"
-          element={<DashboardPage />}
-        />
-      </Route> */}
-
-
-      {/* ==================== MANAGER ==================== */}
 
       <Route
         element={
-          <ProtectedRoute allowedRoles={["manager"]} />
+          <ProtectedRoute
+            allowedRoles={["manager"]}
+          />
         }
       >
 
-        {/* Manager Dashboard */}
         <Route
           path="/manager/dashboard"
-          element={<ManagerDashboardPage />}
+          element={
+            <ManagerDashboardPage />
+          }
         />
 
-        {/* Profile */}
         <Route
           path="/manager/profile"
           element={<Profile />}
         />
 
-        {/* Settings */}
         <Route
           path="/manager/settings"
           element={<Settings />}
         />
 
-        {/* Chat */}
-        <Route
-          path="/manager/chat"
-          element={<ManagerChatPage />}
-        />
-
-        {/* <Route path="/manager/chat" element={<ChatPage />} /> */}
-
-
-        {/* Inventory */}
         <Route
           path="/manager/inventory"
           element={<Inventory />}
@@ -168,10 +142,11 @@ const AppRoutes = () => {
 
         <Route
           path="/manager/inventory/:id"
-          element={<InventoryDetails />}
+          element={
+            <InventoryDetails />
+          }
         />
 
-        {/* Purchase Orders */}
         <Route
           path="/manager/purchase-orders"
           element={<PurchaseOrders />}
@@ -179,22 +154,25 @@ const AppRoutes = () => {
 
         <Route
           path="/manager/purchase-orders/:id"
-          element={<PurchaseOrderDetails />}
+          element={
+            <PurchaseOrderDetails />
+          }
         />
 
-        {/* Purchase Requests */}
         <Route
           path="/manager/purchase-requests"
-          element={<ManagerPurchaseRequests />}
+          element={
+            <ManagerPurchaseRequests />
+          }
         />
 
-        {/* Create Purchase Order */}
         <Route
           path="/manager/purchase-requests/:requestId/create-order"
-          element={<CreatePurchaseOrder />}
+          element={
+            <CreatePurchaseOrder />
+          }
         />
 
-        {/* Sales */}
         <Route
           path="/manager/sales"
           element={<Sales />}
@@ -215,7 +193,6 @@ const AppRoutes = () => {
           element={<EditSale />}
         />
 
-        {/* Analytics */}
         <Route
           path="/manager/analytics"
           element={<Analytics />}
@@ -224,59 +201,87 @@ const AppRoutes = () => {
       </Route>
 
 
-      {/* ==================== STAFF ==================== */}
+      {/* =====================================================
+          COMMUNICATION
+      ====================================================== */}
 
       <Route
         element={
-          <ProtectedRoute allowedRoles={["staff"]} />
+          <ProtectedRoute
+            allowedRoles={[
+              "staff",
+              "manager",
+            ]}
+          />
         }
       >
         <Route
+          path="/communication"
+          element={<CommunicationPage />}
+        />
+      </Route>
+
+
+      {/* =====================================================
+          STAFF
+      ====================================================== */}
+
+      <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={["staff"]}
+          />
+        }
+      >
+
+        <Route
           path="/staff/dashboard"
-          element={<StaffDashboardPage />}
+          element={
+            <StaffDashboardPage />
+          }
         />
 
-        {/* Staff Profile */}
-
-        <Route path="/staff/profile" element={<StaffProfilePage />}
+        <Route
+          path="/staff/profile"
+          element={<StaffProfilePage />}
         />
 
-        {/* Staff Settings */}
-
-        <Route path="/staff/settings" element={<StaffSettingsPage />}
+        <Route
+          path="/staff/settings"
+          element={<StaffSettingsPage />}
         />
-
-        {/* Chat */}
-        <Route 
-          path="/staff/chat" element={<ChatPage />} 
-        />
-
-        {/* Staff Inventory */}
 
         <Route
           path="/staff/inventory"
-          element={<StaffInventory />}  
+          element={<StaffInventory />}
         />
 
-        <Route path="/staff/inventory/:id" element={<StaffInventoryDetails />} />
+        <Route
+          path="/staff/inventory/:id"
+          element={
+            <StaffInventoryDetails />
+          }
+        />
 
         <Route
           path="/staff/alerts"
           element={<StaffAlertsPage />}
         />
 
-        {/* Staff Stock History */}
         <Route
           path="/staff/stock-history"
-          element={<StaffStockHistoryPage />}
+          element={
+            <StaffStockHistoryPage />
+          }
         />
 
         <Route
           path="/staff/stock-operations"
-          element={<StockOperationsPage />}
+          element={
+            <StockOperationsPage />
+          }
         />
 
-        {/* Staff Purchase Requests */}
         <Route
           path="/staff/purchase-requests"
           element={<PurchaseRequests />}
@@ -284,21 +289,25 @@ const AppRoutes = () => {
 
         <Route
           path="/staff/purchase-requests/create"
-          element={<CreatePurchaseRequest />}
+          element={
+            <CreatePurchaseRequest />
+          }
         />
 
         <Route
           path="/staff/purchase-requests/:id"
-          element={<PurchaseRequestDetails />}
+          element={
+            <PurchaseRequestDetails />
+          }
         />
 
         <Route
           path="/staff/purchase-requests/:id/edit"
-          element={<CreatePurchaseRequest />}
+          element={
+            <CreatePurchaseRequest />
+          }
         />
 
-
-        {/* Staff Sales */}
         <Route
           path="/staff/sales"
           element={<StaffSales />}
@@ -306,20 +315,25 @@ const AppRoutes = () => {
 
         <Route
           path="/staff/sales/create"
-          element={<StaffCreateSale />}
+          element={
+            <StaffCreateSale />
+          }
         />
 
         <Route
           path="/staff/sales/:id"
-          element={<StaffSaleDetails />}
+          element={
+            <StaffSaleDetails />
+          }
         />
 
         <Route
           path="/staff/sales/:id/edit"
-          element={<StaffEditSale />}  
+          element={
+            <StaffEditSale />
+          }
         />
 
-        {/* Staff Returns */}
         <Route
           path="/staff/returns"
           element={<Returns />}
@@ -334,6 +348,7 @@ const AppRoutes = () => {
           path="/staff/returns/:id"
           element={<ReturnDetails />}
         />
+
       </Route>
 
 

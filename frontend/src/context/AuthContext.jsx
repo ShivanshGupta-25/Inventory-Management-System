@@ -1,17 +1,26 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
 import {
   loginUser,
   registerUser,
   getCurrentUser,
 } from "../services/authService";
 
-const AuthContext = createContext(null);
+// Auth Context
+export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+
   const [token, setToken] = useState(
     () => localStorage.getItem("token") || null
   );
+
   const [loading, setLoading] = useState(true);
 
   // Restore logged-in user when application starts
@@ -30,7 +39,10 @@ export const AuthProvider = ({ children }) => {
         setUser(response.user);
         setToken(storedToken);
       } catch (error) {
-        console.error("Failed to restore user:", error);
+        console.error(
+          "Failed to restore user:",
+          error
+        );
 
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -52,8 +64,15 @@ export const AuthProvider = ({ children }) => {
     const receivedToken = response.token;
     const receivedUser = response.user;
 
-    localStorage.setItem("token", receivedToken);
-    localStorage.setItem("user", JSON.stringify(receivedUser));
+    localStorage.setItem(
+      "token",
+      receivedToken
+    );
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify(receivedUser)
+    );
 
     setToken(receivedToken);
     setUser(receivedUser);
@@ -69,12 +88,20 @@ export const AuthProvider = ({ children }) => {
     const receivedUser = response.user;
 
     if (receivedToken) {
-      localStorage.setItem("token", receivedToken);
+      localStorage.setItem(
+        "token",
+        receivedToken
+      );
+
       setToken(receivedToken);
     }
 
     if (receivedUser) {
-      localStorage.setItem("user", JSON.stringify(receivedUser));
+      localStorage.setItem(
+        "user",
+        JSON.stringify(receivedUser)
+      );
+
       setUser(receivedUser);
     }
 
@@ -107,12 +134,14 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// IMPORTANT: LoginPage.jsx is expecting this export
+// useAuth hook
 export const useAuth = () => {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth must be used inside an AuthProvider");
+    throw new Error(
+      "useAuth must be used inside an AuthProvider"
+    );
   }
 
   return context;

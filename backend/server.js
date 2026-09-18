@@ -90,7 +90,6 @@
 
 
 
-
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -112,12 +111,16 @@ const stockMovementRoutes = require("./routes/stockMovementRoutes");
 const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
 const salesRoutes = require("./routes/salesRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
-const chatRoutes = require("./routes/chatRoutes");
+const communicationRoutes = require(
+  "./routes/communicationRoutes"
+);
 
-// Socket.IO chat handling
+// Socket.IO communication handling
 const {
-  initializeChatSocket,
-} = require("./sockets/chatSocket");
+  initializeCommunicationSocket,
+} = require(
+  "./sockets/communicationSocket"
+);
 
 dotenv.config();
 
@@ -196,11 +199,14 @@ app.use("/api/sales", salesRoutes);
 // Analytics routes
 app.use("/api/analytics", analyticsRoutes);
 
-// Chat routes
-app.use("/api/chat", chatRoutes);
+// Communication routes
+app.use(
+  "/api/communication",
+  communicationRoutes
+);
 
-// Initialize Socket.IO chat handling
-initializeChatSocket(io);
+// Initialize Socket.IO communication handling
+initializeCommunicationSocket(io);
 
 // 404 handler
 app.use((req, res) => {
