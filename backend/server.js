@@ -1,9 +1,110 @@
+// const express = require("express");
+// const cors = require("cors");
+// const dotenv = require("dotenv");
+
+// const connectDB = require("./config/db");
+
+// const authRoutes = require("./routes/authRoutes");
+// const dashboardRoutes = require("./routes/dashboardRoutes");
+// const inventoryRoutes = require("./routes/inventoryRoutes");
+// const stockMovementRoutes = require("./routes/stockMovementRoutes");
+// const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
+// const salesRoutes = require("./routes/salesRoutes");
+// const analyticsRoutes = require("./routes/analyticsRoutes");
+// const chatRoutes = require("./routes/chatRoutes")
+
+// dotenv.config();
+
+// connectDB();
+
+// const app = express();
+
+// // CORS
+// app.use(
+//   cors({
+//     origin: "http://localhost:5173",
+//   })
+// );
+
+// // Body parser
+// app.use(express.json());
+
+// // Root route
+// app.get("/", (req, res) => {
+//   res.json({
+//     success: true,
+//     message: "Inventory Management API is running",
+//   });
+// });
+
+// // Authentication routes
+// app.use("/api/auth", authRoutes);
+
+// // Dashboard routes
+// app.use("/api/dashboard", dashboardRoutes);
+
+// // Inventory routes
+// app.use("/api/inventory", inventoryRoutes);
+
+// // Stock movement routes
+// app.use("/api/stock-movements", stockMovementRoutes);
+
+// // Purchase order routes
+// app.use("/api/purchase-orders", purchaseOrderRoutes);
+
+// // Sales routes
+// app.use("/api/sales", salesRoutes);
+
+// // Analytics routes
+// app.use(
+//   "/api/analytics",
+//   analyticsRoutes
+// );
+
+// // Chat routes
+// app.use(
+//   "/api/chat",
+//   chatRoutes
+// );
+
+// // 404 handler
+// app.use((req, res) => {
+//   res.status(404).json({
+//     success: false,
+//     message: "Route not found",
+//   });
+// });
+
+// // Server
+// const PORT = process.env.PORT || 5000;
+
+// app.listen(PORT, () => {
+//   console.log(`Server running on http://localhost:${PORT}`);
+// });
+
+
+
+
+
+
+
+
+
+
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+
 const cors = require("cors");
 const dotenv = require("dotenv");
 
+// Security and logging middleware
+const helmet = require("helmet");
+const morgan = require("morgan");
+
 const connectDB = require("./config/db");
 
+// Routes
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
@@ -11,22 +112,60 @@ const stockMovementRoutes = require("./routes/stockMovementRoutes");
 const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
 const salesRoutes = require("./routes/salesRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+
+// Socket.IO chat handling
+const {
+  initializeChatSocket,
+} = require("./sockets/chatSocket");
 
 dotenv.config();
 
+// Connect to MongoDB
 connectDB();
 
 const app = express();
 
+// Create HTTP server
+const server = http.createServer(app);
+
+// Allowed CORS origins
+const allowedOrigins = (
+  process.env.CLIENT_URL || "http://localhost:5173"
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"],
+});
+
+// Security middleware
+app.use(helmet());
+
+// Logging middleware
+app.use(morgan("dev"));
+
 // CORS
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
+    credentials: true,
   })
 );
 
 // Body parser
 app.use(express.json());
+
+// Make Socket.IO available to controllers
+app.set("io", io);
 
 // Root route
 app.get("/", (req, res) => {
@@ -55,10 +194,13 @@ app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/sales", salesRoutes);
 
 // Analytics routes
-app.use(
-  "/api/analytics",
-  analyticsRoutes
-);
+app.use("/api/analytics", analyticsRoutes);
+
+// Chat routes
+app.use("/api/chat", chatRoutes);
+
+// Initialize Socket.IO chat handling
+initializeChatSocket(io);
 
 // 404 handler
 app.use((req, res) => {
@@ -71,6 +213,6 @@ app.use((req, res) => {
 // Server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

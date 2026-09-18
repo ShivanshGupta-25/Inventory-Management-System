@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ShoppingCart,
+  MessageCircle,
   X,
 } from "lucide-react";
 
@@ -48,12 +49,17 @@ const menuItems = [
     label: "Returns",
     icon: ArrowUpFromLine,
     path: "/staff/returns",
-  }
+  },
   // {
   //   label: "Activity",
   //   icon: Bell,
   //   path: "/staff/activity",
   // },
+  {
+    label: "Chat",
+    icon: MessageCircle,
+    path: "/staff/chat",
+  }
 ];
 
 const accountItems = [

@@ -48,6 +48,8 @@ import ReturnDetails from "../pages/Staff/Returns/ReturnDetails";
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Profile from "../pages/Manager/Profile";
 import Settings from "../pages/Manager/Settings";
+import ManagerChatPage from "../pages/Manager/ManagerChatPage";
+import ChatPage from "../pages/chat/ChatPage";
 
 // Inventory
 import Inventory from "../pages/Manager/inventory/Inventory";
@@ -149,6 +151,15 @@ const AppRoutes = () => {
           element={<Settings />}
         />
 
+        {/* Chat */}
+        <Route
+          path="/manager/chat"
+          element={<ManagerChatPage />}
+        />
+
+        {/* <Route path="/manager/chat" element={<ChatPage />} /> */}
+
+
         {/* Inventory */}
         <Route
           path="/manager/inventory"
@@ -234,6 +245,12 @@ const AppRoutes = () => {
 
         <Route path="/staff/settings" element={<StaffSettingsPage />}
         />
+
+        {/* Chat */}
+        <Route 
+          path="/staff/chat" element={<ChatPage />} 
+        />
+
         {/* Staff Inventory */}
 
         <Route

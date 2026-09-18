@@ -2,4 +2,5 @@ react-router-dom
 axios
 lucide-react
 recharts
+socket.io-client
 tailwindcss @tailwindcss/vite

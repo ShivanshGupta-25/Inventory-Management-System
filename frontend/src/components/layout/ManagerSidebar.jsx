@@ -14,6 +14,7 @@ import {
   ClipboardList,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
   X,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -64,6 +65,11 @@ const menuItems = [
   //   icon: FileText,
   //   path: "/manager/reports",
   // },
+  {
+    label: "Chat",
+    icon: MessageCircle,
+    path: "/manager/chat",
+  },
 ];
 
 const accountItems = [

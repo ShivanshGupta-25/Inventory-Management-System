@@ -7,7 +7,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
     loading,
   } = useAuth();
 
-  // Wait for authentication state
+  // Wait for authentication state  
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
