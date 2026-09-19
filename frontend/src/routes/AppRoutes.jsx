@@ -19,6 +19,7 @@ import StaffAlertsPage from "../components/staff/dashboard/StaffAlertsPage";
 import StaffStockHistoryPage from "../components/staff/dashboard/StaffStockHistoryPage";
 import StaffProfilePage from "../pages/Staff/StaffProfilePage";
 import StaffSettingsPage from "../pages/Staff/StaffSettingsPage";
+import StaffCommunicationPage from "../pages/Staff/StaffCommunicationPage";
 
 // Staff Inventory
 import StaffInventory from "../pages/Staff/Inventory/Inventory";
@@ -50,6 +51,7 @@ import CommunicationPage from "../pages/communication/CommunicationPage";
 import ManagerDashboardPage from "../pages/Manager/ManagerDashboardPage";
 import Profile from "../pages/Manager/Profile";
 import Settings from "../pages/Manager/Settings";
+import ManagerCommunicationPage from "../pages/Manager/ManagerCommunicationPage";
 
 // Manager Inventory
 import Inventory from "../pages/Manager/inventory/Inventory";
@@ -146,6 +148,8 @@ const AppRoutes = () => {
             <InventoryDetails />
           }
         />
+
+        <Route path="/manager/communication" element={<ManagerCommunicationPage />} />
 
         <Route
           path="/manager/purchase-orders"
@@ -250,6 +254,8 @@ const AppRoutes = () => {
           path="/staff/settings"
           element={<StaffSettingsPage />}
         />
+
+        <Route path="/staff/communication" element={<StaffCommunicationPage />} />
 
         <Route
           path="/staff/inventory"

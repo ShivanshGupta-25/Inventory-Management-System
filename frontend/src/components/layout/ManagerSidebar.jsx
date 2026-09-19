@@ -68,7 +68,7 @@ const menuItems = [
   {
     label: "Chat",
     icon: MessageCircle,
-    path: "/communication",
+    path: "/manager/communication",
   },
 ];
 

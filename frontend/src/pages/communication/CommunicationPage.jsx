@@ -1,12 +1,10 @@
 import CommunicationLayout from "../../components/Communication/CommunicationLayout";
-import {
-  CommunicationProvider,
-} from "../../context/CommunicationContext";
+import { CommunicationProvider } from "../../context/CommunicationContext";
 
 const CommunicationPage = () => {
   return (
     <CommunicationProvider>
-      <div className="h-[calc(100vh-120px)] min-h-[600px]">
+      <div className="min-h-screen w-full bg-slate-50">
         <CommunicationLayout />
       </div>
     </CommunicationProvider>

@@ -135,19 +135,20 @@ export const CommunicationProvider = ({
      SELECT CONVERSATION
   ===================================================== */
 
-  const selectConversation =
-    useCallback(
-      async (conversationId) => {
-        setActiveConversationId(
-          conversationId
-        );
+  const selectConversation = useCallback(
+    async (conversationId) => {
+      setTypingUsers([]);
 
-        await loadMessages(
-          conversationId
-        );
-      },
-      [loadMessages]
-    );
+      setActiveConversationId(
+        conversationId
+      );
+
+      await loadMessages(
+        conversationId
+      );
+    },
+    [loadMessages]
+  );
 
   /* =====================================================
      SEND MESSAGE
