@@ -13,33 +13,21 @@ const {
   markConversationRead,
 } = require("../controllers/communicationController");
 
-const router = express.Router();
+const {
+  upload,
+} = require("../middleware/uploadMiddleware");
 
-/*
-|--------------------------------------------------------------------------
-| All communication routes require authentication
-|--------------------------------------------------------------------------
-*/
+const router = express.Router();
 
 router.use(authMiddleware);
 
-/*
-|--------------------------------------------------------------------------
-| Users
-|--------------------------------------------------------------------------
-*/
-
+// Users
 router.get(
   "/users",
   getUsers
 );
 
-/*
-|--------------------------------------------------------------------------
-| Conversations
-|--------------------------------------------------------------------------
-*/
-
+// Conversations
 router.get(
   "/conversations",
   getConversations
@@ -60,12 +48,7 @@ router.get(
   getConversation
 );
 
-/*
-|--------------------------------------------------------------------------
-| Messages
-|--------------------------------------------------------------------------
-*/
-
+// Messages
 router.get(
   "/conversations/:id/messages",
   getMessages
@@ -73,6 +56,7 @@ router.get(
 
 router.post(
   "/conversations/:id/messages",
+  upload.array("files", 5),
   sendMessage
 );
 

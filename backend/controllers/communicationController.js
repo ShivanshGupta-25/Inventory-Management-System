@@ -255,8 +255,16 @@ const createGroupConversation = async (
    SEND MESSAGE
 ===================================================== */
 
-const sendMessage = async (req, res) => {
+const sendMessage = async (
+  req,
+  res
+) => {
   try {
+    const baseUrl =
+      `${req.protocol}://${req.get(
+        "host"
+      )}`;
+
     const message =
       await communicationService.sendMessage(
         req.params.id,
@@ -264,6 +272,8 @@ const sendMessage = async (req, res) => {
         {
           text: req.body.text,
           replyTo: req.body.replyTo,
+          files: req.files || [],
+          baseUrl,
         }
       );
 
@@ -272,25 +282,34 @@ const sendMessage = async (req, res) => {
     if (io) {
       io.to(
         `conversation:${req.params.id}`
-      ).emit("message:new", message);
+      ).emit(
+        "message:new",
+        message
+      );
 
       io.to(
         `conversation:${req.params.id}`
-      ).emit("conversation:updated", {
-        conversationId:
-          req.params.id,
-        lastMessage: message,
-      });
+      ).emit(
+        "conversation:updated",
+        {
+          conversationId:
+            req.params.id,
+
+          lastMessage:
+            message,
+        }
+      );
     }
 
     return res.status(201).json({
       success: true,
-      message: "Message sent successfully",
+      message:
+        "Message sent successfully",
       data: message,
     });
   } catch (error) {
     console.error(
-      "Send message error:",
+      "sendMessage error:",
       error
     );
 

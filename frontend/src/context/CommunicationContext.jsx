@@ -154,41 +154,48 @@ export const CommunicationProvider = ({
      SEND MESSAGE
   ===================================================== */
 
-  const sendMessage = useCallback(
-    async (text, replyTo = null) => {
-      if (!activeConversationId) {
-        return null;
-      }
+  const sendMessage =
+    useCallback(
+      async (
+        text = "",
+        files = [],
+        replyTo = null
+      ) => {
+        if (!activeConversationId) {
+          return null;
+        }
 
-      try {
-        const response =
-          await communicationService.sendMessage(
-            activeConversationId,
-            text,
-            replyTo
+        try {
+          const response =
+            await communicationService.sendMessage(
+              activeConversationId,
+              text,
+              files,
+              replyTo
+            );
+
+          const message =
+            response.data;
+
+          /*
+          * Socket.IO also broadcasts
+          * this message.
+          *
+          * Don't append it here because
+          * doing both would duplicate it.
+          */
+          return message;
+        } catch (error) {
+          console.error(
+            "Failed to send message:",
+            error
           );
 
-        const message =
-          response.data;
-
-        /*
-         * The socket also broadcasts this
-         * message. Don't append here because
-         * doing both would duplicate it.
-         */
-
-        return message;
-      } catch (error) {
-        console.error(
-          "Failed to send message:",
-          error
-        );
-
-        throw error;
-      }
-    },
-    [activeConversationId]
-  );
+          throw error;
+        }
+      },
+      [activeConversationId]
+    );
 
   /* =====================================================
      CREATE DIRECT

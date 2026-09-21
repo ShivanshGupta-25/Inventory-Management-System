@@ -100,17 +100,39 @@ const communicationService = {
 
   sendMessage: async (
     conversationId,
-    text,
+    text = "",
+    files = [],
     replyTo = null
   ) => {
+    const formData =
+      new FormData();
+
+    if (text?.trim()) {
+      formData.append(
+        "text",
+        text.trim()
+      );
+    }
+
+    if (replyTo) {
+      formData.append(
+        "replyTo",
+        replyTo
+      );
+    }
+
+    files.forEach((file) => {
+      formData.append(
+        "files",
+        file
+      );
+    });
+
     return apiRequest(
       `/communication/conversations/${conversationId}/messages`,
       {
         method: "POST",
-        body: JSON.stringify({
-          text,
-          replyTo,
-        }),
+        body: formData,
       }
     );
   },

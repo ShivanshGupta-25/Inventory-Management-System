@@ -355,28 +355,47 @@ const getMessages = async (
     .reverse()
     .map((message) => ({
       id: message._id,
+
       conversationId:
         message.conversationId,
+
       type: message.type,
-      text: message.text,
-      createdAt: message.createdAt,
-      updatedAt: message.updatedAt,
 
-      sender: normalizeUser(
-        message.senderId
-      ),
+      text:
+        message.text || "",
 
-      replyTo: message.replyTo
-        ? {
-            id: message.replyTo._id,
-            text: message.replyTo.text,
-            createdAt:
-              message.replyTo.createdAt,
-            sender: normalizeUser(
-              message.replyTo.senderId
-            ),
-          }
-        : null,
+      attachments:
+        message.attachments || [],
+
+      createdAt:
+        message.createdAt,
+
+      updatedAt:
+        message.updatedAt,
+
+      sender:
+        normalizeUser(
+          message.senderId
+        ),
+
+      replyTo:
+        message.replyTo
+          ? {
+              id:
+                message.replyTo._id,
+
+              text:
+                message.replyTo.text || "",
+
+              createdAt:
+                message.replyTo.createdAt,
+
+              sender:
+                normalizeUser(
+                  message.replyTo.senderId
+                ),
+            }
+          : null,
     }));
 };
 
@@ -619,27 +638,22 @@ const createGroupConversation = async (
 const sendMessage = async (
   conversationId,
   senderId,
-  { text, replyTo = null }
+  {
+    text = "",
+    replyTo = null,
+    files = [],
+    baseUrl,
+  }
 ) => {
   await requireParticipant(
     conversationId,
     senderId
   );
 
-  if (
-    typeof text !== "string" ||
-    !text.trim()
-  ) {
-    const error = new Error(
-      "Message text is required"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const trimmedText = text.trim();
+  const trimmedText =
+    typeof text === "string"
+      ? text.trim()
+      : "";
 
   if (trimmedText.length > 5000) {
     const error = new Error(
@@ -682,13 +696,65 @@ const sendMessage = async (
     }
   }
 
+  if (
+    !trimmedText &&
+    (!files || files.length === 0)
+  ) {
+    const error = new Error(
+      "Message must contain text or an attachment"
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  const attachments = (
+    files || []
+  ).map((file) => {
+    const isImage =
+      file.mimetype.startsWith("image/");
+
+    return {
+      name: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+
+      url: `${baseUrl}/uploads/${
+        isImage
+          ? "images"
+          : "documents"
+      }/${file.filename}`,
+
+      path: file.path,
+    };
+  });
+
+  let type = "text";
+
+  if (attachments.length > 0) {
+    const allImages =
+      attachments.every(
+        (attachment) =>
+          attachment.mimeType.startsWith(
+            "image/"
+          )
+      );
+
+    type = allImages
+      ? "image"
+      : "file";
+  }
+
   const message =
     await Message.create({
       conversationId,
       senderId,
-      type: "text",
+      type,
       text: trimmedText,
-      replyTo: replyTo || null,
+      attachments,
+      replyTo:
+        replyTo || null,
     });
 
   await Conversation.findByIdAndUpdate(
@@ -696,13 +762,16 @@ const sendMessage = async (
     {
       $set: {
         lastMessage: message._id,
-        lastMessageAt: message.createdAt,
+        lastMessageAt:
+          message.createdAt,
       },
     }
   );
 
   const populatedMessage =
-    await Message.findById(message._id)
+    await Message.findById(
+      message._id
+    )
       .populate(
         "senderId",
         "_id name email role"
@@ -711,19 +780,29 @@ const sendMessage = async (
         path: "replyTo",
         populate: {
           path: "senderId",
-          select: "_id name email role",
+          select:
+            "_id name email role",
         },
       })
       .lean();
 
   return {
     id: populatedMessage._id,
+
     conversationId:
       populatedMessage.conversationId,
+
     type: populatedMessage.type,
-    text: populatedMessage.text,
+
+    text:
+      populatedMessage.text || "",
+
+    attachments:
+      populatedMessage.attachments || [],
+
     createdAt:
       populatedMessage.createdAt,
+
     updatedAt:
       populatedMessage.updatedAt,
 
@@ -731,17 +810,28 @@ const sendMessage = async (
       populatedMessage.senderId
     ),
 
-    replyTo: populatedMessage.replyTo
-      ? {
-          id: populatedMessage.replyTo._id,
-          text: populatedMessage.replyTo.text,
-          createdAt:
-            populatedMessage.replyTo.createdAt,
-          sender: normalizeUser(
-            populatedMessage.replyTo.senderId
-          ),
-        }
-      : null,
+    replyTo:
+      populatedMessage.replyTo
+        ? {
+            id:
+              populatedMessage
+                .replyTo._id,
+
+            text:
+              populatedMessage
+                .replyTo.text || "",
+
+            createdAt:
+              populatedMessage
+                .replyTo.createdAt,
+
+            sender:
+              normalizeUser(
+                populatedMessage
+                  .replyTo.senderId
+              ),
+          }
+        : null,
   };
 };
 

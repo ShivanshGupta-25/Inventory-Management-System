@@ -1,5 +1,42 @@
 const mongoose = require("mongoose");
 
+const attachmentSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    mimeType: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    size: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    url: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    path: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  {
+    _id: true,
+  }
+);
+
 const messageSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -17,15 +54,20 @@ const messageSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["text"],
+      enum: ["text", "image", "file"],
       default: "text",
     },
 
     text: {
       type: String,
       trim: true,
-      required: true,
+      default: "",
       maxlength: 5000,
+    },
+
+    attachments: {
+      type: [attachmentSchema],
+      default: [],
     },
 
     replyTo: {
