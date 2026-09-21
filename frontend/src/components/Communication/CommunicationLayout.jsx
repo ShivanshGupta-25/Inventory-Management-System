@@ -81,18 +81,36 @@ const CommunicationLayout = () => {
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
+    /*
+     * IMPORTANT:
+     *
+     * The application already has a top navbar.
+     * Therefore we must NOT use 100dvh here.
+     *
+     * 76px = approximate application header height.
+     * 16px = bottom breathing room.
+     *
+     * If your navbar is exactly 75px, this is ideal.
+     */
+    <div
+      className="
+        flex
+        h-[calc(100dvh-92px)]
+        min-h-0
+        w-full
+        flex-col
+        overflow-hidden
+      "
+    >
       {/* =================================================
           PAGE HEADER
       ================================================= */}
 
       <div className="shrink-0 px-4 pb-5 pt-4 sm:px-6 sm:pt-5">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          {/* ---------------------------------------------
-              TITLE
-          --------------------------------------------- */}
+          {/* TITLE */}
 
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-slate-400">
               Management
             </p>
@@ -102,16 +120,15 @@ const CommunicationLayout = () => {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Communicate with your team and manage conversations.
+              Communicate with your team and manage
+              conversations.
             </p>
           </div>
 
-          {/* ---------------------------------------------
-              ACTIONS
-          --------------------------------------------- */}
+          {/* ACTIONS */}
 
-          <div className="flex items-center gap-3">
-            {/* Connection */}
+          <div className="flex shrink-0 items-center gap-3">
+            {/* CONNECTION */}
 
             <div className="hidden border-r border-slate-200 pr-4 sm:block">
               <p className="text-right text-xs text-slate-400">
@@ -128,12 +145,14 @@ const CommunicationLayout = () => {
                 />
 
                 <span className="text-sm font-medium text-slate-600">
-                  {connected ? "Connected" : "Offline"}
+                  {connected
+                    ? "Connected"
+                    : "Offline"}
                 </span>
               </div>
             </div>
 
-            {/* Refresh */}
+            {/* REFRESH */}
 
             <button
               type="button"
@@ -153,7 +172,7 @@ const CommunicationLayout = () => {
               <span>Refresh</span>
             </button>
 
-            {/* New Message */}
+            {/* NEW MESSAGE */}
 
             <button
               type="button"
@@ -169,7 +188,7 @@ const CommunicationLayout = () => {
       </div>
 
       {/* =================================================
-          MOBILE CONNECTION STATUS
+          MOBILE CONNECTION
       ================================================= */}
 
       <div className="shrink-0 px-4 pb-4 sm:hidden">
@@ -188,7 +207,7 @@ const CommunicationLayout = () => {
               </>
             ) : (
               <>
-                <WifiOff
+                <Wifi
                   size={16}
                   className="text-red-500"
                 />
@@ -212,21 +231,63 @@ const CommunicationLayout = () => {
 
       {/* =================================================
           COMMUNICATION WORKSPACE
+
+          This takes ONLY the remaining height.
       ================================================= */}
 
-      <div className="min-h-0 flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
-        <div className="h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)]">
-            {/* =============================================
-                CONVERSATION LIST
-            ============================================= */}
+      <main
+        className="
+          min-h-0
+          flex-1
+          px-4
+          pb-4
+          sm:px-6
+        "
+      >
+        <div
+          className="
+            h-full
+            min-h-0
+            w-full
+            overflow-hidden
+            rounded-2xl
+            border
+            border-slate-200
+            bg-white
+            shadow-sm
+          "
+        >
+          {/* =================================================
+              GRID
+          ================================================= */}
 
-            <div
-              className={`min-h-0 overflow-hidden border-slate-200 lg:border-r ${
-                activeConversation
-                  ? "hidden lg:block"
-                  : "block"
-              }`}
+          <div
+            className="
+              grid
+              h-full
+              min-h-0
+              min-w-0
+              grid-cols-1
+              lg:grid-cols-[360px_minmax(0,1fr)]
+            "
+          >
+            {/* =================================================
+                CONVERSATION LIST
+            ================================================= */}
+
+            <aside
+              className={`
+                min-h-0
+                min-w-0
+                overflow-hidden
+                border-slate-200
+                lg:border-r
+                ${
+                  activeConversation
+                    ? "hidden lg:block"
+                    : "block"
+                }
+              `}
             >
               <ConversationList
                 conversations={conversations}
@@ -242,18 +303,23 @@ const CommunicationLayout = () => {
                   loadingConversations
                 }
               />
-            </div>
+            </aside>
 
-            {/* =============================================
+            {/* =================================================
                 CONVERSATION WINDOW
-            ============================================= */}
+            ================================================= */}
 
-            <div
-              className={`min-h-0 overflow-hidden ${
-                activeConversation
-                  ? "block"
-                  : "hidden lg:block"
-              }`}
+            <section
+              className={`
+                min-h-0
+                min-w-0
+                overflow-hidden
+                ${
+                  activeConversation
+                    ? "block"
+                    : "hidden lg:block"
+                }
+              `}
             >
               {activeConversation ? (
                 <ConversationWindow
@@ -261,9 +327,15 @@ const CommunicationLayout = () => {
                     activeConversation
                   }
                   messages={messages}
-                  currentUserId={user?.id}
-                  typingUsers={typingUsers}
-                  loading={loadingMessages}
+                  currentUserId={
+                    user?.id
+                  }
+                  typingUsers={
+                    typingUsers
+                  }
+                  loading={
+                    loadingMessages
+                  }
                   onSend={sendMessage}
                   onTypingStart={
                     startTyping
@@ -272,7 +344,9 @@ const CommunicationLayout = () => {
                     stopTyping
                   }
                   onBack={() =>
-                    selectConversation(null)
+                    selectConversation(
+                      null
+                    )
                   }
                 />
               ) : (
@@ -282,10 +356,10 @@ const CommunicationLayout = () => {
                   }
                 />
               )}
-            </div>
+            </section>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* =================================================
           NEW CONVERSATION MODAL
