@@ -62,7 +62,13 @@ const io = new Server(server, {
 });
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+  })
+);
 
 // Logging middleware
 app.use(morgan("dev"));

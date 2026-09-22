@@ -15,7 +15,7 @@ const StaffCommunicationPage = () => {
 
   return (
     <CommunicationProvider>
-      <div className="min-h-screen bg-slate-50">
+      <div className="h-screen overflow-hidden bg-slate-50">
 
         {/* =====================================================
             SIDEBAR
@@ -50,7 +50,7 @@ const StaffCommunicationPage = () => {
         ====================================================== */}
 
         <div
-          className={`min-h-screen transition-all duration-300 ${
+          className={`flex h-screen min-h-0 flex-col overflow-hidden transition-all duration-300 ${
             sidebarCollapsed
               ? "lg:pl-20"
               : "lg:pl-64"
@@ -61,17 +61,19 @@ const StaffCommunicationPage = () => {
               HEADER
           ================================================= */}
 
-          <StaffHeader
-            onMenuClick={() =>
-              setMobileSidebarOpen(true)
-            }
-          />
+          <div className="shrink-0">
+            <StaffHeader
+              onMenuClick={() =>
+                setMobileSidebarOpen(true)
+              }
+            />
+          </div>
 
           {/* =================================================
               COMMUNICATION PAGE
           ================================================= */}
 
-          <main className="min-h-0 overflow-x-hidden">
+          <main className="min-h-0 flex-1 overflow-hidden">
             <CommunicationLayout />
           </main>
 

@@ -22,6 +22,8 @@ const CommunicationLayout = () => {
   const {
     conversations,
     activeConversation,
+    connectionStatus,
+    isConnected,
     activeConversationId,
     messages,
     typingUsers,
@@ -71,7 +73,10 @@ const CommunicationLayout = () => {
       setLoadingUsers(true);
       await searchUsers("");
     } catch (error) {
-      console.error("Failed to load users:", error);
+      console.error(
+        "Failed to load users:",
+        error
+      );
     } finally {
       setLoadingUsers(false);
     }
@@ -86,7 +91,10 @@ const CommunicationLayout = () => {
       setRefreshing(true);
       await reloadConversations();
     } catch (error) {
-      console.error("Failed to refresh conversations:", error);
+      console.error(
+        "Failed to refresh conversations:",
+        error
+      );
     } finally {
       setRefreshing(false);
     }
@@ -97,57 +105,49 @@ const CommunicationLayout = () => {
   ===================================================== */
 
   return (
-    <div className="flex h-full min-h-0 min-h-screen w-full flex-col overflow-hidden bg-slate-50">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-slate-50">
+      {/* =====================================================
+          COMMUNICATION HEADER
+      ====================================================== */}
 
-      {/* =================================================
-          PAGE HEADER
-      ================================================= */}
-
-      <header className="shrink-0 px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-          {/* TITLE */}
-
+      <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+        <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-400">
-              Management
-            </p>
-
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-              Messages
+            <h1 className="truncate text-xl font-semibold text-slate-900">
+              Communication
             </h1>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Communicate with your team and manage conversations.
+            <p className="mt-1 hidden text-sm text-slate-500 sm:block">
+              Manage conversations and messages
             </p>
           </div>
 
-          {/* ACTIONS */}
-
           <div className="flex shrink-0 items-center gap-3">
+            {/* CONNECTION */}
 
-            {/* CONNECTION STATUS */}
-
-            <div className="hidden border-r border-slate-200 pr-4 sm:block">
-              <p className="text-right text-xs text-slate-400">
-                Connection
-              </p>
-
-              <div className="mt-1 flex items-center justify-end gap-1.5">
-
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    connected
+            <div className="flex items-center gap-2">
+              <span
+                className={`
+                  h-2.5
+                  w-2.5
+                  rounded-full
+                  ${
+                    connectionStatus === "connected"
                       ? "bg-emerald-500"
-                      : "bg-red-500"
-                  }`}
-                />
+                      : connectionStatus === "connecting"
+                        ? "bg-amber-500"
+                        : "bg-red-500"
+                  }
+                `}
+              />
 
-                <span className="text-sm font-medium text-slate-600">
-                  {connected ? "Connected" : "Offline"}
-                </span>
-
-              </div>
+              <span className="text-sm text-slate-500">
+                {connectionStatus === "connected"
+                  ? "Connected"
+                  : connectionStatus === "connecting"
+                    ? "Connecting..."
+                    : "Disconnected"}
+              </span>
             </div>
 
             {/* REFRESH */}
@@ -160,10 +160,16 @@ const CommunicationLayout = () => {
             >
               <RefreshCw
                 size={16}
-                className={refreshing ? "animate-spin" : ""}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
+                }
               />
 
-              <span>Refresh</span>
+              <span className="hidden sm:inline">
+                Refresh
+              </span>
             </button>
 
             {/* NEW MESSAGE */}
@@ -175,22 +181,21 @@ const CommunicationLayout = () => {
             >
               <MessageSquare size={17} />
 
-              <span>New Message</span>
+              <span className="hidden sm:inline">
+                New Message
+              </span>
             </button>
-
           </div>
         </div>
       </header>
 
-      {/* =================================================
+      {/* =====================================================
           MOBILE CONNECTION BAR
-      ================================================= */}
+      ====================================================== */}
 
-      <div className="shrink-0 px-4 pb-4 sm:hidden">
+      <div className="shrink-0 px-3 pt-3 sm:hidden">
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-
           <div className="flex items-center gap-2">
-
             {connected ? (
               <>
                 <Wifi
@@ -214,7 +219,6 @@ const CommunicationLayout = () => {
                 </span>
               </>
             )}
-
           </div>
 
           <button
@@ -224,72 +228,113 @@ const CommunicationLayout = () => {
           >
             New Message
           </button>
-
         </div>
       </div>
 
-      {/* =================================================
-          MAIN WORKSPACE
-      ================================================= */}
+      {/* =====================================================
+          CHAT WORKSPACE
 
-      <main className="flex min-h-0 flex-1 px-4 pb-4 sm:px-6 sm:pb-6">
+          This area takes all remaining height.
+      ====================================================== */}
 
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <main className="min-h-0 min-w-0 flex-1 overflow-hidden px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
+        <div
+          className="
+            grid
+            h-full
+            min-h-0
+            w-full
+            min-w-0
+            grid-cols-1
+            overflow-hidden
+            rounded-2xl
+            border
+            border-slate-200
+            bg-white
+            shadow-sm
+            lg:grid-cols-[360px_minmax(0,1fr)]
+          "
+        >
+          {/* =================================================
+              CONVERSATION LIST
+          ================================================= */}
 
-          <div className="grid min-h-0 w-full flex-1 grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)]">
-
-            {/* =================================================
-                LEFT: CONVERSATION LIST
-            ================================================= */}
-
-            <aside
-              className={`min-h-0 min-w-0 overflow-hidden border-slate-200 lg:border-r ${
+          <aside
+            className={`
+              min-h-0
+              min-w-0
+              overflow-hidden
+              bg-white
+              ${
                 activeConversation
                   ? "hidden lg:block"
                   : "block"
-              }`}
-            >
-              <ConversationList
-                conversations={conversations}
-                currentUserId={currentUserId}
-                activeConversationId={activeConversationId}
-                onSelect={selectConversation}
-                onNewConversation={openNewConversation}
-                loading={loadingConversations}
-              />
-            </aside>
+              }
+              lg:border-r
+              lg:border-slate-200
+            `}
+          >
+            <ConversationList
+              conversations={conversations}
+              currentUserId={currentUserId}
+              activeConversationId={
+                activeConversationId
+              }
+              onSelect={selectConversation}
+              onNewConversation={
+                openNewConversation
+              }
+              loading={loadingConversations}
+            />
+          </aside>
 
-            {/* =================================================
-                RIGHT: CONVERSATION WINDOW
-            ================================================= */}
+          {/* =================================================
+              CONVERSATION WINDOW
+          ================================================= */}
 
-            <section
-              className={`min-h-0 min-w-0 overflow-hidden ${
+          <section
+            className={`
+              min-h-0
+              min-w-0
+              overflow-hidden
+              bg-white
+              ${
                 activeConversation
                   ? "block"
                   : "hidden lg:block"
-              }`}
-            >
-              {activeConversation ? (
-                <ConversationWindow
-                  conversation={activeConversation}
-                  messages={messages}
-                  currentUserId={currentUserId}
-                  typingUsers={typingUsers}
-                  loading={loadingMessages}
-                  onSend={sendMessage}
-                  onTypingStart={startTyping}
-                  onTypingStop={stopTyping}
-                  onBack={() => selectConversation(null)}
-                />
-              ) : (
-                <EmptyConversation
-                  onNewConversation={openNewConversation}
-                />
-              )}
-            </section>
-
-          </div>
+              }
+            `}
+          >
+            {activeConversation ? (
+              <ConversationWindow
+                conversation={
+                  activeConversation
+                }
+                messages={messages}
+                currentUserId={
+                  currentUserId
+                }
+                typingUsers={typingUsers}
+                loading={loadingMessages}
+                onSend={sendMessage}
+                onTypingStart={
+                  startTyping
+                }
+                onTypingStop={
+                  stopTyping
+                }
+                onBack={() =>
+                  selectConversation(null)
+                }
+              />
+            ) : (
+              <EmptyConversation
+                onNewConversation={
+                  openNewConversation
+                }
+              />
+            )}
+          </section>
         </div>
       </main>
 
@@ -301,12 +346,17 @@ const CommunicationLayout = () => {
         <NewConversation
           users={users}
           loadingUsers={loadingUsers}
-          onClose={() => setShowNewConversation(false)}
-          onCreateDirect={createDirectConversation}
-          onCreateGroup={createGroupConversation}
+          onClose={() =>
+            setShowNewConversation(false)
+          }
+          onCreateDirect={
+            createDirectConversation
+          }
+          onCreateGroup={
+            createGroupConversation
+          }
         />
       )}
-
     </div>
   );
 };

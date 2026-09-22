@@ -535,7 +535,7 @@ export const CommunicationProvider = ({
       loadingMessages,
 
       connected: socket.connected,
-
+      connectionStatus: socket.connectionStatus,
       setActiveConversationId,
       selectConversation,
 
@@ -564,6 +564,7 @@ export const CommunicationProvider = ({
       loadingConversations,
       loadingMessages,
       socket.connected,
+      socket.connectionStatus,
       socket.startTyping,
       socket.stopTyping,
       selectConversation,

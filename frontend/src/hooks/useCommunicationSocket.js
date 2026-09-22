@@ -7,8 +7,7 @@ import {
 
 import { io } from "socket.io-client";
 
-const SOCKET_URL =
-  "http://localhost:5000";
+const SOCKET_URL = "http://localhost:5000";
 
 const useCommunicationSocket = ({
   token,
@@ -21,57 +20,112 @@ const useCommunicationSocket = ({
 }) => {
   const socketRef = useRef(null);
 
-  const [connected, setConnected] =
-    useState(false);
+  /*
+   * Connection states:
+   *
+   * connecting   -> trying to connect
+   * connected    -> Socket.IO connection is active
+   * disconnected -> connection is not active
+   */
+  const [connectionStatus, setConnectionStatus] =
+    useState("connecting");
 
   useEffect(() => {
     if (!token) {
+      setConnectionStatus("disconnected");
       return;
     }
+
+    setConnectionStatus("connecting");
 
     const socket = io(SOCKET_URL, {
       auth: {
         token,
       },
+
+      // Optional but recommended for your local development.
+      transports: ["websocket"],
     });
 
     socketRef.current = socket;
 
+    /* =====================================================
+       CONNECTION EVENTS
+    ====================================================== */
+
     socket.on("connect", () => {
-      setConnected(true);
+      console.log(
+        "[Communication Socket] Connected:",
+        socket.id
+      );
+
+      setConnectionStatus("connected");
     });
 
-    socket.on("disconnect", () => {
-      setConnected(false);
+    socket.on("disconnect", (reason) => {
+      console.log(
+        "[Communication Socket] Disconnected:",
+        reason
+      );
+
+      setConnectionStatus("disconnected");
     });
+
+    socket.on("connect_error", (error) => {
+      console.error(
+        "[Communication Socket] Connection error:",
+        error
+      );
+
+      setConnectionStatus("disconnected");
+    });
+
+    /* =====================================================
+       MESSAGE EVENTS
+    ====================================================== */
 
     socket.on("message:new", onMessage);
+
     socket.on(
       "conversation:new",
       onConversationNew
     );
+
     socket.on(
       "conversation:updated",
       onConversationUpdated
     );
+
     socket.on(
       "message:read",
       onMessageRead
     );
+
+    /* =====================================================
+       TYPING EVENTS
+    ====================================================== */
+
     socket.on(
       "typing:start",
       onTypingStart
     );
+
     socket.on(
       "typing:stop",
       onTypingStop
     );
 
+    /* =====================================================
+       CLEANUP
+    ====================================================== */
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
+
       socketRef.current = null;
-      setConnected(false);
+
+      setConnectionStatus("disconnected");
     };
   }, [
     token,
@@ -82,6 +136,10 @@ const useCommunicationSocket = ({
     onTypingStart,
     onTypingStop,
   ]);
+
+  /* =====================================================
+     CONVERSATION
+  ====================================================== */
 
   const joinConversation = useCallback(
     (conversationId) => {
@@ -103,6 +161,10 @@ const useCommunicationSocket = ({
     []
   );
 
+  /* =====================================================
+     TYPING
+  ====================================================== */
+
   const startTyping = useCallback(
     (conversationId) => {
       socketRef.current?.emit(
@@ -123,10 +185,20 @@ const useCommunicationSocket = ({
     []
   );
 
+  /* =====================================================
+     RETURN
+  ====================================================== */
+
+  const connected =
+    connectionStatus === "connected";
+
   return {
     connected,
+    connectionStatus,
+
     joinConversation,
     leaveConversation,
+
     startTyping,
     stopTyping,
   };

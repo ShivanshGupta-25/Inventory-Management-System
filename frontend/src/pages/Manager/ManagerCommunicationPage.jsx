@@ -15,7 +15,7 @@ const ManagerCommunicationPage = () => {
 
   return (
     <CommunicationProvider>
-      <div className="min-h-screen bg-slate-50">
+      <div className="h-screen overflow-hidden bg-slate-50">
         {/* =====================================================
             SIDEBAR
         ====================================================== */}
@@ -46,32 +46,44 @@ const ManagerCommunicationPage = () => {
 
         {/* =====================================================
             MAIN APPLICATION AREA
-
-            Same structure as ManagerDashboardPage
         ====================================================== */}
 
         <div
-          className={`min-h-screen transition-all duration-300 ${
-            sidebarCollapsed
-              ? "lg:pl-20"
-              : "lg:pl-64"
-          }`}
+          className={`
+            flex
+            h-screen
+            min-h-0
+            flex-col
+            overflow-hidden
+            transition-all
+            duration-300
+            ${
+              sidebarCollapsed
+                ? "lg:pl-20"
+                : "lg:pl-64"
+            }
+          `}
         >
           {/* =================================================
-              HEADER
+              DASHBOARD HEADER
           ================================================= */}
 
-          <ManagerHeader
-            onMenuClick={() =>
-              setMobileSidebarOpen(true)
-            }
-          />
+          <div className="shrink-0">
+            <ManagerHeader
+              onMenuClick={() =>
+                setMobileSidebarOpen(true)
+              }
+            />
+          </div>
 
           {/* =================================================
               COMMUNICATION CONTENT
+
+              This area takes the remaining height
+              below the ManagerHeader.
           ================================================= */}
 
-          <main className="min-h-0 overflow-x-hidden">
+          <main className="min-h-0 flex-1 overflow-hidden">
             <CommunicationLayout />
           </main>
         </div>

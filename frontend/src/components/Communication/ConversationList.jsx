@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 
 import {
-  Image as ImageIcon,
   MessageSquarePlus,
-  Paperclip,
   Search,
   Users,
+  Paperclip,
+  Image as ImageIcon,
 } from "lucide-react";
 
 /* =========================================================
@@ -60,10 +60,7 @@ const getConversationName = (
   }
 
   if (conversation.type === "group") {
-    return (
-      conversation.name ||
-      "Unnamed group"
-    );
+    return conversation.name || "Unnamed group";
   }
 
   const participants =
@@ -76,30 +73,23 @@ const getConversationName = (
   );
 
   const otherParticipant =
-    participants.find(
-      (participant) => {
-        const user =
-          getParticipantUser(
-            participant
-          );
+    participants.find((participant) => {
+      const user =
+        getParticipantUser(participant);
 
-        const participantId =
-          getId(user) ||
-          getId(participant);
+      const participantId =
+        getId(user) ||
+        getId(participant);
 
-        return (
-          participantId &&
-          String(participantId) !==
-            currentId
-        );
-      }
-    );
+      return (
+        participantId &&
+        String(participantId) !== currentId
+      );
+    });
 
   if (otherParticipant) {
     const user =
-      getParticipantUser(
-        otherParticipant
-      );
+      getParticipantUser(otherParticipant);
 
     return (
       user?.name ||
@@ -118,9 +108,7 @@ const getConversationName = (
    INITIALS
 ========================================================= */
 
-const getInitials = (
-  name = ""
-) => {
+const getInitials = (name = "") => {
   const value = name.trim();
 
   if (!value) {
@@ -131,9 +119,7 @@ const getInitials = (
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map(
-      (item) => item[0]
-    )
+    .map((item) => item[0])
     .join("")
     .toUpperCase();
 };
@@ -142,9 +128,7 @@ const getInitials = (
    LAST MESSAGE PREVIEW
 ========================================================= */
 
-const getLastMessagePreview = (
-  lastMessage
-) => {
+const getLastMessagePreview = (lastMessage) => {
   if (!lastMessage) {
     return "No messages yet";
   }
@@ -166,8 +150,7 @@ const getLastMessagePreview = (
   }
 
   const attachments =
-    lastMessage.attachments ||
-    [];
+    lastMessage.attachments || [];
 
   if (attachments.length > 0) {
     const hasImage =
@@ -183,17 +166,11 @@ const getLastMessagePreview = (
       : "File";
   }
 
-  if (
-    lastMessage.type ===
-    "image"
-  ) {
+  if (lastMessage.type === "image") {
     return "Photo";
   }
 
-  if (
-    lastMessage.type ===
-    "file"
-  ) {
+  if (lastMessage.type === "file") {
     return "File";
   }
 
@@ -204,30 +181,21 @@ const getLastMessagePreview = (
    LAST MESSAGE TYPE
 ========================================================= */
 
-const getLastMessageType = (
-  lastMessage
-) => {
+const getLastMessageType = (lastMessage) => {
   if (!lastMessage) {
     return null;
   }
 
-  if (
-    lastMessage.type ===
-    "image"
-  ) {
+  if (lastMessage.type === "image") {
     return "image";
   }
 
-  if (
-    lastMessage.type ===
-    "file"
-  ) {
+  if (lastMessage.type === "file") {
     return "file";
   }
 
   const attachments =
-    lastMessage.attachments ||
-    [];
+    lastMessage.attachments || [];
 
   if (
     attachments.some(
@@ -251,21 +219,14 @@ const getLastMessageType = (
    TIME
 ========================================================= */
 
-const formatTime = (
-  value
-) => {
+const formatTime = (value) => {
   if (!value) {
     return "";
   }
 
-  const date =
-    new Date(value);
+  const date = new Date(value);
 
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return "";
   }
 
@@ -335,11 +296,11 @@ const ConversationList = ({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      {/* =================================================
-          LIST HEADER
-      ================================================= */}
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
-      <div className="shrink-0 border-b border-slate-200 p-4">
+      <div className="shrink-0 border-b border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-900">
@@ -368,7 +329,9 @@ const ConversationList = ({
           </button>
         </div>
 
-        {/* Search */}
+        {/* =================================================
+            SEARCH / FILTERS
+        ================================================= */}
 
         <div className="relative mt-4">
           <Search
@@ -389,36 +352,49 @@ const ConversationList = ({
         </div>
       </div>
 
-      {/* =================================================
-          SCROLLABLE CONVERSATION AREA
+      {/* =====================================================
+          CONVERSATION SCROLL AREA
 
-          This is the ONLY scrolling area in the left panel.
-      ================================================= */}
+          This is the ONLY scrollable area in the
+          conversation list pane.
+      ====================================================== */}
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+      <div
+        className="
+          min-h-0
+          min-w-0
+          flex-1
+          overflow-x-hidden
+          overflow-y-auto
+          overscroll-contain
+        "
+      >
         {loading ? (
           <div className="p-3">
-            {[1, 2, 3, 4, 5].map(
-              (item) => (
-                <div
-                  key={item}
-                  className="mb-1 animate-pulse"
-                >
-                  <div className="flex min-w-0 gap-3 rounded-xl p-3">
-                    <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100" />
+            {[
+              1,
+              2,
+              3,
+              4,
+              5,
+            ].map((item) => (
+              <div
+                key={item}
+                className="mb-1 animate-pulse"
+              >
+                <div className="flex min-w-0 gap-3 rounded-xl p-3">
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100" />
 
-                    <div className="min-w-0 flex-1">
-                      <div className="h-3 w-32 rounded bg-slate-100" />
+                  <div className="min-w-0 flex-1">
+                    <div className="h-3 w-32 rounded bg-slate-100" />
 
-                      <div className="mt-2 h-3 w-24 rounded bg-slate-100" />
-                    </div>
+                    <div className="mt-2 h-3 w-24 rounded bg-slate-100" />
                   </div>
                 </div>
-              )
-            )}
+              </div>
+            ))}
           </div>
-        ) : filteredConversations.length ===
-          0 ? (
+        ) : filteredConversations.length === 0 ? (
           <div className="flex min-h-full flex-col items-center justify-center px-6 py-10 text-center">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100">
               <MessageSquarePlus
@@ -438,16 +414,14 @@ const ConversationList = ({
 
             <button
               type="button"
-              onClick={
-                onNewConversation
-              }
+              onClick={onNewConversation}
               className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800"
             >
               New conversation
             </button>
           </div>
         ) : (
-          <div className="min-w-0 p-2">
+          <div className="w-full min-w-0 p-2">
             {filteredConversations.map(
               (conversation) => {
                 const conversationId =
@@ -484,9 +458,7 @@ const ConversationList = ({
                 return (
                   <button
                     type="button"
-                    key={
-                      conversationId
-                    }
+                    key={conversationId}
                     onClick={() =>
                       onSelect(
                         conversationId
@@ -498,7 +470,7 @@ const ConversationList = ({
                         : "hover:bg-slate-50"
                     }`}
                   >
-                    {/* Avatar */}
+                    {/* AVATAR */}
 
                     <div
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
@@ -513,13 +485,11 @@ const ConversationList = ({
                           size={17}
                         />
                       ) : (
-                        getInitials(
-                          name
-                        )
+                        getInitials(name)
                       )}
                     </div>
 
-                    {/* Content */}
+                    {/* CONTENT */}
 
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center justify-between gap-2">
