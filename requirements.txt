@@ -3,4 +3,5 @@ axios
 lucide-react
 recharts
 socket.io-client
+npm install mammoth xlsx
 tailwindcss @tailwindcss/vite

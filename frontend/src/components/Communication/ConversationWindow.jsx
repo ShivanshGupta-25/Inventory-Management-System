@@ -78,8 +78,11 @@ const ConversationWindow = ({
   const [sending, setSending] =
     useState(false);
 
-  const messagesEndRef =
-    useRef(null);
+  /*
+   * =====================================================
+   * MESSAGE SCROLL REFS
+   * =====================================================
+   */
 
   const messagesContainerRef =
     useRef(null);
@@ -87,45 +90,212 @@ const ConversationWindow = ({
   const messagesContentRef =
     useRef(null);
 
-  const fileInputRef =
+  const previousConversationIdRef =
     useRef(null);
 
-  /* =====================================================
-     AUTO SCROLL MESSAGES ONLY
-  ===================================================== */
+  const hasInitializedScrollRef =
+    useRef(false);
 
-  useEffect(() => {
-    if (!messagesEndRef.current) {
+  /*
+   * true when the user is currently close enough
+   * to the bottom that new messages should auto-scroll.
+   */
+  const shouldAutoScrollRef =
+    useRef(true);
+
+  /*
+   * =====================================================
+   * CONVERSATION ID
+   * =====================================================
+   */
+
+  const conversationId =
+    conversation?.id ||
+    conversation?._id;
+
+  /*
+   * =====================================================
+   * MESSAGE SCROLL HANDLER
+   * =====================================================
+   */
+
+  const handleMessagesScroll = () => {
+    const container =
+      messagesContainerRef.current;
+
+    if (!container) {
       return;
     }
 
-    messagesEndRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
-  }, [messages]);
+    const distanceFromBottom =
+      container.scrollHeight -
+      container.scrollTop -
+      container.clientHeight;
 
-  /* =====================================================
-     MESSAGE SCROLL HANDLER
-  ===================================================== */
-
-  const handleMessagesScroll = () => {
     /*
-     * Keep this handler available for message-scroll
-     * related behavior without affecting the rest
-     * of the layout.
+     * Consider the user "at the bottom" if they are
+     * within 120px of it.
      */
+    shouldAutoScrollRef.current =
+      distanceFromBottom <= 120;
   };
 
-  /* =====================================================
-     FILE PREVIEWS
-  ===================================================== */
+  /*
+   * =====================================================
+   * SCROLL TO MOST RECENT MESSAGE
+   *
+   * When a conversation is opened:
+   * - wait for messages to render
+   * - scroll directly to the bottom
+   *
+   * When new messages arrive:
+   * - scroll only if user was already near bottom
+   * - do not interrupt users reading older messages
+   * =====================================================
+   */
+
+  useEffect(() => {
+    const container =
+      messagesContainerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const isNewConversation =
+      previousConversationIdRef.current !==
+      conversationId;
+
+    if (isNewConversation) {
+      previousConversationIdRef.current =
+        conversationId;
+
+      /*
+       * Every time the user switches to a conversation,
+       * we want to open at the newest message.
+       */
+      shouldAutoScrollRef.current =
+        true;
+
+      hasInitializedScrollRef.current =
+        false;
+    }
+
+    /*
+     * Don't try to scroll while there are no messages.
+     */
+    if (!messages.length) {
+      return;
+    }
+
+    /*
+     * Wait until React has rendered the messages.
+     */
+    requestAnimationFrame(() => {
+      const currentContainer =
+        messagesContainerRef.current;
+
+      if (!currentContainer) {
+        return;
+      }
+
+      /*
+       * FIRST LOAD OF THIS CONVERSATION
+       *
+       * Always go to the newest message.
+       */
+      if (
+        !hasInitializedScrollRef.current
+      ) {
+        currentContainer.scrollTop =
+          currentContainer.scrollHeight;
+
+        hasInitializedScrollRef.current =
+          true;
+
+        return;
+      }
+
+      /*
+       * EXISTING CONVERSATION
+       *
+       * Only follow new messages if the user
+       * was already near the bottom.
+       */
+      if (
+        shouldAutoScrollRef.current
+      ) {
+        currentContainer.scrollTop =
+          currentContainer.scrollHeight;
+      }
+    });
+  }, [
+    conversationId,
+    messages.length,
+  ]);
+
+  /*
+   * =====================================================
+   * KEEP BOTTOM POSITION WHEN CONTENT HEIGHT CHANGES
+   *
+   * This is especially useful for:
+   * - images
+   * - attachments
+   * - lazy-loaded content
+   * - fonts/layout changes
+   * =====================================================
+   */
+
+  useEffect(() => {
+    const container =
+      messagesContainerRef.current;
+
+    const content =
+      messagesContentRef.current;
+
+    if (
+      !container ||
+      !content
+    ) {
+      return;
+    }
+
+    if (
+      typeof ResizeObserver ===
+      "undefined"
+    ) {
+      return;
+    }
+
+    const observer =
+      new ResizeObserver(() => {
+        if (
+          shouldAutoScrollRef.current
+        ) {
+          container.scrollTop =
+            container.scrollHeight;
+        }
+      });
+
+    observer.observe(content);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [conversationId]);
+
+  /*
+   * =====================================================
+   * FILE PREVIEWS
+   * =====================================================
+   */
 
   useEffect(() => {
     const previews =
       selectedFiles.map(
         (file) => ({
           file,
+
           url: file.type.startsWith(
             "image/"
           )
@@ -151,9 +321,11 @@ const ConversationWindow = ({
     };
   }, [selectedFiles]);
 
-  /* =====================================================
-     FILE SELECTION
-  ===================================================== */
+  /*
+   * =====================================================
+   * FILE SELECTION
+   * =====================================================
+   */
 
   const handleFileChange = (
     event
@@ -178,6 +350,7 @@ const ConversationWindow = ({
       );
 
       event.target.value = "";
+
       return;
     }
 
@@ -252,9 +425,11 @@ const ConversationWindow = ({
     event.target.value = "";
   };
 
-  /* =====================================================
-     REMOVE FILE
-  ===================================================== */
+  /*
+   * =====================================================
+   * REMOVE FILE
+   * =====================================================
+   */
 
   const removeSelectedFile = (
     index
@@ -270,9 +445,11 @@ const ConversationWindow = ({
     setFileError("");
   };
 
-  /* =====================================================
-     CLEAR FILES
-  ===================================================== */
+  /*
+   * =====================================================
+   * CLEAR FILES
+   * =====================================================
+   */
 
   const clearSelectedFiles = () => {
     setSelectedFiles([]);
@@ -284,9 +461,20 @@ const ConversationWindow = ({
     }
   };
 
-  /* =====================================================
-     OPEN FILE PICKER
-  ===================================================== */
+  /*
+   * =====================================================
+   * FILE INPUT REF
+   * =====================================================
+   */
+
+  const fileInputRef =
+    useRef(null);
+
+  /*
+   * =====================================================
+   * OPEN FILE PICKER
+   * =====================================================
+   */
 
   const openFilePicker = () => {
     if (sending) {
@@ -307,9 +495,11 @@ const ConversationWindow = ({
     fileInputRef.current?.click();
   };
 
-  /* =====================================================
-     SEND
-  ===================================================== */
+  /*
+   * =====================================================
+   * SEND
+   * =====================================================
+   */
 
   const submit = async (
     event
@@ -329,6 +519,13 @@ const ConversationWindow = ({
 
     try {
       setSending(true);
+
+      /*
+       * Keep the user at the bottom when
+       * sending their own message.
+       */
+      shouldAutoScrollRef.current =
+        true;
 
       await onSend(
         value,
@@ -355,9 +552,11 @@ const ConversationWindow = ({
     }
   };
 
-  /* =====================================================
-     TEXT
-  ===================================================== */
+  /*
+   * =====================================================
+   * TEXT
+   * =====================================================
+   */
 
   const handleChange = (
     event
@@ -374,9 +573,11 @@ const ConversationWindow = ({
     }
   };
 
-  /* =====================================================
-     KEYBOARD
-  ===================================================== */
+  /*
+   * =====================================================
+   * KEYBOARD
+   * =====================================================
+   */
 
   const handleKeyDown = (
     event
@@ -393,9 +594,11 @@ const ConversationWindow = ({
     }
   };
 
-  /* =====================================================
-     EMPTY
-  ===================================================== */
+  /*
+   * =====================================================
+   * EMPTY CONVERSATION
+   * =====================================================
+   */
 
   if (!conversation) {
     return (
@@ -550,11 +753,6 @@ const ConversationWindow = ({
                   );
                 }
               )}
-
-              <div
-                ref={messagesEndRef}
-                className="h-px"
-              />
             </>
           )}
         </div>

@@ -1,17 +1,40 @@
-import { useState, useEffect } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
-  ExternalLink,
+  Download,
+  FileSpreadsheet,
   FileText,
-  Image as ImageIcon,
+  Loader2,
   X,
 } from "lucide-react";
+
+import * as mammoth from "mammoth";
+// import * as XLSX from "xlsx";
+
+import {
+  Document,
+  Page,
+  pdfjs,
+} from "react-pdf";
+
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
 
 import { useCommunication } from "../../context/CommunicationContext";
 import { useAuth } from "../../context/AuthContext";
 
 /* =========================================================
-  CONSTANTS
+   PDF WORKER
+========================================================= */
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+/* =========================================================
+   CONSTANTS
 ========================================================= */
 
 const QUICK_REACTIONS = [
@@ -24,7 +47,7 @@ const QUICK_REACTIONS = [
 ];
 
 /* =========================================================
-  HELPERS
+   HELPERS
 ========================================================= */
 
 const formatFileSize = (bytes = 0) => {
@@ -43,14 +66,116 @@ const formatFileSize = (bytes = 0) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const isImageAttachment = (attachment) => {
+const getFileExtension = (name = "") => {
+  const parts = name.split(".");
+
+  if (parts.length <= 1) {
+    return "";
+  }
+
+  return parts.pop().toLowerCase();
+};
+
+const getFileType = (attachment) => {
+  const extension = getFileExtension(
+    attachment?.name
+  );
+
+  if (
+    attachment?.mimeType ===
+    "application/pdf"
+  ) {
+    return "PDF";
+  }
+
+  if (
+    extension === "doc" ||
+    extension === "docx"
+  ) {
+    return "WORD";
+  }
+
+  if (
+    extension === "xls" ||
+    extension === "xlsx"
+  ) {
+    return "EXCEL";
+  }
+
+  if (extension === "txt") {
+    return "TEXT";
+  }
+
+  return (
+    extension?.toUpperCase() ||
+    "FILE"
+  );
+};
+
+const isImageAttachment = (
+  attachment
+) => {
   return Boolean(
-    attachment?.mimeType?.startsWith("image/")
+    attachment?.mimeType?.startsWith(
+      "image/"
+    )
+  );
+};
+
+const isPdfAttachment = (
+  attachment
+) => {
+  return (
+    attachment?.mimeType ===
+      "application/pdf" ||
+    getFileExtension(
+      attachment?.name
+    ) === "pdf"
+  );
+};
+
+const isTextAttachment = (
+  attachment
+) => {
+  return (
+    attachment?.mimeType ===
+      "text/plain" ||
+    getFileExtension(
+      attachment?.name
+    ) === "txt"
+  );
+};
+
+const isWordAttachment = (
+  attachment
+) => {
+  const extension =
+    getFileExtension(
+      attachment?.name
+    );
+
+  return (
+    extension === "doc" ||
+    extension === "docx"
+  );
+};
+
+const isExcelAttachment = (
+  attachment
+) => {
+  const extension =
+    getFileExtension(
+      attachment?.name
+    );
+
+  return (
+    extension === "xls" ||
+    extension === "xlsx"
   );
 };
 
 /* =========================================================
-  IMAGE PREVIEW MODAL
+   IMAGE PREVIEW
 ========================================================= */
 
 const ImagePreview = ({
@@ -63,20 +188,20 @@ const ImagePreview = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-        aria-label="Close image preview"
+        className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+        aria-label="Close preview"
       >
         <X size={20} />
       </button>
 
       <div
-        className="flex max-h-[90vh] max-w-[90vw] items-center justify-center"
+        className="flex max-h-[90vh] max-w-[95vw] items-center justify-center"
         onClick={(event) =>
           event.stopPropagation()
         }
@@ -84,9 +209,7 @@ const ImagePreview = ({
         <img
           src={attachment.url}
           alt={attachment.name}
-          loading="lazy"
-          decoding="async"
-          className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+          className="max-h-[88vh] max-w-[95vw] rounded-xl object-contain shadow-2xl"
         />
       </div>
     </div>
@@ -94,7 +217,7 @@ const ImagePreview = ({
 };
 
 /* =========================================================
-  IMAGE ATTACHMENT
+   IMAGE ATTACHMENT
 ========================================================= */
 
 const ImageAttachment = ({
@@ -102,18 +225,20 @@ const ImageAttachment = ({
   onOpen,
   compact = false,
 }) => {
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] =
+    useState(false);
 
   if (failed) {
     return (
-      <a
-        href={attachment.url}
-        target="_blank"
-        rel="noreferrer"
-        className="flex min-h-24 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 transition hover:bg-gray-100"
+      <button
+        type="button"
+        onClick={() =>
+          onOpen(attachment)
+        }
+        className="flex min-h-24 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left"
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-400">
-          <ImageIcon size={19} />
+          <FileText size={19} />
         </div>
 
         <div className="min-w-0">
@@ -121,24 +246,21 @@ const ImageAttachment = ({
             {attachment.name}
           </p>
 
-          <p className="mt-0.5 text-xs text-gray-400">
-            Image unavailable · Open file
+          <p className="text-xs text-gray-400">
+            Image unavailable
           </p>
         </div>
-
-        <ExternalLink
-          size={16}
-          className="ml-auto shrink-0 text-gray-400"
-        />
-      </a>
+      </button>
     );
   }
 
   return (
     <button
       type="button"
-      onClick={() => onOpen(attachment)}
-      className={`group relative block overflow-hidden rounded-xl bg-gray-100 ${
+      onClick={() =>
+        onOpen(attachment)
+      }
+      className={`group relative overflow-hidden rounded-xl bg-gray-100 ${
         compact
           ? "h-36 w-36"
           : "max-h-[420px] max-w-full"
@@ -149,35 +271,667 @@ const ImageAttachment = ({
         alt={attachment.name}
         loading="lazy"
         decoding="async"
-        onError={() => setFailed(true)}
+        onError={() =>
+          setFailed(true)
+        }
         className={`block max-h-[420px] max-w-full rounded-xl object-contain transition duration-200 group-hover:scale-[1.02] ${
           compact
             ? "h-36 w-36 object-cover"
             : ""
         }`}
       />
-
-      <div className="pointer-events-none absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
     </button>
   );
 };
 
 /* =========================================================
-  DOCUMENT ATTACHMENT
+   PDF PREVIEW
+========================================================= */
+
+const PdfPreview = ({
+  attachment,
+}) => {
+  const [numPages, setNumPages] =
+    useState(null);
+
+  const [pageWidth, setPageWidth] =
+    useState(800);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      const width =
+        Math.min(
+          window.innerWidth - 80,
+          900
+        );
+
+      setPageWidth(
+        Math.max(width, 320)
+      );
+    };
+
+    updateWidth();
+
+    window.addEventListener(
+      "resize",
+      updateWidth
+    );
+
+    return () =>
+      window.removeEventListener(
+        "resize",
+        updateWidth
+      );
+  }, []);
+
+  return (
+    <div className="h-full overflow-auto bg-slate-100 p-4 sm:p-6">
+      <div className="flex flex-col items-center gap-4">
+        <Document
+          file={attachment.url}
+          onLoadSuccess={({
+            numPages: totalPages,
+          }) =>
+            setNumPages(totalPages)
+          }
+          loading={
+            <div className="flex min-h-[300px] items-center justify-center">
+              <Loader2
+                size={28}
+                className="animate-spin text-blue-600"
+              />
+            </div>
+          }
+          error={
+            <PreviewError
+              message="Unable to preview this PDF."
+            />
+          }
+        >
+          {Array.from(
+            new Array(numPages || 0),
+            (_, index) => (
+              <Page
+                key={`page_${index + 1}`}
+                pageNumber={index + 1}
+                width={pageWidth}
+                renderTextLayer
+                renderAnnotationLayer
+                className="mb-4 overflow-hidden rounded-lg bg-white shadow-lg"
+              />
+            )
+          )}
+        </Document>
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   TEXT PREVIEW
+========================================================= */
+
+const TextPreview = ({
+  attachment,
+}) => {
+  const [content, setContent] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadText = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response =
+          await fetch(
+            attachment.url
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "Unable to load file"
+          );
+        }
+
+        const text =
+          await response.text();
+
+        if (!cancelled) {
+          setContent(text);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            "Unable to preview this text file."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadText();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment]);
+
+  if (loading) {
+    return <PreviewLoading />;
+  }
+
+  if (error) {
+    return (
+      <PreviewError
+        message={error}
+      />
+    );
+  }
+
+  return (
+    <div className="h-full overflow-auto bg-slate-100 p-4 sm:p-8">
+      <pre className="mx-auto max-w-5xl whitespace-pre-wrap break-words rounded-xl bg-white p-6 font-mono text-sm leading-6 text-slate-800 shadow-lg">
+        {content}
+      </pre>
+    </div>
+  );
+};
+
+/* =========================================================
+   WORD PREVIEW
+========================================================= */
+
+const WordPreview = ({
+  attachment,
+}) => {
+  const [html, setHtml] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDocument = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response =
+          await fetch(
+            attachment.url
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "Unable to load document"
+          );
+        }
+
+        const arrayBuffer =
+          await response.arrayBuffer();
+
+        const result =
+          await mammoth.convertToHtml({
+            arrayBuffer,
+          });
+
+        if (!cancelled) {
+          setHtml(result.value);
+        }
+      } catch (err) {
+        console.error(
+          "Word preview error:",
+          err
+        );
+
+        if (!cancelled) {
+          setError(
+            "Unable to preview this Word document."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadDocument();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment]);
+
+  if (loading) {
+    return <PreviewLoading />;
+  }
+
+  if (error) {
+    return (
+      <PreviewError
+        message={error}
+      />
+    );
+  }
+
+  return (
+    <div className="h-full overflow-auto bg-slate-100 p-4 sm:p-8">
+      <article className="mx-auto min-h-full max-w-4xl rounded-xl bg-white p-8 shadow-lg sm:p-12">
+        <div
+          className="prose prose-slate max-w-none"
+          dangerouslySetInnerHTML={{
+            __html: html,
+          }}
+        />
+      </article>
+    </div>
+  );
+};
+
+/* =========================================================
+   EXCEL PREVIEW
+========================================================= */
+
+const ExcelPreview = ({
+  attachment,
+}) => {
+  const [workbook, setWorkbook] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWorkbook = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response =
+          await fetch(
+            attachment.url
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            "Unable to load spreadsheet"
+          );
+        }
+
+        const arrayBuffer =
+          await response.arrayBuffer();
+
+        const parsedWorkbook =
+          XLSX.read(
+            arrayBuffer,
+            {
+              type: "array",
+            }
+          );
+
+        if (!cancelled) {
+          setWorkbook(
+            parsedWorkbook
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Excel preview error:",
+          err
+        );
+
+        if (!cancelled) {
+          setError(
+            "Unable to preview this spreadsheet."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadWorkbook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment]);
+
+  const sheets = useMemo(() => {
+    if (!workbook) {
+      return [];
+    }
+
+    return workbook.SheetNames.map(
+      (sheetName) => {
+        const sheet =
+          workbook.Sheets[
+            sheetName
+          ];
+
+        return {
+          name: sheetName,
+          rows: XLSX.utils.sheet_to_json(
+            sheet,
+            {
+              header: 1,
+              defval: "",
+            }
+          ),
+        };
+      }
+    );
+  }, [workbook]);
+
+  if (loading) {
+    return <PreviewLoading />;
+  }
+
+  if (error) {
+    return (
+      <PreviewError
+        message={error}
+      />
+    );
+  }
+
+  return (
+    <div className="h-full overflow-auto bg-slate-100 p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        {sheets.map((sheet) => (
+          <div
+            key={sheet.name}
+            className="overflow-hidden rounded-xl bg-white shadow-lg"
+          >
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-700">
+                {sheet.name}
+              </p>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="min-w-full border-collapse text-sm">
+                <tbody>
+                  {sheet.rows.map(
+                    (row, rowIndex) => (
+                      <tr
+                        key={
+                          rowIndex
+                        }
+                        className="border-b border-slate-100 last:border-b-0"
+                      >
+                        {row.map(
+                          (
+                            cell,
+                            cellIndex
+                          ) => (
+                            <td
+                              key={
+                                cellIndex
+                              }
+                              className="whitespace-nowrap border-r border-slate-100 px-4 py-2 text-slate-700 last:border-r-0"
+                            >
+                              {String(
+                                cell ?? ""
+                              )}
+                            </td>
+                          )
+                        )}
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   LOADING / ERROR
+========================================================= */
+
+const PreviewLoading = () => {
+  return (
+    <div className="flex h-full items-center justify-center bg-slate-100">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2
+          size={32}
+          className="animate-spin text-blue-600"
+        />
+
+        <p className="text-sm text-slate-500">
+          Preparing preview...
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const PreviewError = ({
+  message,
+}) => {
+  return (
+    <div className="flex h-full items-center justify-center bg-slate-100 p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+          <FileText size={26} />
+        </div>
+
+        <h3 className="mt-4 text-base font-semibold text-slate-900">
+          Preview unavailable
+        </h3>
+
+        <p className="mt-2 text-sm text-slate-500">
+          {message}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+/* =========================================================
+   DOCUMENT PREVIEW
+========================================================= */
+
+const DocumentPreview = ({
+  attachment,
+  onClose,
+}) => {
+  if (!attachment) {
+    return null;
+  }
+
+  const type =
+    getFileType(attachment);
+
+  const isPdf =
+    isPdfAttachment(
+      attachment
+    );
+
+  const isText =
+    isTextAttachment(
+      attachment
+    );
+
+  const isWord =
+    isWordAttachment(
+      attachment
+    );
+
+  const isExcel =
+    isExcelAttachment(
+      attachment
+    );
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-slate-950/95"
+      onClick={onClose}
+    >
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
+      <header
+        className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-slate-950 px-4 py-3 text-white sm:px-6"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+          {isExcel ? (
+            <FileSpreadsheet
+              size={20}
+            />
+          ) : (
+            <FileText size={20} />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">
+            {attachment.name}
+          </p>
+
+          <p className="mt-0.5 text-xs text-white/50">
+            {type} ·{" "}
+            {formatFileSize(
+              attachment.size
+            )}
+          </p>
+        </div>
+
+        {/* DOWNLOAD ONLY */}
+
+        <a
+          href={attachment.url}
+          download={attachment.name}
+          className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white transition hover:bg-white/20"
+        >
+          <Download size={15} />
+
+          <span className="hidden sm:inline">
+            Download
+          </span>
+        </a>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+          aria-label="Close preview"
+        >
+          <X size={19} />
+        </button>
+      </header>
+
+      {/* =================================================
+          PREVIEW CONTENT
+      ================================================= */}
+
+      <main
+        className="min-h-0 flex-1 overflow-hidden"
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
+        {isPdf && (
+          <PdfPreview
+            attachment={attachment}
+          />
+        )}
+
+        {isText && (
+          <TextPreview
+            attachment={attachment}
+          />
+        )}
+
+        {isWord && (
+          <WordPreview
+            attachment={attachment}
+          />
+        )}
+
+        {isExcel && (
+          <ExcelPreview
+            attachment={attachment}
+          />
+        )}
+
+        {!isPdf &&
+          !isText &&
+          !isWord &&
+          !isExcel && (
+            <PreviewError message="This file type does not have an in-app preview yet. Use Download to save the file." />
+          )}
+      </main>
+    </div>
+  );
+};
+
+/* =========================================================
+   DOCUMENT ATTACHMENT
 ========================================================= */
 
 const DocumentAttachment = ({
   attachment,
+  onOpen,
 }) => {
+  const type =
+    getFileType(attachment);
+
+  const isExcel =
+    isExcelAttachment(
+      attachment
+    );
+
   return (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noreferrer"
-      className="group flex min-w-0 max-w-[360px] items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 transition hover:border-gray-300 hover:bg-gray-50"
+    <button
+      type="button"
+      onClick={() =>
+        onOpen(attachment)
+      }
+      className="group flex min-w-0 max-w-[380px] items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/30"
     >
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-        <FileText size={21} />
+        {isExcel ? (
+          <FileSpreadsheet
+            size={21}
+          />
+        ) : (
+          <FileText size={21} />
+        )}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -185,47 +939,61 @@ const DocumentAttachment = ({
           {attachment.name}
         </p>
 
-        <p className="mt-0.5 text-xs text-gray-400">
-          {formatFileSize(attachment.size)}
-        </p>
+        <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
+          <span>{type}</span>
+
+          <span>•</span>
+
+          <span>
+            {formatFileSize(
+              attachment.size
+            )}
+          </span>
+        </div>
       </div>
 
-      <ExternalLink
-        size={16}
-        className="shrink-0 text-gray-400 transition group-hover:text-gray-600"
-      />
-    </a>
+      <span className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition group-hover:bg-blue-100 group-hover:text-blue-700">
+        Preview
+      </span>
+    </button>
   );
 };
 
 /* =========================================================
-  MAIN MESSAGE
+   MAIN MESSAGE ITEM
 ========================================================= */
 
 const MessageItem = ({
   message,
   own,
 }) => {
-  const [previewAttachment, setPreviewAttachment] =
-    useState(null);
+  const [
+    previewAttachment,
+    setPreviewAttachment,
+  ] = useState(null);
 
-  const [showReactionPicker, setShowReactionPicker] =
-    useState(false);
+  const [
+    previewDocument,
+    setPreviewDocument,
+  ] = useState(null);
+
+  const [
+    showReactionPicker,
+    setShowReactionPicker,
+  ] = useState(false);
 
   const [reacting, setReacting] =
     useState(false);
 
-  const { toggleMessageReaction } =
-    useCommunication();
+  const {
+    toggleMessageReaction,
+  } = useCommunication();
 
   const { user } = useAuth();
 
-  const time = new Date(
-    message.createdAt
-  ).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  /* =======================================================
+     DATA
+  ======================================================= */
 
   const text =
     message.text ||
@@ -233,7 +1001,9 @@ const MessageItem = ({
     "";
 
   const attachments =
-    Array.isArray(message.attachments)
+    Array.isArray(
+      message.attachments
+    )
       ? message.attachments
       : [];
 
@@ -245,51 +1015,64 @@ const MessageItem = ({
   const documentAttachments =
     attachments.filter(
       (attachment) =>
-        !isImageAttachment(attachment)
+        !isImageAttachment(
+          attachment
+        )
     );
 
-  const hasText = Boolean(text.trim());
+  const reactions =
+    Array.isArray(
+      message.reactions
+    )
+      ? message.reactions
+      : [];
+
+  const hasText =
+    Boolean(text.trim());
 
   const hasAttachments =
     attachments.length > 0;
 
-  const reactions = Array.isArray(
-    message.reactions
-  )
-    ? message.reactions
-    : [];
+  const time = new Date(
+    message.createdAt
+  ).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  /* =========================================================
-    CLOSE REACTION MENU WHEN CLICKING OUTSIDE
-  ========================================================= */
+  /* =======================================================
+     CLOSE REACTION PICKER
+  ======================================================= */
 
   useEffect(() => {
     if (!showReactionPicker) {
       return;
     }
 
-    const handleOutsideClick = () => {
+    const closePicker = () => {
       setShowReactionPicker(false);
     };
 
     document.addEventListener(
       "click",
-      handleOutsideClick
+      closePicker
     );
 
     return () => {
       document.removeEventListener(
         "click",
-        handleOutsideClick
+        closePicker
       );
     };
   }, [showReactionPicker]);
 
-  /* =========================================================
-    REACTION HANDLER
-  ========================================================= */
+  /* =======================================================
+     REACTION
+  ======================================================= */
 
-  const handleReaction = async (emoji) => {
+  const handleReaction = async (
+    emoji
+  ) => {
     if (
       !message?.id ||
       !emoji ||
@@ -317,11 +1100,9 @@ const MessageItem = ({
     }
   };
 
-  /* =========================================================
-    RIGHT CLICK
-  ========================================================= */
-
-  const handleContextMenu = (event) => {
+  const handleContextMenu = (
+    event
+  ) => {
     event.preventDefault();
     event.stopPropagation();
 
@@ -330,11 +1111,9 @@ const MessageItem = ({
     }
   };
 
-  /* =========================================================
-    CHECK CURRENT USER REACTION
-  ========================================================= */
-
-  const hasReacted = (reaction) => {
+  const hasReacted = (
+    reaction
+  ) => {
     return Boolean(
       reaction?.userIds?.some(
         (id) =>
@@ -343,6 +1122,10 @@ const MessageItem = ({
       )
     );
   };
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
     <>
@@ -363,10 +1146,6 @@ const MessageItem = ({
             handleContextMenu
           }
         >
-          {/* =================================================
-              SENDER
-          ================================================= */}
-
           {!own && (
             <div className="mb-1 px-1 text-xs font-medium text-gray-600">
               {message.sender?.name ||
@@ -374,9 +1153,7 @@ const MessageItem = ({
             </div>
           )}
 
-          {/* =================================================
-              MESSAGE CONTENT
-          ================================================= */}
+          {/* MESSAGE */}
 
           <div
             className={`min-w-0 ${
@@ -388,7 +1165,7 @@ const MessageItem = ({
                 : "rounded-2xl rounded-bl-md bg-gray-100 px-4 py-2.5 text-gray-900"
             }`}
           >
-            {/* Text */}
+            {/* TEXT */}
 
             {hasText && (
               <p className="whitespace-pre-wrap break-words text-sm">
@@ -396,11 +1173,10 @@ const MessageItem = ({
               </p>
             )}
 
-            {/* =================================================
-                IMAGES
-            ================================================= */}
+            {/* IMAGES */}
 
-            {imageAttachments.length > 0 && (
+            {imageAttachments.length >
+              0 && (
               <div
                 className={
                   hasText
@@ -421,7 +1197,9 @@ const MessageItem = ({
                 ) : (
                   <div className="grid grid-cols-2 gap-1.5">
                     {imageAttachments.map(
-                      (attachment) => (
+                      (
+                        attachment
+                      ) => (
                         <ImageAttachment
                           key={
                             attachment._id ||
@@ -442,9 +1220,7 @@ const MessageItem = ({
               </div>
             )}
 
-            {/* =================================================
-                DOCUMENTS
-            ================================================= */}
+            {/* DOCUMENTS */}
 
             {documentAttachments.length >
               0 && (
@@ -458,7 +1234,9 @@ const MessageItem = ({
                 }`}
               >
                 {documentAttachments.map(
-                  (attachment) => (
+                  (
+                    attachment
+                  ) => (
                     <DocumentAttachment
                       key={
                         attachment._id ||
@@ -467,15 +1245,14 @@ const MessageItem = ({
                       attachment={
                         attachment
                       }
+                      onOpen={
+                        setPreviewDocument
+                      }
                     />
                   )
                 )}
               </div>
             )}
-
-            {/* =================================================
-                EMPTY MESSAGE FALLBACK
-            ================================================= */}
 
             {!hasText &&
               !hasAttachments && (
@@ -485,14 +1262,7 @@ const MessageItem = ({
               )}
           </div>
 
-          {/* =================================================
-              REACTION PICKER
-
-              IMPORTANT:
-              This is NOT visible by default.
-
-              It only opens after right-click.
-          ================================================= */}
+          {/* REACTION PICKER */}
 
           {showReactionPicker && (
             <div
@@ -539,11 +1309,6 @@ const MessageItem = ({
                             ? "cursor-not-allowed opacity-50"
                             : ""
                         }`}
-                        aria-label={
-                          selected
-                            ? `Remove ${emoji} reaction`
-                            : `React with ${emoji}`
-                        }
                       >
                         {emoji}
                       </button>
@@ -554,9 +1319,7 @@ const MessageItem = ({
             </div>
           )}
 
-          {/* =================================================
-              EXISTING REACTIONS
-          ================================================= */}
+          {/* REACTIONS */}
 
           {reactions.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1 px-1">
@@ -578,21 +1341,14 @@ const MessageItem = ({
                           reaction.emoji
                         )
                       }
-                      disabled={reacting}
+                      disabled={
+                        reacting
+                      }
                       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-sm transition ${
                         selected
                           ? "border-blue-300 bg-blue-50"
                           : "border-slate-200 bg-white hover:bg-slate-50"
-                      } ${
-                        reacting
-                          ? "cursor-not-allowed opacity-50"
-                          : ""
                       }`}
-                      aria-label={
-                        selected
-                          ? `Remove ${reaction.emoji} reaction`
-                          : `Add ${reaction.emoji} reaction`
-                      }
                     >
                       <span>
                         {
@@ -613,9 +1369,7 @@ const MessageItem = ({
             </div>
           )}
 
-          {/* =================================================
-              TIME
-          ================================================= */}
+          {/* TIME */}
 
           <div
             className={`mt-1 px-1 text-[11px] text-gray-400 ${
@@ -629,9 +1383,7 @@ const MessageItem = ({
         </div>
       </div>
 
-      {/* ===================================================
-          FULL IMAGE PREVIEW
-      =================================================== */}
+      {/* IMAGE PREVIEW */}
 
       {previewAttachment && (
         <ImagePreview
@@ -640,6 +1392,19 @@ const MessageItem = ({
           }
           onClose={() =>
             setPreviewAttachment(null)
+          }
+        />
+      )}
+
+      {/* DOCUMENT PREVIEW */}
+
+      {previewDocument && (
+        <DocumentPreview
+          attachment={
+            previewDocument
+          }
+          onClose={() =>
+            setPreviewDocument(null)
           }
         />
       )}
