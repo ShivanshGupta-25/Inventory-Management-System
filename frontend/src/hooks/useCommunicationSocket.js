@@ -17,6 +17,7 @@ const useCommunicationSocket = ({
   onMessageRead,
   onTypingStart,
   onTypingStop,
+  onReaction,
 }) => {
   const socketRef = useRef(null);
 
@@ -43,7 +44,7 @@ const useCommunicationSocket = ({
         token,
       },
 
-      // Optional but recommended for your local development.
+      // Optional but recommended for local development.
       transports: ["websocket"],
     });
 
@@ -102,6 +103,15 @@ const useCommunicationSocket = ({
     );
 
     /* =====================================================
+       REACTION EVENTS
+    ====================================================== */
+
+    socket.on(
+      "message:reaction",
+      onReaction
+    );
+
+    /* =====================================================
        TYPING EVENTS
     ====================================================== */
 
@@ -135,6 +145,7 @@ const useCommunicationSocket = ({
     onMessageRead,
     onTypingStart,
     onTypingStop,
+    onReaction,
   ]);
 
   /* =====================================================

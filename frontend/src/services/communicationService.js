@@ -147,6 +147,27 @@ const communicationService = {
       }
     );
   },
+
+  /* =====================================================
+     MESSAGE REACTIONS
+  ====================================================== */
+
+  toggleMessageReaction: async (
+    messageId,
+    emoji
+  ) => {
+    const response = await apiRequest(
+      `/communication/messages/${messageId}/reactions`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          emoji,
+        }),
+      }
+    );
+
+    return response.data;
+  },
 };
 
 export default communicationService;

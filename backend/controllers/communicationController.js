@@ -373,6 +373,62 @@ const markConversationRead = async (
   }
 };
 
+/* =====================================================
+   TOGGLE MESSAGE REACTION
+===================================================== */
+
+const toggleReaction = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const { emoji } = req.body;
+
+    const userId = req.user.userId;
+
+    const message =
+      await communicationService.toggleMessageReaction({
+        messageId,
+        userId,
+        emoji,
+      });
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.to(
+        `conversation:${message.conversationId}`
+      ).emit("message:reaction", {
+        messageId: message.id,
+        conversationId: message.conversationId,
+        reactions: message.reactions,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Reaction updated successfully",
+      data: {
+        messageId: message.id,
+        conversationId: message.conversationId,
+        reactions: message.reactions,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Toggle reaction error:",
+      error
+    );
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to update reaction",
+    });
+  }
+};
+
 module.exports = {
   getUsers,
   getConversations,
@@ -382,4 +438,5 @@ module.exports = {
   createGroupConversation,
   sendMessage,
   markConversationRead,
+  toggleReaction,
 };

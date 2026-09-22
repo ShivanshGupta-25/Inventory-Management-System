@@ -492,13 +492,12 @@ const ConversationWindow = ({
         <div
           ref={messagesContentRef}
           className="
-            mx-auto
             flex
             min-h-full
+            w-full
             min-w-0
-            max-w-4xl
             flex-col
-            gap-3
+            gap-2
             pb-2
           "
         >
@@ -567,7 +566,7 @@ const ConversationWindow = ({
 
       {typingNames.length > 0 && (
         <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-2">
-          <div className="mx-auto max-w-4xl truncate text-xs text-gray-400">
+          <div className="truncate text-xs text-gray-400">
             {typingNames.join(", ")}
 
             {typingNames.length === 1
@@ -583,7 +582,7 @@ const ConversationWindow = ({
 
       {selectedFiles.length > 0 && (
         <div className="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
-          <div className="mx-auto min-w-0 max-w-4xl">
+          <div className="min-w-0">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-medium text-gray-600">
                 Attachments (
@@ -679,7 +678,7 @@ const ConversationWindow = ({
 
       {fileError && (
         <div className="shrink-0 px-4 py-2">
-          <div className="mx-auto max-w-4xl rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
             {fileError}
           </div>
         </div>
@@ -694,7 +693,7 @@ const ConversationWindow = ({
           onSubmit={submit}
           className="px-4 py-3"
         >
-          <div className="mx-auto flex min-w-0 max-w-4xl items-end gap-2">
+          <div className="flex min-w-0 items-end gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -769,7 +768,7 @@ const ConversationWindow = ({
             </button>
           </div>
 
-          <p className="mx-auto mt-1.5 max-w-4xl text-[11px] text-gray-400">
+          <p className="mt-1.5 text-[11px] text-gray-400">
             Enter to send · Shift + Enter
             for a new line · Up to 5
             files, 10 MB each

@@ -178,12 +178,13 @@ export const CommunicationProvider = ({
             response.data;
 
           /*
-          * Socket.IO also broadcasts
-          * this message.
-          *
-          * Don't append it here because
-          * doing both would duplicate it.
-          */
+           * Socket.IO also broadcasts
+           * this message.
+           *
+           * Don't append it here because
+           * doing both would duplicate it.
+           */
+
           return message;
         } catch (error) {
           console.error(
@@ -195,6 +196,21 @@ export const CommunicationProvider = ({
         }
       },
       [activeConversationId]
+    );
+
+  /* =====================================================
+     TOGGLE MESSAGE REACTION
+  ===================================================== */
+
+  const toggleMessageReaction =
+    useCallback(
+      async (messageId, emoji) => {
+        return communicationService.toggleMessageReaction(
+          messageId,
+          emoji
+        );
+      },
+      []
     );
 
   /* =====================================================
@@ -241,6 +257,35 @@ export const CommunicationProvider = ({
       },
       [loadMessages]
     );
+
+  /* =====================================================
+     REACTION
+  ===================================================== */
+
+  const handleReaction = useCallback(
+    (reactionData) => {
+      if (!reactionData?.messageId) {
+        return;
+      }
+
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          String(message.id) ===
+          String(
+            reactionData.messageId
+          )
+            ? {
+                ...message,
+                reactions:
+                  reactionData.reactions ||
+                  [],
+              }
+            : message
+        )
+      );
+    },
+    []
+  );
 
   /* =====================================================
      CREATE GROUP
@@ -477,6 +522,8 @@ export const CommunicationProvider = ({
       handleTypingStart,
     onTypingStop:
       handleTypingStop,
+    onReaction:
+      handleReaction,
   });
 
   /* =====================================================
@@ -522,6 +569,10 @@ export const CommunicationProvider = ({
         String(activeConversationId)
     ) || null;
 
+  /* =====================================================
+     CONTEXT VALUE
+  ===================================================== */
+
   const value = useMemo(
     () => ({
       conversations,
@@ -535,7 +586,9 @@ export const CommunicationProvider = ({
       loadingMessages,
 
       connected: socket.connected,
-      connectionStatus: socket.connectionStatus,
+      connectionStatus:
+        socket.connectionStatus,
+
       setActiveConversationId,
       selectConversation,
 
@@ -545,6 +598,8 @@ export const CommunicationProvider = ({
       createGroupConversation,
 
       sendMessage,
+
+      toggleMessageReaction,
 
       startTyping:
         socket.startTyping,
@@ -572,6 +627,7 @@ export const CommunicationProvider = ({
       createDirectConversation,
       createGroupConversation,
       sendMessage,
+      toggleMessageReaction,
       loadConversations,
     ]
   );

@@ -11,6 +11,7 @@ const {
   createGroupConversation,
   sendMessage,
   markConversationRead,
+  toggleReaction,
 } = require("../controllers/communicationController");
 
 const {
@@ -58,6 +59,11 @@ router.post(
   "/conversations/:id/messages",
   upload.array("files", 5),
   sendMessage
+);
+
+router.post(
+  "/messages/:id/reactions",
+  toggleReaction
 );
 
 router.post(

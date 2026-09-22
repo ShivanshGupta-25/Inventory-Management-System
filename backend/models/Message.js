@@ -37,6 +37,26 @@ const attachmentSchema = new mongoose.Schema(
   }
 );
 
+const reactionSchema = new mongoose.Schema(
+  {
+    emoji: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    userIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+  },
+  {
+    _id: false,
+  }
+);
+
 const messageSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -75,6 +95,11 @@ const messageSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+
+    reactions: {
+      type: [reactionSchema],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -86,7 +111,4 @@ messageSchema.index({
   createdAt: -1,
 });
 
-module.exports = mongoose.model(
-  "Message",
-  messageSchema
-);
+module.exports = mongoose.model("Message", messageSchema);

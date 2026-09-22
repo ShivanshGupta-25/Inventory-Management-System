@@ -367,6 +367,9 @@ const getMessages = async (
       attachments:
         message.attachments || [],
 
+      reactions:
+        message.reactions || [],
+
       createdAt:
         message.createdAt,
 
@@ -800,6 +803,9 @@ const sendMessage = async (
     attachments:
       populatedMessage.attachments || [],
 
+    reactions:
+      populatedMessage.reactions || [],
+
     createdAt:
       populatedMessage.createdAt,
 
@@ -860,6 +866,133 @@ const markConversationRead = async (
 };
 
 /* =====================================================
+   TOGGLE MESSAGE REACTION
+===================================================== */
+
+const toggleMessageReaction = async ({
+  messageId,
+  userId,
+  emoji,
+}) => {
+  if (!isValidObjectId(messageId)) {
+    const error = new Error("Invalid message ID");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!emoji || typeof emoji !== "string") {
+    const error = new Error("Emoji is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const cleanEmoji = emoji.trim();
+
+  if (!cleanEmoji) {
+    const error = new Error("Emoji is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (cleanEmoji.length > 20) {
+    const error = new Error("Emoji is too long");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const message = await Message.findById(messageId);
+
+  if (!message) {
+    const error = new Error("Message not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await requireParticipant(message.conversationId, userId);
+
+  if (!Array.isArray(message.reactions)) {
+    message.reactions = [];
+  }
+
+  // ---------------------------------------------------------
+  // Find the reaction the current user already has
+  // ---------------------------------------------------------
+
+  const currentReaction = message.reactions.find((reaction) =>
+    reaction.userIds?.some(
+      (id) => String(id) === String(userId)
+    )
+  );
+
+  // ---------------------------------------------------------
+  // User clicked the SAME reaction:
+  // remove it
+  // ---------------------------------------------------------
+
+  if (currentReaction?.emoji === cleanEmoji) {
+    currentReaction.userIds = currentReaction.userIds.filter(
+      (id) => String(id) !== String(userId)
+    );
+
+    if (currentReaction.userIds.length === 0) {
+      message.reactions = message.reactions.filter(
+        (reaction) => reaction.emoji !== cleanEmoji
+      );
+    }
+
+    await message.save();
+
+    return {
+      id: message._id,
+      conversationId: message.conversationId,
+      reactions: message.reactions,
+    };
+  }
+
+  // ---------------------------------------------------------
+  // User clicked a DIFFERENT reaction:
+  // remove old reaction first
+  // ---------------------------------------------------------
+
+  if (currentReaction) {
+    currentReaction.userIds = currentReaction.userIds.filter(
+      (id) => String(id) !== String(userId)
+    );
+
+    if (currentReaction.userIds.length === 0) {
+      message.reactions = message.reactions.filter(
+        (reaction) => reaction.emoji !== currentReaction.emoji
+      );
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Add new reaction
+  // ---------------------------------------------------------
+
+  const newReaction = message.reactions.find(
+    (reaction) => reaction.emoji === cleanEmoji
+  );
+
+  if (newReaction) {
+    newReaction.userIds.push(userId);
+  } else {
+    message.reactions.push({
+      emoji: cleanEmoji,
+      userIds: [userId],
+    });
+  }
+
+  await message.save();
+
+  return {
+    id: message._id,
+    conversationId: message.conversationId,
+    reactions: message.reactions,
+  };
+};
+
+/* =====================================================
    EXPORT
 ===================================================== */
 
@@ -872,4 +1005,5 @@ module.exports = {
   createGroupConversation,
   sendMessage,
   markConversationRead,
+  toggleMessageReaction,
 };
