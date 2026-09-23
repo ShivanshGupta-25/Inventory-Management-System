@@ -351,6 +351,51 @@ const getMessages = async (
     .limit(limit)
     .lean();
 
+  /* ===================================================
+     GET REPLY COUNTS FOR CURRENT MESSAGE PAGE
+
+     This performs ONE aggregation instead of
+     performing a query for every individual message.
+  =================================================== */
+
+  const messageIds = messages.map(
+    (message) => message._id
+  );
+
+  let replyCountMap = new Map();
+
+  if (messageIds.length > 0) {
+    const replyCounts =
+      await Message.aggregate([
+        {
+          $match: {
+            replyTo: {
+              $in: messageIds,
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$replyTo",
+            count: {
+              $sum: 1,
+            },
+          },
+        },
+      ]);
+
+    replyCountMap = new Map(
+      replyCounts.map((item) => [
+        String(item._id),
+        item.count,
+      ])
+    );
+  }
+
+  /* ===================================================
+     FORMAT RESPONSE
+  =================================================== */
+
   return messages
     .reverse()
     .map((message) => ({
@@ -375,6 +420,12 @@ const getMessages = async (
 
       updatedAt:
         message.updatedAt,
+
+      /* NEW */
+      replyCount:
+        replyCountMap.get(
+          String(message._id)
+        ) || 0,
 
       sender:
         normalizeUser(
@@ -438,10 +489,6 @@ const createDirectConversation = async (
   const targetUser =
     await findUserById(targetUserId);
 
-  /*
-   * Find a direct conversation containing
-   * both users.
-   */
   const currentParticipations =
     await ConversationParticipant.find({
       userId: currentUserId,
@@ -681,6 +728,10 @@ const sendMessage = async (
     throw error;
   }
 
+  /*
+   * Verify the parent message belongs
+   * to the same conversation.
+   */
   if (replyTo) {
     const repliedMessage =
       await Message.findOne({
@@ -789,6 +840,17 @@ const sendMessage = async (
       })
       .lean();
 
+  /*
+   * A newly-created message normally has
+   * zero replies. Keeping replyCount here
+   * makes the socket/REST message shape
+   * consistent with getMessages().
+   */
+  const replyCount =
+    await Message.countDocuments({
+      replyTo: message._id,
+    });
+
   return {
     id: populatedMessage._id,
 
@@ -811,6 +873,8 @@ const sendMessage = async (
 
     updatedAt:
       populatedMessage.updatedAt,
+
+    replyCount,
 
     sender: normalizeUser(
       populatedMessage.senderId
@@ -875,104 +939,141 @@ const toggleMessageReaction = async ({
   emoji,
 }) => {
   if (!isValidObjectId(messageId)) {
-    const error = new Error("Invalid message ID");
+    const error = new Error(
+      "Invalid message ID"
+    );
+
     error.statusCode = 400;
+
     throw error;
   }
 
-  if (!emoji || typeof emoji !== "string") {
-    const error = new Error("Emoji is required");
+  if (
+    !emoji ||
+    typeof emoji !== "string"
+  ) {
+    const error = new Error(
+      "Emoji is required"
+    );
+
     error.statusCode = 400;
+
     throw error;
   }
 
   const cleanEmoji = emoji.trim();
 
   if (!cleanEmoji) {
-    const error = new Error("Emoji is required");
+    const error = new Error(
+      "Emoji is required"
+    );
+
     error.statusCode = 400;
+
     throw error;
   }
 
   if (cleanEmoji.length > 20) {
-    const error = new Error("Emoji is too long");
+    const error = new Error(
+      "Emoji is too long"
+    );
+
     error.statusCode = 400;
+
     throw error;
   }
 
-  const message = await Message.findById(messageId);
+  const message =
+    await Message.findById(messageId);
 
   if (!message) {
-    const error = new Error("Message not found");
+    const error = new Error(
+      "Message not found"
+    );
+
     error.statusCode = 404;
+
     throw error;
   }
 
-  await requireParticipant(message.conversationId, userId);
+  await requireParticipant(
+    message.conversationId,
+    userId
+  );
 
   if (!Array.isArray(message.reactions)) {
     message.reactions = [];
   }
 
-  // ---------------------------------------------------------
-  // Find the reaction the current user already has
-  // ---------------------------------------------------------
-
-  const currentReaction = message.reactions.find((reaction) =>
-    reaction.userIds?.some(
-      (id) => String(id) === String(userId)
-    )
-  );
-
-  // ---------------------------------------------------------
-  // User clicked the SAME reaction:
-  // remove it
-  // ---------------------------------------------------------
-
-  if (currentReaction?.emoji === cleanEmoji) {
-    currentReaction.userIds = currentReaction.userIds.filter(
-      (id) => String(id) !== String(userId)
+  const currentReaction =
+    message.reactions.find(
+      (reaction) =>
+        reaction.userIds?.some(
+          (id) =>
+            String(id) ===
+            String(userId)
+        )
     );
 
-    if (currentReaction.userIds.length === 0) {
-      message.reactions = message.reactions.filter(
-        (reaction) => reaction.emoji !== cleanEmoji
+  if (
+    currentReaction?.emoji ===
+    cleanEmoji
+  ) {
+    currentReaction.userIds =
+      currentReaction.userIds.filter(
+        (id) =>
+          String(id) !==
+          String(userId)
       );
+
+    if (
+      currentReaction.userIds.length ===
+      0
+    ) {
+      message.reactions =
+        message.reactions.filter(
+          (reaction) =>
+            reaction.emoji !==
+            cleanEmoji
+        );
     }
 
     await message.save();
 
     return {
       id: message._id,
-      conversationId: message.conversationId,
+      conversationId:
+        message.conversationId,
       reactions: message.reactions,
     };
   }
 
-  // ---------------------------------------------------------
-  // User clicked a DIFFERENT reaction:
-  // remove old reaction first
-  // ---------------------------------------------------------
-
   if (currentReaction) {
-    currentReaction.userIds = currentReaction.userIds.filter(
-      (id) => String(id) !== String(userId)
-    );
-
-    if (currentReaction.userIds.length === 0) {
-      message.reactions = message.reactions.filter(
-        (reaction) => reaction.emoji !== currentReaction.emoji
+    currentReaction.userIds =
+      currentReaction.userIds.filter(
+        (id) =>
+          String(id) !==
+          String(userId)
       );
+
+    if (
+      currentReaction.userIds.length ===
+      0
+    ) {
+      message.reactions =
+        message.reactions.filter(
+          (reaction) =>
+            reaction.emoji !==
+            currentReaction.emoji
+        );
     }
   }
 
-  // ---------------------------------------------------------
-  // Add new reaction
-  // ---------------------------------------------------------
-
-  const newReaction = message.reactions.find(
-    (reaction) => reaction.emoji === cleanEmoji
-  );
+  const newReaction =
+    message.reactions.find(
+      (reaction) =>
+        reaction.emoji === cleanEmoji
+    );
 
   if (newReaction) {
     newReaction.userIds.push(userId);
@@ -987,8 +1088,139 @@ const toggleMessageReaction = async ({
 
   return {
     id: message._id,
-    conversationId: message.conversationId,
+    conversationId:
+      message.conversationId,
     reactions: message.reactions,
+  };
+};
+
+/* =====================================================
+   GET MESSAGE THREAD
+===================================================== */
+
+const getMessageThread = async (
+  conversationId,
+  messageId,
+  userId
+) => {
+  await requireParticipant(
+    conversationId,
+    userId
+  );
+
+  if (!isValidObjectId(messageId)) {
+    const error = new Error(
+      "Invalid message ID"
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  const parentMessage =
+    await Message.findOne({
+      _id: messageId,
+      conversationId,
+    })
+      .populate(
+        "senderId",
+        "_id name email role"
+      )
+      .lean();
+
+  if (!parentMessage) {
+    const error = new Error(
+      "Message not found"
+    );
+
+    error.statusCode = 404;
+
+    throw error;
+  }
+
+  /*
+   * Only direct replies to this message
+   * belong to this thread.
+   */
+  const replies =
+    await Message.find({
+      conversationId,
+      replyTo: messageId,
+    })
+      .populate(
+        "senderId",
+        "_id name email role"
+      )
+      .sort({
+        createdAt: 1,
+      })
+      .lean();
+
+  return {
+    parent: {
+      id: parentMessage._id,
+
+      conversationId:
+        parentMessage.conversationId,
+
+      type: parentMessage.type,
+
+      text:
+        parentMessage.text || "",
+
+      attachments:
+        parentMessage.attachments || [],
+
+      reactions:
+        parentMessage.reactions || [],
+
+      createdAt:
+        parentMessage.createdAt,
+
+      updatedAt:
+        parentMessage.updatedAt,
+
+      replyCount: replies.length,
+
+      sender: normalizeUser(
+        parentMessage.senderId
+      ),
+    },
+
+    replies: replies.map(
+      (message) => ({
+        id: message._id,
+
+        conversationId:
+          message.conversationId,
+
+        type: message.type,
+
+        text:
+          message.text || "",
+
+        attachments:
+          message.attachments || [],
+
+        reactions:
+          message.reactions || [],
+
+        createdAt:
+          message.createdAt,
+
+        updatedAt:
+          message.updatedAt,
+
+        replyCount: 0,
+
+        sender: normalizeUser(
+          message.senderId
+        ),
+
+        replyTo: message.replyTo,
+      })
+    ),
   };
 };
 
@@ -1001,6 +1233,7 @@ module.exports = {
   getConversations,
   getConversation,
   getMessages,
+  getMessageThread,
   createDirectConversation,
   createGroupConversation,
   sendMessage,

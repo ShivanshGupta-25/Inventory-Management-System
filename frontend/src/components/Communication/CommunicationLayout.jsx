@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 
 import {
@@ -23,7 +22,6 @@ const CommunicationLayout = () => {
     conversations,
     activeConversation,
     connectionStatus,
-    isConnected,
     activeConversationId,
     messages,
     typingUsers,
@@ -40,6 +38,7 @@ const CommunicationLayout = () => {
     createGroupConversation,
 
     sendMessage,
+
     startTyping,
     stopTyping,
 
@@ -62,6 +61,18 @@ const CommunicationLayout = () => {
   const [refreshing, setRefreshing] =
     useState(false);
 
+  /*
+   * Message currently being replied to.
+   *
+   * This is intentionally kept inside the conversation
+   * workspace instead of opening a separate ThreadPanel.
+   *
+   * ConversationWindow receives this through onReply and
+   * can display the reply preview directly above the composer.
+   */
+  const [replyingTo, setReplyingTo] =
+    useState(null);
+
   /* =====================================================
      NEW CONVERSATION
   ===================================================== */
@@ -71,6 +82,7 @@ const CommunicationLayout = () => {
 
     try {
       setLoadingUsers(true);
+
       await searchUsers("");
     } catch (error) {
       console.error(
@@ -89,6 +101,7 @@ const CommunicationLayout = () => {
   const handleRefresh = async () => {
     try {
       setRefreshing(true);
+
       await reloadConversations();
     } catch (error) {
       console.error(
@@ -108,7 +121,7 @@ const CommunicationLayout = () => {
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-slate-50">
       {/* =====================================================
           COMMUNICATION HEADER
-      ====================================================== */}
+      ===================================================== */}
 
       <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between gap-4">
@@ -191,7 +204,7 @@ const CommunicationLayout = () => {
 
       {/* =====================================================
           MOBILE CONNECTION BAR
-      ====================================================== */}
+      ===================================================== */}
 
       <div className="shrink-0 px-3 pt-3 sm:hidden">
         <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -233,9 +246,7 @@ const CommunicationLayout = () => {
 
       {/* =====================================================
           CHAT WORKSPACE
-
-          This area takes all remaining height.
-      ====================================================== */}
+      ===================================================== */}
 
       <main className="min-h-0 min-w-0 flex-1 overflow-hidden px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
         <div
@@ -314,7 +325,9 @@ const CommunicationLayout = () => {
                 currentUserId={
                   currentUserId
                 }
-                typingUsers={typingUsers}
+                typingUsers={
+                  typingUsers
+                }
                 loading={loadingMessages}
                 onSend={sendMessage}
                 onTypingStart={
@@ -322,6 +335,11 @@ const CommunicationLayout = () => {
                 }
                 onTypingStop={
                   stopTyping
+                }
+                onReply={setReplyingTo}
+                replyingTo={replyingTo}
+                onCancelReply={() =>
+                  setReplyingTo(null)
                 }
                 onBack={() =>
                   selectConversation(null)

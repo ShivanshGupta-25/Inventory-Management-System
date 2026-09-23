@@ -148,10 +148,6 @@ const communicationService = {
     );
   },
 
-  /* =====================================================
-     MESSAGE REACTIONS
-  ====================================================== */
-
   toggleMessageReaction: async (
     messageId,
     emoji
@@ -167,6 +163,18 @@ const communicationService = {
     );
 
     return response.data;
+  },
+
+  getMessageThread: async (
+    conversationId,
+    messageId
+  ) => {
+    return apiRequest(
+      `/communication/conversations/${conversationId}/messages/${messageId}/thread`,
+      {
+        method: "GET",
+      }
+    );
   },
 };
 

@@ -7,6 +7,7 @@ const {
   getConversations,
   getConversation,
   getMessages,
+  getMessageThreadController,
   createDirectConversation,
   createGroupConversation,
   sendMessage,
@@ -14,25 +15,17 @@ const {
   toggleReaction,
 } = require("../controllers/communicationController");
 
-const {
-  upload,
-} = require("../middleware/uploadMiddleware");
+const { upload } = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
 // Users
-router.get(
-  "/users",
-  getUsers
-);
+router.get("/users", getUsers);
 
 // Conversations
-router.get(
-  "/conversations",
-  getConversations
-);
+router.get("/conversations", getConversations);
 
 router.post(
   "/conversations/direct",
@@ -53,6 +46,12 @@ router.get(
 router.get(
   "/conversations/:id/messages",
   getMessages
+);
+
+// Message thread
+router.get(
+  "/conversations/:conversationId/messages/:messageId/thread",
+  getMessageThreadController
 );
 
 router.post(

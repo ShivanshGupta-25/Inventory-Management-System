@@ -62,6 +62,9 @@ const ConversationWindow = ({
   onTypingStart,
   onTypingStop,
   onBack,
+  onReply,
+  replyingTo,
+  onCancelReply,
 }) => {
   const [text, setText] =
     useState("");
@@ -529,7 +532,8 @@ const ConversationWindow = ({
 
       await onSend(
         value,
-        selectedFiles
+        selectedFiles,
+        replyingTo?.id || replyingTo?._id || null
       );
 
       setText("");
@@ -537,6 +541,7 @@ const ConversationWindow = ({
       setFileError("");
 
       onTypingStop?.();
+      onCancelReply?.();
 
       if (fileInputRef.current) {
         fileInputRef.current.value =
@@ -749,6 +754,9 @@ const ConversationWindow = ({
                       }
                       message={message}
                       own={own}
+                      onReply={
+                        onReply
+                      }
                     />
                   );
                 }
@@ -891,6 +899,31 @@ const ConversationWindow = ({
           onSubmit={submit}
           className="px-4 py-3"
         >
+
+          {replyingTo && (
+            <div className="mb-2 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <div className="w-1 shrink-0 self-stretch rounded-full bg-blue-500" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-blue-600">
+                  Replying to{" "}
+                  {replyingTo.sender?.name || replyingTo.sender?.fullName || "message"}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-gray-500">
+                  {replyingTo.text || replyingTo.content || "Attachment"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onCancelReply}
+                className="shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
+                aria-label="Cancel reply"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
+
           <div className="flex min-w-0 items-end gap-2">
             <input
               ref={fileInputRef}

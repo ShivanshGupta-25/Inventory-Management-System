@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -9,6 +10,7 @@ import {
   FileSpreadsheet,
   FileText,
   Loader2,
+  Reply,
   X,
 } from "lucide-react";
 
@@ -960,12 +962,73 @@ const DocumentAttachment = ({
 };
 
 /* =========================================================
+   REPLY QUOTE (shown inside a message that is itself a reply)
+========================================================= */
+
+const ReplyQuote = ({
+  repliedMessage,
+  own,
+  onJump,
+}) => {
+  if (!repliedMessage) {
+    return null;
+  }
+
+  const previewText =
+    repliedMessage.text ||
+    (Array.isArray(
+      repliedMessage.attachments
+    ) &&
+    repliedMessage.attachments.length > 0
+      ? repliedMessage.attachments[0]
+          ?.name
+      : null) ||
+    "Attachment";
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        onJump?.(repliedMessage.id)
+      }
+      className={`mb-1.5 block w-full min-w-0 rounded-lg border-l-4 px-2.5 py-1.5 text-left transition ${
+        own
+          ? "border-white/50 bg-white/10 hover:bg-white/20"
+          : "border-blue-500 bg-black/5 hover:bg-black/10"
+      }`}
+    >
+      <p
+        className={`truncate text-xs font-semibold ${
+          own
+            ? "text-white/90"
+            : "text-blue-600"
+        }`}
+      >
+        {repliedMessage.sender
+          ?.name || "Unknown user"}
+      </p>
+
+      <p
+        className={`mt-0.5 truncate text-xs ${
+          own
+            ? "text-white/70"
+            : "text-gray-500"
+        }`}
+      >
+        {previewText}
+      </p>
+    </button>
+  );
+};
+
+/* =========================================================
    MAIN MESSAGE ITEM
 ========================================================= */
 
 const MessageItem = ({
   message,
   own,
+  onReply,
 }) => {
   const [
     previewAttachment,
@@ -992,8 +1055,173 @@ const MessageItem = ({
   const { user } = useAuth();
 
   /* =======================================================
+     SWIPE-TO-REPLY (touch/mobile)
+  ======================================================= */
+
+  const SWIPE_TRIGGER_DISTANCE = 56;
+  const SWIPE_MAX_DISTANCE = 88;
+
+  const [swipeOffset, setSwipeOffset] =
+    useState(0);
+
+  const [isSwiping, setIsSwiping] =
+    useState(false);
+
+  const touchStateRef = useRef({
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    lockedAxis: null,
+  });
+
+  const longPressTimerRef =
+    useRef(null);
+
+  const handleTouchStart = (
+    event
+  ) => {
+    const touch =
+      event.touches?.[0];
+
+    if (!touch) {
+      return;
+    }
+
+    touchStateRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      tracking: true,
+      lockedAxis: null,
+    };
+
+    // Backup long-press trigger for the
+    // reaction picker on touch devices.
+    clearTimeout(
+      longPressTimerRef.current
+    );
+
+    longPressTimerRef.current =
+      setTimeout(() => {
+        setShowReactionPicker(true);
+
+        if (
+          window.navigator?.vibrate
+        ) {
+          window.navigator.vibrate(10);
+        }
+      }, 500);
+  };
+
+  const handleTouchMove = (
+    event
+  ) => {
+    const state = touchStateRef.current;
+
+    if (!state.tracking) {
+      return;
+    }
+
+    const touch =
+      event.touches?.[0];
+
+    if (!touch) {
+      return;
+    }
+
+    const deltaX =
+      touch.clientX - state.startX;
+
+    const deltaY =
+      touch.clientY - state.startY;
+
+    if (!state.lockedAxis) {
+      if (
+        Math.abs(deltaX) > 8 ||
+        Math.abs(deltaY) > 8
+      ) {
+        state.lockedAxis =
+          Math.abs(deltaX) >
+          Math.abs(deltaY)
+            ? "x"
+            : "y";
+      }
+    }
+
+    // A vertical drag means the user is
+    // scrolling the message list, not swiping.
+    if (state.lockedAxis === "y") {
+      return;
+    }
+
+    if (state.lockedAxis === "x") {
+      clearTimeout(
+        longPressTimerRef.current
+      );
+
+      // Own messages swipe left to reply,
+      // incoming messages swipe right,
+      // matching WhatsApp/Telegram convention.
+      const directional = own
+        ? Math.min(deltaX, 0)
+        : Math.max(deltaX, 0);
+
+      const clamped = Math.max(
+        -SWIPE_MAX_DISTANCE,
+        Math.min(
+          SWIPE_MAX_DISTANCE,
+          directional
+        )
+      );
+
+      setIsSwiping(true);
+      setSwipeOffset(clamped);
+    }
+  };
+
+  const handleTouchEnd = (
+    event
+  ) => {
+    clearTimeout(
+      longPressTimerRef.current
+    );
+
+    if (
+      Math.abs(swipeOffset) >=
+      SWIPE_TRIGGER_DISTANCE
+    ) {
+      // Swallow the trailing click so an
+      // image/document preview doesn't
+      // also open right after a swipe-reply.
+      event?.preventDefault?.();
+
+      onReply?.(message);
+
+      if (
+        window.navigator?.vibrate
+      ) {
+        window.navigator.vibrate(10);
+      }
+    }
+
+    touchStateRef.current.tracking = false;
+    setIsSwiping(false);
+    setSwipeOffset(0);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(
+        longPressTimerRef.current
+      );
+    };
+  }, []);
+
+  /* =======================================================
      DATA
   ======================================================= */
+
+  const messageId =
+    message.id || message._id;
 
   const text =
     message.text ||
@@ -1033,12 +1261,59 @@ const MessageItem = ({
   const hasAttachments =
     attachments.length > 0;
 
+  /*
+   * The message this one is replying to
+   * (populated by the backend with id/text/sender).
+   */
+  const repliedMessage =
+    message.replyTo || null;
+
   const time = new Date(
     message.createdAt
   ).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  /* =======================================================
+     JUMP TO ORIGINAL MESSAGE
+  ======================================================= */
+
+  const scrollToMessage = (
+    targetId
+  ) => {
+    if (!targetId) {
+      return;
+    }
+
+    const target =
+      document.getElementById(
+        `message-${targetId}`
+      );
+
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    target.classList.add(
+      "ring-2",
+      "ring-blue-400",
+      "ring-offset-2"
+    );
+
+    setTimeout(() => {
+      target.classList.remove(
+        "ring-2",
+        "ring-blue-400",
+        "ring-offset-2"
+      );
+    }, 1200);
+  };
 
   /* =======================================================
      CLOSE REACTION PICKER
@@ -1138,35 +1413,66 @@ const MessageItem = ({
       >
         <div
           className={`group relative flex min-w-0 w-fit max-w-[min(90%,520px)] flex-col sm:max-w-[min(75%,520px)] ${
-            own
-              ? "items-end"
-              : "items-start"
+            own ? "items-end" : "items-start"
           }`}
-          onContextMenu={
-            handleContextMenu
-          }
+          onContextMenu={handleContextMenu}
         >
           {!own && (
             <div className="mb-1 px-1 text-xs font-medium text-gray-600">
-              {message.sender?.name ||
-                "Unknown user"}
+              {message.sender?.name || "Unknown user"}
             </div>
           )}
 
-          {/* MESSAGE */}
-
+          {/* SWIPE-TO-REPLY INDICATOR (mobile) */}
           <div
-            className={`min-w-0 ${
-              hasAttachments &&
-              !hasText
-                ? ""
-                : own
-                ? "rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5 text-white"
-                : "rounded-2xl rounded-bl-md bg-gray-100 px-4 py-2.5 text-gray-900"
+            className={`pointer-events-none absolute top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-opacity ${
+              own ? "right-0" : "left-0"
+            }`}
+            style={{
+              opacity: Math.min(
+                Math.abs(swipeOffset) /
+                  SWIPE_TRIGGER_DISTANCE,
+                1
+              ),
+            }}
+          >
+            <Reply size={15} />
+          </div>
+
+          {/* MESSAGE */}
+          <div
+            id={`message-${messageId}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            style={{
+              transform: `translateX(${swipeOffset}px)`,
+              transition: isSwiping
+                ? "none"
+                : "transform 200ms ease-out",
+              touchAction: "pan-y",
+            }}
+            className={`min-w-0 rounded-2xl select-none transition-shadow ${
+              own
+                ? "rounded-br-md bg-blue-600 text-white"
+                : "rounded-bl-md bg-gray-100 text-gray-900"
+            } ${
+              hasAttachments && !hasText && !repliedMessage
+                ? "overflow-hidden"
+                : "px-4 py-2.5"
             }`}
           >
-            {/* TEXT */}
+            {/* REPLY QUOTE */}
+            {repliedMessage && (
+              <ReplyQuote
+                repliedMessage={repliedMessage}
+                own={own}
+                onJump={scrollToMessage}
+              />
+            )}
 
+            {/* TEXT */}
             {hasText && (
               <p className="whitespace-pre-wrap break-words text-sm">
                 {text}
@@ -1174,208 +1480,154 @@ const MessageItem = ({
             )}
 
             {/* IMAGES */}
-
-            {imageAttachments.length >
-              0 && (
-              <div
-                className={
-                  hasText
-                    ? "mt-2"
-                    : ""
-                }
-              >
-                {imageAttachments.length ===
-                1 ? (
+            {imageAttachments.length > 0 && (
+              <div className={hasText || repliedMessage ? "mt-2" : ""}>
+                {imageAttachments.length === 1 ? (
                   <ImageAttachment
-                    attachment={
-                      imageAttachments[0]
-                    }
-                    onOpen={
-                      setPreviewAttachment
-                    }
+                    attachment={imageAttachments[0]}
+                    onOpen={setPreviewAttachment}
                   />
                 ) : (
                   <div className="grid grid-cols-2 gap-1.5">
-                    {imageAttachments.map(
-                      (
-                        attachment
-                      ) => (
-                        <ImageAttachment
-                          key={
-                            attachment._id ||
-                            attachment.url
-                          }
-                          attachment={
-                            attachment
-                          }
-                          compact
-                          onOpen={
-                            setPreviewAttachment
-                          }
-                        />
-                      )
-                    )}
+                    {imageAttachments.map((attachment) => (
+                      <ImageAttachment
+                        key={attachment._id || attachment.url}
+                        attachment={attachment}
+                        compact
+                        onOpen={setPreviewAttachment}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
             {/* DOCUMENTS */}
-
-            {documentAttachments.length >
-              0 && (
+            {documentAttachments.length > 0 && (
               <div
                 className={`flex min-w-0 flex-col gap-2 ${
-                  hasText ||
-                  imageAttachments.length >
-                    0
+                  hasText || imageAttachments.length > 0 || repliedMessage
                     ? "mt-2"
                     : ""
                 }`}
               >
-                {documentAttachments.map(
-                  (
-                    attachment
-                  ) => (
-                    <DocumentAttachment
-                      key={
-                        attachment._id ||
-                        attachment.url
-                      }
-                      attachment={
-                        attachment
-                      }
-                      onOpen={
-                        setPreviewDocument
-                      }
-                    />
-                  )
-                )}
+                {documentAttachments.map((attachment) => (
+                  <DocumentAttachment
+                    key={attachment._id || attachment.url}
+                    attachment={attachment}
+                    onOpen={setPreviewDocument}
+                  />
+                ))}
               </div>
             )}
 
-            {!hasText &&
-              !hasAttachments && (
-                <p className="text-sm text-gray-500">
-                  Empty message
-                </p>
-              )}
+            {!hasText && !hasAttachments && (
+              <p className="text-sm text-gray-500">
+                Empty message
+              </p>
+            )}
           </div>
 
           {/* REACTION PICKER */}
-
           {showReactionPicker && (
             <div
               className={`absolute bottom-8 z-50 ${
-                own
-                  ? "right-0"
-                  : "left-0"
+                own ? "right-0" : "left-0"
               }`}
-              onClick={(event) =>
-                event.stopPropagation()
-              }
+              onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2 py-1.5 shadow-xl">
-                {QUICK_REACTIONS.map(
-                  (emoji) => {
-                    const selected =
-                      reactions.some(
-                        (reaction) =>
-                          reaction.emoji ===
-                            emoji &&
-                          hasReacted(
-                            reaction
-                          )
-                      );
+                {QUICK_REACTIONS.map((emoji) => {
+                  const selected = reactions.some(
+                    (reaction) =>
+                      reaction.emoji === emoji &&
+                      hasReacted(reaction)
+                  );
 
-                    return (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() =>
-                          handleReaction(
-                            emoji
-                          )
-                        }
-                        disabled={
-                          reacting
-                        }
-                        className={`flex h-9 w-9 items-center justify-center rounded-full text-lg transition ${
-                          selected
-                            ? "bg-blue-100 ring-2 ring-blue-400"
-                            : "hover:bg-slate-100"
-                        } ${
-                          reacting
-                            ? "cursor-not-allowed opacity-50"
-                            : ""
-                        }`}
-                      >
-                        {emoji}
-                      </button>
-                    );
-                  }
-                )}
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleReaction(emoji)}
+                      disabled={reacting}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-lg transition ${
+                        selected
+                          ? "bg-blue-100 ring-2 ring-blue-400"
+                          : "hover:bg-slate-100"
+                      } ${
+                        reacting
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* REACTIONS */}
-
           {reactions.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1 px-1">
-              {reactions.map(
-                (reaction) => {
-                  const selected =
-                    hasReacted(
-                      reaction
-                    );
+              {reactions.map((reaction) => {
+                const selected = hasReacted(reaction);
 
-                  return (
-                    <button
-                      key={
-                        reaction.emoji
-                      }
-                      type="button"
-                      onClick={() =>
-                        handleReaction(
-                          reaction.emoji
-                        )
-                      }
-                      disabled={
-                        reacting
-                      }
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-sm transition ${
-                        selected
-                          ? "border-blue-300 bg-blue-50"
-                          : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>
-                        {
-                          reaction.emoji
-                        }
-                      </span>
+                return (
+                  <button
+                    key={reaction.emoji}
+                    type="button"
+                    onClick={() => handleReaction(reaction.emoji)}
+                    disabled={reacting}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-sm transition ${
+                      selected
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{reaction.emoji}</span>
 
-                      <span className="font-medium text-slate-600">
-                        {reaction
-                          .userIds
-                          ?.length ||
-                          0}
-                      </span>
-                    </button>
-                  );
-                }
-              )}
+                    <span className="font-medium text-slate-600">
+                      {reaction.userIds?.length || 0}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* TIME */}
+          {/* THREAD / REPLY ACTION */}
+          <div
+            className={`mt-1 flex items-center gap-3 px-1 ${
+              own ? "justify-end" : "justify-start"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => onReply?.(message)}
+              className="-mx-1 flex min-h-[28px] items-center px-1 text-xs font-medium text-gray-400 opacity-100 transition hover:text-blue-600 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              Reply
+            </button>
 
+            {/* Show reply count when the message has replies */}
+            {Number(message.replyCount || 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => onReply?.(message)}
+                className="text-xs font-medium text-blue-600 transition hover:text-blue-700"
+              >
+                {Number(message.replyCount)}{" "}
+                {Number(message.replyCount) === 1 ? "reply" : "replies"}
+              </button>
+            )}
+          </div>
+
+          {/* TIME */}
           <div
             className={`mt-1 px-1 text-[11px] text-gray-400 ${
-              own
-                ? "text-right"
-                : "text-left"
+              own ? "text-right" : "text-left"
             }`}
           >
             {time}

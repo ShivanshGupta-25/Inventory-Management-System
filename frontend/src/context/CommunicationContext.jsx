@@ -11,28 +11,21 @@ import communicationService from "../services/communicationService";
 import useCommunicationSocket from "../hooks/useCommunicationSocket";
 import { useAuth } from "../hooks/useAuth";
 
-const CommunicationContext =
-  createContext(null);
+const CommunicationContext = createContext(null);
 
-export const CommunicationProvider = ({
-  children,
-}) => {
+export const CommunicationProvider = ({ children }) => {
   const { user } = useAuth();
 
-  const token =
-    localStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
-  const [conversations, setConversations] =
-    useState([]);
+  const [conversations, setConversations] = useState([]);
 
   const [activeConversationId, setActiveConversationId] =
     useState(null);
 
-  const [messages, setMessages] =
-    useState([]);
+  const [messages, setMessages] = useState([]);
 
-  const [users, setUsers] =
-    useState([]);
+  const [users, setUsers] = useState([]);
 
   const [loadingConversations, setLoadingConversations] =
     useState(true);
@@ -40,58 +33,57 @@ export const CommunicationProvider = ({
   const [loadingMessages, setLoadingMessages] =
     useState(false);
 
-  const [typingUsers, setTypingUsers] =
-    useState([]);
+  const [typingUsers, setTypingUsers] = useState([]);
+
+  /* =====================================================
+     REPLY STATE
+  ===================================================== */
+
+  const [replyingTo, setReplyingTo] = useState(null);
 
   /* =====================================================
      LOAD CONVERSATIONS
   ===================================================== */
 
-  const loadConversations =
-    useCallback(async () => {
-      try {
-        setLoadingConversations(true);
+  const loadConversations = useCallback(async () => {
+    try {
+      setLoadingConversations(true);
 
-        const response =
-          await communicationService.getConversations();
+      const response =
+        await communicationService.getConversations();
 
-        setConversations(
-          response.data || []
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load conversations:",
-          error
-        );
-      } finally {
-        setLoadingConversations(false);
-      }
-    }, []);
+      setConversations(response.data || []);
+    } catch (error) {
+      console.error(
+        "Failed to load conversations:",
+        error
+      );
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, []);
 
   /* =====================================================
      LOAD USERS
   ===================================================== */
 
-  const searchUsers =
-    useCallback(async (search = "") => {
-      try {
-        const response =
-          await communicationService.getUsers(
-            search
-          );
+  const searchUsers = useCallback(async (search = "") => {
+    try {
+      const response =
+        await communicationService.getUsers(search);
 
-        setUsers(response.data || []);
+      setUsers(response.data || []);
 
-        return response.data || [];
-      } catch (error) {
-        console.error(
-          "Failed to load users:",
-          error
-        );
+      return response.data || [];
+    } catch (error) {
+      console.error(
+        "Failed to load users:",
+        error
+      );
 
-        return [];
-      }
-    }, []);
+      return [];
+    }
+  }, []);
 
   /* =====================================================
      LOAD MESSAGES
@@ -112,9 +104,7 @@ export const CommunicationProvider = ({
             conversationId
           );
 
-        setMessages(
-          response.data || []
-        );
+        setMessages(response.data || []);
 
         await communicationService.markRead(
           conversationId
@@ -139,13 +129,12 @@ export const CommunicationProvider = ({
     async (conversationId) => {
       setTypingUsers([]);
 
-      setActiveConversationId(
-        conversationId
-      );
+      // Clear any active reply when changing conversations.
+      setReplyingTo(null);
 
-      await loadMessages(
-        conversationId
-      );
+      setActiveConversationId(conversationId);
+
+      await loadMessages(conversationId);
     },
     [loadMessages]
   );
@@ -154,64 +143,104 @@ export const CommunicationProvider = ({
      SEND MESSAGE
   ===================================================== */
 
-  const sendMessage =
-    useCallback(
-      async (
-        text = "",
-        files = [],
-        replyTo = null
-      ) => {
-        if (!activeConversationId) {
-          return null;
-        }
+  const sendMessage = useCallback(
+    async (
+      text = "",
+      files = [],
+      replyTo = null
+    ) => {
+      if (!activeConversationId) {
+        return null;
+      }
 
-        try {
-          const response =
-            await communicationService.sendMessage(
-              activeConversationId,
-              text,
-              files,
-              replyTo
-            );
-
-          const message =
-            response.data;
-
-          /*
-           * Socket.IO also broadcasts
-           * this message.
-           *
-           * Don't append it here because
-           * doing both would duplicate it.
-           */
-
-          return message;
-        } catch (error) {
-          console.error(
-            "Failed to send message:",
-            error
+      try {
+        const response =
+          await communicationService.sendMessage(
+            activeConversationId,
+            text,
+            files,
+            replyTo
           );
 
-          throw error;
-        }
-      },
-      [activeConversationId]
-    );
+        const message = response.data;
+
+        /*
+         * Socket.IO also broadcasts the message.
+         *
+         * Do not append it here because doing so
+         * would cause duplicate messages.
+         */
+
+        return message;
+      } catch (error) {
+        console.error(
+          "Failed to send message:",
+          error
+        );
+
+        throw error;
+      }
+    },
+    [activeConversationId]
+  );
+
+  /* =====================================================
+     SEND REPLY
+  ===================================================== */
+
+  const sendReply = useCallback(
+    async (text) => {
+      if (
+        !replyingTo ||
+        !activeConversationId
+      ) {
+        return null;
+      }
+
+      try {
+        const replyToId =
+          replyingTo.id ||
+          replyingTo._id;
+
+        const result = await sendMessage(
+          text,
+          [],
+          replyToId
+        );
+
+        // Clear reply mode after successful send.
+        setReplyingTo(null);
+
+        return result;
+      } catch (error) {
+        console.error(
+          "Failed to send reply:",
+          error
+        );
+
+        throw error;
+      }
+    },
+    [
+      replyingTo,
+      activeConversationId,
+      sendMessage,
+    ]
+  );
 
   /* =====================================================
      TOGGLE MESSAGE REACTION
   ===================================================== */
 
-  const toggleMessageReaction =
-    useCallback(
-      async (messageId, emoji) => {
-        return communicationService.toggleMessageReaction(
-          messageId,
-          emoji
-        );
-      },
-      []
-    );
+  const toggleMessageReaction = useCallback(
+    async (messageId, emoji) => {
+      return communicationService.toggleMessageReaction(
+        messageId,
+        emoji
+      );
+    },
+    []
+  );
 
   /* =====================================================
      CREATE DIRECT
@@ -249,6 +278,10 @@ export const CommunicationProvider = ({
           conversation.id
         );
 
+        // New conversation cannot have
+        // an active reply from another conversation.
+        setReplyingTo(null);
+
         await loadMessages(
           conversation.id
         );
@@ -259,7 +292,7 @@ export const CommunicationProvider = ({
     );
 
   /* =====================================================
-     REACTION
+     REACTION SOCKET EVENT
   ===================================================== */
 
   const handleReaction = useCallback(
@@ -283,6 +316,28 @@ export const CommunicationProvider = ({
             : message
         )
       );
+
+      /*
+       * If the message being replied to receives
+       * a reaction, keep the reply preview in sync.
+       */
+      setReplyingTo((current) => {
+        if (
+          !current ||
+          String(current.id) !==
+            String(
+              reactionData.messageId
+            )
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          reactions:
+            reactionData.reactions || [],
+        };
+      });
     },
     []
   );
@@ -321,6 +376,9 @@ export const CommunicationProvider = ({
 
         setMessages([]);
 
+        // Clear any reply from another conversation.
+        setReplyingTo(null);
+
         return conversation;
       },
       []
@@ -332,6 +390,11 @@ export const CommunicationProvider = ({
 
   const handleMessage = useCallback(
     (message) => {
+      /*
+       * Add message to the active conversation
+       * only if it belongs to the currently
+       * selected conversation.
+       */
       setMessages((current) => {
         if (
           current.some(
@@ -358,10 +421,15 @@ export const CommunicationProvider = ({
         ];
       });
 
+      /*
+       * Keep the conversation preview updated.
+       */
       setConversations((current) =>
         current.map((conversation) =>
           String(conversation.id) ===
-          String(message.conversationId)
+          String(
+            message.conversationId
+          )
             ? {
                 ...conversation,
                 lastMessage: message,
@@ -413,24 +481,26 @@ export const CommunicationProvider = ({
         }
 
         setConversations((current) =>
-          current.map((conversation) =>
-            String(conversation.id) ===
-            String(
-              payload.conversationId
-            )
-              ? {
-                  ...conversation,
-                  ...(payload.lastMessage
-                    ? {
-                        lastMessage:
-                          payload.lastMessage,
-                        lastMessageAt:
-                          payload.lastMessage
-                            .createdAt,
-                      }
-                    : {}),
-                }
-              : conversation
+          current.map(
+            (conversation) =>
+              String(conversation.id) ===
+              String(
+                payload.conversationId
+              )
+                ? {
+                    ...conversation,
+                    ...(payload.lastMessage
+                      ? {
+                          lastMessage:
+                            payload.lastMessage,
+                          lastMessageAt:
+                            payload
+                              .lastMessage
+                              .createdAt,
+                        }
+                      : {}),
+                  }
+                : conversation
           )
         );
       },
@@ -488,7 +558,10 @@ export const CommunicationProvider = ({
           ];
         });
       },
-      [activeConversationId, user?.id]
+      [
+        activeConversationId,
+        user?.id,
+      ]
     );
 
   const handleTypingStop =
@@ -509,22 +582,31 @@ export const CommunicationProvider = ({
      SOCKET
   ===================================================== */
 
-  const socket = useCommunicationSocket({
-    token,
-    onMessage: handleMessage,
-    onConversationNew:
-      handleConversationNew,
-    onConversationUpdated:
-      handleConversationUpdated,
-    onMessageRead:
-      handleMessageRead,
-    onTypingStart:
-      handleTypingStart,
-    onTypingStop:
-      handleTypingStop,
-    onReaction:
-      handleReaction,
-  });
+  const socket =
+    useCommunicationSocket({
+      token,
+
+      onMessage:
+        handleMessage,
+
+      onConversationNew:
+        handleConversationNew,
+
+      onConversationUpdated:
+        handleConversationUpdated,
+
+      onMessageRead:
+        handleMessageRead,
+
+      onTypingStart:
+        handleTypingStart,
+
+      onTypingStop:
+        handleTypingStop,
+
+      onReaction:
+        handleReaction,
+    });
 
   /* =====================================================
      INITIAL LOAD
@@ -536,7 +618,10 @@ export const CommunicationProvider = ({
     }
 
     loadConversations();
-  }, [user, loadConversations]);
+  }, [
+    user,
+    loadConversations,
+  ]);
 
   /* =====================================================
      JOIN ACTIVE CONVERSATION
@@ -562,11 +647,17 @@ export const CommunicationProvider = ({
     socket.leaveConversation,
   ]);
 
+  /* =====================================================
+     ACTIVE CONVERSATION
+  ===================================================== */
+
   const activeConversation =
     conversations.find(
       (conversation) =>
         String(conversation.id) ===
-        String(activeConversationId)
+        String(
+          activeConversationId
+        )
     ) || null;
 
   /* =====================================================
@@ -576,33 +667,51 @@ export const CommunicationProvider = ({
   const value = useMemo(
     () => ({
       conversations,
+
       activeConversation,
+
       activeConversationId,
+
       messages,
+
       users,
+
       typingUsers,
 
       loadingConversations,
+
       loadingMessages,
 
-      connected: socket.connected,
+      /* Reply state */
+      replyingTo,
+
+      setReplyingTo,
+
+      connected:
+        socket.connected,
+
       connectionStatus:
         socket.connectionStatus,
 
       setActiveConversationId,
+
       selectConversation,
 
       searchUsers,
 
       createDirectConversation,
+
       createGroupConversation,
 
       sendMessage,
+
+      sendReply,
 
       toggleMessageReaction,
 
       startTyping:
         socket.startTyping,
+
       stopTyping:
         socket.stopTyping,
 
@@ -611,23 +720,46 @@ export const CommunicationProvider = ({
     }),
     [
       conversations,
+
       activeConversation,
+
       activeConversationId,
+
       messages,
+
       users,
+
       typingUsers,
+
       loadingConversations,
+
       loadingMessages,
+
+      /* Reply state */
+      replyingTo,
+
       socket.connected,
+
       socket.connectionStatus,
+
       socket.startTyping,
+
       socket.stopTyping,
+
       selectConversation,
+
       searchUsers,
+
       createDirectConversation,
+
       createGroupConversation,
+
       sendMessage,
+
+      sendReply,
+
       toggleMessageReaction,
+
       loadConversations,
     ]
   );

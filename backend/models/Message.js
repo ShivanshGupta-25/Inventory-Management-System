@@ -90,6 +90,8 @@ const messageSchema = new mongoose.Schema(
       default: [],
     },
 
+    // If this message is a reply,
+    // this points to the parent message.
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
@@ -106,9 +108,17 @@ const messageSchema = new mongoose.Schema(
   }
 );
 
+// Main conversation message listing
 messageSchema.index({
   conversationId: 1,
   createdAt: -1,
+});
+
+// Thread/reply lookup
+messageSchema.index({
+  conversationId: 1,
+  replyTo: 1,
+  createdAt: 1,
 });
 
 module.exports = mongoose.model("Message", messageSchema);

@@ -128,6 +128,48 @@ const getMessages = async (req, res) => {
 };
 
 /* =====================================================
+   GET MESSAGE THREAD
+===================================================== */
+
+const getMessageThreadController = async (
+  req,
+  res
+) => {
+  try {
+    const {
+      conversationId,
+      messageId,
+    } = req.params;
+
+    const thread =
+      await communicationService.getMessageThread(
+        conversationId,
+        messageId,
+        req.user.userId
+      );
+
+    return res.status(200).json({
+      success: true,
+      data: thread,
+    });
+  } catch (error) {
+    console.error(
+      "Get message thread error:",
+      error
+    );
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to load message thread",
+    });
+  }
+};
+
+/* =====================================================
    CREATE DIRECT CONVERSATION
 ===================================================== */
 
@@ -398,17 +440,20 @@ const toggleReaction = async (req, res) => {
         `conversation:${message.conversationId}`
       ).emit("message:reaction", {
         messageId: message.id,
-        conversationId: message.conversationId,
+        conversationId:
+          message.conversationId,
         reactions: message.reactions,
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Reaction updated successfully",
+      message:
+        "Reaction updated successfully",
       data: {
         messageId: message.id,
-        conversationId: message.conversationId,
+        conversationId:
+          message.conversationId,
         reactions: message.reactions,
       },
     });
@@ -434,6 +479,7 @@ module.exports = {
   getConversations,
   getConversation,
   getMessages,
+  getMessageThreadController,
   createDirectConversation,
   createGroupConversation,
   sendMessage,
