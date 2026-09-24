@@ -474,6 +474,118 @@ const toggleReaction = async (req, res) => {
   }
 };
 
+/* =====================================================
+   DELETE MESSAGE FOR ME
+===================================================== */
+
+const deleteMessageForMe = async (req, res) => {
+  try {
+    const message =
+      await communicationService.deleteMessageForMe({
+        messageId: req.params.id,
+        userId: req.user.userId,
+      });
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.to(`user:${req.user.userId}`).emit(
+        "message:deletedForMe",
+        {
+          messageId: message.id,
+          conversationId: message.conversationId,
+        }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Message deleted for you",
+      data: {
+        messageId: message.id,
+        conversationId: message.conversationId,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Delete message for me error:",
+      error
+    );
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to delete message",
+    });
+  }
+};
+
+
+/* =====================================================
+   DELETE MESSAGE FOR EVERYONE
+===================================================== */
+
+const deleteMessageForEveryone = async (
+  req,
+  res
+) => {
+  try {
+    const message =
+      await communicationService.deleteMessageForEveryone({
+        messageId: req.params.id,
+        userId: req.user.userId,
+      });
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.to(
+        `conversation:${message.conversationId}`
+      ).emit("message:deleted", {
+        messageId: message.id,
+        conversationId:
+          message.conversationId,
+        deletedForEveryone:
+          message.deletedForEveryone,
+        deletedAt: message.deletedAt,
+      });
+
+      io.to(
+        `conversation:${message.conversationId}`
+      ).emit("conversation:updated", {
+        conversationId:
+          message.conversationId,
+        lastMessage:
+          message.conversationLastMessage,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Message deleted for everyone",
+      data: message,
+    });
+  } catch (error) {
+    console.error(
+      "Delete message for everyone error:",
+      error
+    );
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to delete message",
+    });
+  }
+};
+
 module.exports = {
   getUsers,
   getConversations,
@@ -485,4 +597,6 @@ module.exports = {
   sendMessage,
   markConversationRead,
   toggleReaction,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
 };

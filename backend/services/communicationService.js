@@ -142,13 +142,6 @@ const getConversations = async (userId) => {
     })
       .populate({
         path: "conversationId",
-        populate: {
-          path: "lastMessage",
-          populate: {
-            path: "senderId",
-            select: "_id name email role",
-          },
-        },
       })
       .sort({
         updatedAt: -1,
@@ -165,15 +158,85 @@ const getConversations = async (userId) => {
       continue;
     }
 
+    /* =====================================================
+       LATEST MESSAGE VISIBLE TO THIS USER
+    ====================================================== */
+
+    const lastVisibleMessage =
+      await Message.findOne({
+        conversationId:
+          conversation._id,
+        deletedFor: {
+          $ne: userId,
+        },
+      })
+        .populate({
+          path: "senderId",
+          select: "_id name email role",
+        })
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+    /* =====================================================
+       PARTICIPANTS
+    ====================================================== */
+
     const conversationParticipants =
       await ConversationParticipant.find({
-        conversationId: conversation._id,
+        conversationId:
+          conversation._id,
       })
         .populate(
           "userId",
           "_id name email role"
         )
         .lean();
+
+    /* =====================================================
+       LAST MESSAGE PREVIEW
+    ====================================================== */
+
+    let lastMessage = null;
+
+    if (lastVisibleMessage) {
+      const deletedForEveryone =
+        Boolean(
+          lastVisibleMessage.deletedForEveryone
+        );
+
+      lastMessage = {
+        id: lastVisibleMessage._id,
+        type: lastVisibleMessage.type,
+
+        /*
+         * Never expose deleted content in the
+         * conversation preview.
+         */
+        text: deletedForEveryone
+          ? "This message was deleted"
+          : lastVisibleMessage.text ||
+            "",
+
+        createdAt:
+          lastVisibleMessage.createdAt,
+
+        deletedForEveryone,
+
+        deletedAt:
+          lastVisibleMessage.deletedAt ||
+          null,
+
+        sender: normalizeUser(
+          lastVisibleMessage.senderId
+        ),
+      };
+    }
+
+    /* =====================================================
+       RESULT
+    ====================================================== */
 
     conversations.push({
       id: conversation._id,
@@ -182,39 +245,41 @@ const getConversations = async (userId) => {
       createdBy: conversation.createdBy,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      lastMessageAt:
-        conversation.lastMessageAt,
 
-      lastMessage: conversation.lastMessage
-        ? {
-            id: conversation.lastMessage._id,
-            type: conversation.lastMessage.type,
-            text: conversation.lastMessage.text,
-            createdAt:
-              conversation.lastMessage.createdAt,
-            sender: normalizeUser(
-              conversation.lastMessage.senderId
-            ),
-          }
-        : null,
+      /*
+       * This is now user-specific rather than blindly
+       * using Conversation.lastMessageAt.
+       */
+      lastMessageAt:
+        lastVisibleMessage?.createdAt ||
+        null,
+
+      lastMessage,
 
       participants:
         conversationParticipants
-          .filter((item) => item.userId)
+          .filter(
+            (item) => item.userId
+          )
           .map((item) => ({
             id: item.userId._id,
             name: item.userId.name,
             email: item.userId.email,
             role: item.userId.role,
-            participantRole: item.role,
-            joinedAt: item.joinedAt,
-            lastReadAt: item.lastReadAt,
+            participantRole:
+              item.role,
+            joinedAt:
+              item.joinedAt,
+            lastReadAt:
+              item.lastReadAt,
           })),
 
       currentUserParticipant: {
         role: participant.role,
-        joinedAt: participant.joinedAt,
-        lastReadAt: participant.lastReadAt,
+        joinedAt:
+          participant.joinedAt,
+        lastReadAt:
+          participant.lastReadAt,
       },
     });
   }
@@ -315,6 +380,9 @@ const getMessages = async (
 
   const query = {
     conversationId,
+    deletedFor: {
+      $ne: userId,
+    },
   };
 
   if (
@@ -372,6 +440,10 @@ const getMessages = async (
             replyTo: {
               $in: messageIds,
             },
+
+            deletedFor: {
+              $ne: userId,
+            },
           },
         },
         {
@@ -407,13 +479,19 @@ const getMessages = async (
       type: message.type,
 
       text:
-        message.text || "",
+        message.deletedForEveryone
+          ? ""
+          : message.text || "",
 
       attachments:
-        message.attachments || [],
+        message.deletedForEveryone
+          ? []
+          : message.attachments || [],
 
       reactions:
-        message.reactions || [],
+        message.deletedForEveryone
+          ? []
+          : message.reactions || [],
 
       createdAt:
         message.createdAt,
@@ -421,7 +499,12 @@ const getMessages = async (
       updatedAt:
         message.updatedAt,
 
-      /* NEW */
+      deletedForEveryone:
+        Boolean(message.deletedForEveryone),
+
+      deletedAt:
+        message.deletedAt || null,
+
       replyCount:
         replyCountMap.get(
           String(message._id)
@@ -439,7 +522,10 @@ const getMessages = async (
                 message.replyTo._id,
 
               text:
-                message.replyTo.text || "",
+                message.replyTo
+                  .deletedForEveryone
+                  ? ""
+                  : message.replyTo.text || "",
 
               createdAt:
                 message.replyTo.createdAt,
@@ -448,6 +534,16 @@ const getMessages = async (
                 normalizeUser(
                   message.replyTo.senderId
                 ),
+
+              deletedForEveryone:
+                Boolean(
+                  message.replyTo
+                    .deletedForEveryone
+                ),
+
+              deletedAt:
+                message.replyTo.deletedAt ||
+                null,
             }
           : null,
     }));
@@ -889,7 +985,10 @@ const sendMessage = async (
 
             text:
               populatedMessage
-                .replyTo.text || "",
+                .replyTo.deletedForEveryone
+                ? ""
+                : populatedMessage
+                    .replyTo.text || "",
 
             createdAt:
               populatedMessage
@@ -900,6 +999,18 @@ const sendMessage = async (
                 populatedMessage
                   .replyTo.senderId
               ),
+
+            deletedForEveryone:
+              Boolean(
+                populatedMessage
+                  .replyTo
+                  .deletedForEveryone
+              ),
+
+            deletedAt:
+              populatedMessage
+                .replyTo
+                .deletedAt || null,
           }
         : null,
   };
@@ -1095,6 +1206,136 @@ const toggleMessageReaction = async ({
 };
 
 /* =====================================================
+   DELETE MESSAGE FOR ME
+===================================================== */
+
+const deleteMessageForMe = async ({
+  messageId,
+  userId,
+}) => {
+  if (!isValidObjectId(messageId)) {
+    const error = new Error(
+      "Invalid message ID"
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  const message =
+    await Message.findById(messageId);
+
+  if (!message) {
+    const error = new Error(
+      "Message not found"
+    );
+
+    error.statusCode = 404;
+
+    throw error;
+  }
+
+  await requireParticipant(
+    message.conversationId,
+    userId
+  );
+
+  if (!Array.isArray(message.deletedFor)) {
+    message.deletedFor = [];
+  }
+
+  const alreadyDeleted =
+    message.deletedFor.some(
+      (id) =>
+        String(id) === String(userId)
+    );
+
+  if (!alreadyDeleted) {
+    message.deletedFor.push(userId);
+
+    await message.save();
+  }
+
+  return {
+    id: message._id,
+    conversationId:
+      message.conversationId,
+  };
+};
+
+/* =====================================================
+   DELETE MESSAGE FOR EVERYONE
+===================================================== */
+
+const deleteMessageForEveryone = async ({
+  messageId,
+  userId,
+}) => {
+  if (!isValidObjectId(messageId)) {
+    const error = new Error(
+      "Invalid message ID"
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  const message =
+    await Message.findById(messageId);
+
+  if (!message) {
+    const error = new Error(
+      "Message not found"
+    );
+
+    error.statusCode = 404;
+
+    throw error;
+  }
+
+  await requireParticipant(
+    message.conversationId,
+    userId
+  );
+
+  /*
+   * Only the original sender can delete
+   * a message for everyone.
+   */
+  if (
+    String(message.senderId) !==
+    String(userId)
+  ) {
+    const error = new Error(
+      "You can only delete your own messages for everyone"
+    );
+
+    error.statusCode = 403;
+
+    throw error;
+  }
+
+  if (!message.deletedForEveryone) {
+    message.deletedForEveryone = true;
+    message.deletedAt = new Date();
+
+    await message.save();
+  }
+
+  return {
+    id: message._id,
+    conversationId:
+      message.conversationId,
+    deletedForEveryone:
+      message.deletedForEveryone,
+    deletedAt:
+      message.deletedAt,
+  };
+};
+
+/* =====================================================
    GET MESSAGE THREAD
 ===================================================== */
 
@@ -1142,11 +1383,18 @@ const getMessageThread = async (
   /*
    * Only direct replies to this message
    * belong to this thread.
+   *
+   * Messages deleted for the current user
+   * are hidden, while globally deleted
+   * messages remain as tombstones.
    */
   const replies =
     await Message.find({
       conversationId,
       replyTo: messageId,
+      deletedFor: {
+        $ne: userId,
+      },
     })
       .populate(
         "senderId",
@@ -1167,19 +1415,33 @@ const getMessageThread = async (
       type: parentMessage.type,
 
       text:
-        parentMessage.text || "",
+        parentMessage.deletedForEveryone
+          ? ""
+          : parentMessage.text || "",
 
       attachments:
-        parentMessage.attachments || [],
+        parentMessage.deletedForEveryone
+          ? []
+          : parentMessage.attachments || [],
 
       reactions:
-        parentMessage.reactions || [],
+        parentMessage.deletedForEveryone
+          ? []
+          : parentMessage.reactions || [],
 
       createdAt:
         parentMessage.createdAt,
 
       updatedAt:
         parentMessage.updatedAt,
+
+      deletedForEveryone:
+        Boolean(
+          parentMessage.deletedForEveryone
+        ),
+
+      deletedAt:
+        parentMessage.deletedAt || null,
 
       replyCount: replies.length,
 
@@ -1198,19 +1460,33 @@ const getMessageThread = async (
         type: message.type,
 
         text:
-          message.text || "",
+          message.deletedForEveryone
+            ? ""
+            : message.text || "",
 
         attachments:
-          message.attachments || [],
+          message.deletedForEveryone
+            ? []
+            : message.attachments || [],
 
         reactions:
-          message.reactions || [],
+          message.deletedForEveryone
+            ? []
+            : message.reactions || [],
 
         createdAt:
           message.createdAt,
 
         updatedAt:
           message.updatedAt,
+
+        deletedForEveryone:
+          Boolean(
+            message.deletedForEveryone
+          ),
+
+        deletedAt:
+          message.deletedAt || null,
 
         replyCount: 0,
 
@@ -1239,4 +1515,6 @@ module.exports = {
   sendMessage,
   markConversationRead,
   toggleMessageReaction,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
 };

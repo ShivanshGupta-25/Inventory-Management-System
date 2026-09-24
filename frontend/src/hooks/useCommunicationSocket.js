@@ -18,6 +18,8 @@ const useCommunicationSocket = ({
   onTypingStart,
   onTypingStop,
   onReaction,
+  onMessageDeleted,
+  onMessageDeletedForMe,
 }) => {
   const socketRef = useRef(null);
 
@@ -112,6 +114,20 @@ const useCommunicationSocket = ({
     );
 
     /* =====================================================
+   DELETION EVENTS
+    ====================================================== */
+
+    socket.on(
+      "message:deleted",
+      onMessageDeleted
+    );
+
+    socket.on(
+      "message:deletedForMe",
+      onMessageDeletedForMe
+    );
+
+    /* =====================================================
        TYPING EVENTS
     ====================================================== */
 
@@ -146,6 +162,8 @@ const useCommunicationSocket = ({
     onTypingStart,
     onTypingStop,
     onReaction,
+    onMessageDeleted,
+    onMessageDeletedForMe,
   ]);
 
   /* =====================================================

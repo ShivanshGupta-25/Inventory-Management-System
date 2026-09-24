@@ -13,81 +13,134 @@ import { useAuth } from "../hooks/useAuth";
 
 const CommunicationContext = createContext(null);
 
-export const CommunicationProvider = ({ children }) => {
+/* =====================================================
+   MESSAGE DELETION HELPERS
+====================================================== */
+
+const getMessageId = (message) =>
+  message?.id || message?._id || null;
+
+const createDeletedForEveryoneMessage = (
+  message,
+  deletedAt = null
+) => ({
+  ...message,
+  text: "",
+  attachments: [],
+  reactions: [],
+  deletedForEveryone: true,
+  deletedAt:
+    deletedAt ||
+    message?.deletedAt ||
+    null,
+});
+
+const createDeletedForMeReply = (
+  replyTo
+) => ({
+  ...replyTo,
+  text: "",
+  attachments: [],
+  reactions: [],
+  deletedForMe: true,
+});
+
+/* =====================================================
+   PROVIDER
+====================================================== */
+
+export const CommunicationProvider = ({
+  children,
+}) => {
   const { user } = useAuth();
 
   const token = localStorage.getItem("token");
 
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] =
+    useState([]);
 
-  const [activeConversationId, setActiveConversationId] =
-    useState(null);
+  const [
+    activeConversationId,
+    setActiveConversationId,
+  ] = useState(null);
 
   const [messages, setMessages] = useState([]);
 
   const [users, setUsers] = useState([]);
 
-  const [loadingConversations, setLoadingConversations] =
-    useState(true);
+  const [
+    loadingConversations,
+    setLoadingConversations,
+  ] = useState(true);
 
-  const [loadingMessages, setLoadingMessages] =
-    useState(false);
+  const [
+    loadingMessages,
+    setLoadingMessages,
+  ] = useState(false);
 
-  const [typingUsers, setTypingUsers] = useState([]);
+  const [typingUsers, setTypingUsers] =
+    useState([]);
 
   /* =====================================================
      REPLY STATE
-  ===================================================== */
+  ====================================================== */
 
-  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyingTo, setReplyingTo] =
+    useState(null);
 
   /* =====================================================
      LOAD CONVERSATIONS
-  ===================================================== */
+  ====================================================== */
 
-  const loadConversations = useCallback(async () => {
-    try {
-      setLoadingConversations(true);
+  const loadConversations =
+    useCallback(async () => {
+      try {
+        setLoadingConversations(true);
 
-      const response =
-        await communicationService.getConversations();
+        const response =
+          await communicationService.getConversations();
 
-      setConversations(response.data || []);
-    } catch (error) {
-      console.error(
-        "Failed to load conversations:",
-        error
-      );
-    } finally {
-      setLoadingConversations(false);
-    }
-  }, []);
+        setConversations(response.data || []);
+      } catch (error) {
+        console.error(
+          "Failed to load conversations:",
+          error
+        );
+      } finally {
+        setLoadingConversations(false);
+      }
+    }, []);
 
   /* =====================================================
      LOAD USERS
-  ===================================================== */
+  ====================================================== */
 
-  const searchUsers = useCallback(async (search = "") => {
-    try {
-      const response =
-        await communicationService.getUsers(search);
+  const searchUsers = useCallback(
+    async (search = "") => {
+      try {
+        const response =
+          await communicationService.getUsers(
+            search
+          );
 
-      setUsers(response.data || []);
+        setUsers(response.data || []);
 
-      return response.data || [];
-    } catch (error) {
-      console.error(
-        "Failed to load users:",
-        error
-      );
+        return response.data || [];
+      } catch (error) {
+        console.error(
+          "Failed to load users:",
+          error
+        );
 
-      return [];
-    }
-  }, []);
+        return [];
+      }
+    },
+    []
+  );
 
   /* =====================================================
      LOAD MESSAGES
-  ===================================================== */
+  ====================================================== */
 
   const loadMessages = useCallback(
     async (conversationId) => {
@@ -123,25 +176,41 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      SELECT CONVERSATION
-  ===================================================== */
+  ====================================================== */
 
-  const selectConversation = useCallback(
-    async (conversationId) => {
-      setTypingUsers([]);
+  const selectConversation =
+    useCallback(
+      async (conversationId) => {
+        setTypingUsers([]);
 
-      // Clear any active reply when changing conversations.
-      setReplyingTo(null);
+        setReplyingTo(null);
 
-      setActiveConversationId(conversationId);
+        setConversations((current) =>
+          current.map((conversation) =>
+            String(conversation.id) ===
+            String(conversationId)
+              ? {
+                  ...conversation,
+                  unreadCount: 0,
+                }
+              : conversation
+          )
+        );
 
-      await loadMessages(conversationId);
-    },
-    [loadMessages]
-  );
+        setActiveConversationId(
+          conversationId
+        );
+
+        await loadMessages(
+          conversationId
+        );
+      },
+      [loadMessages]
+    );
 
   /* =====================================================
      SEND MESSAGE
-  ===================================================== */
+  ====================================================== */
 
   const sendMessage = useCallback(
     async (
@@ -186,7 +255,7 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      SEND REPLY
-  ===================================================== */
+  ====================================================== */
 
   const sendReply = useCallback(
     async (text) => {
@@ -230,21 +299,22 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      TOGGLE MESSAGE REACTION
-  ===================================================== */
+  ====================================================== */
 
-  const toggleMessageReaction = useCallback(
-    async (messageId, emoji) => {
-      return communicationService.toggleMessageReaction(
-        messageId,
-        emoji
-      );
-    },
-    []
-  );
+  const toggleMessageReaction =
+    useCallback(
+      async (messageId, emoji) => {
+        return communicationService.toggleMessageReaction(
+          messageId,
+          emoji
+        );
+      },
+      []
+    );
 
   /* =====================================================
      CREATE DIRECT
-  ===================================================== */
+  ====================================================== */
 
   const createDirectConversation =
     useCallback(
@@ -293,7 +363,7 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      REACTION SOCKET EVENT
-  ===================================================== */
+  ====================================================== */
 
   const handleReaction = useCallback(
     (reactionData) => {
@@ -321,10 +391,13 @@ export const CommunicationProvider = ({ children }) => {
        * If the message being replied to receives
        * a reaction, keep the reply preview in sync.
        */
+
       setReplyingTo((current) => {
         if (
           !current ||
-          String(current.id) !==
+          String(
+            getMessageId(current)
+          ) !==
             String(
               reactionData.messageId
             )
@@ -335,7 +408,8 @@ export const CommunicationProvider = ({ children }) => {
         return {
           ...current,
           reactions:
-            reactionData.reactions || [],
+            reactionData.reactions ||
+            [],
         };
       });
     },
@@ -343,8 +417,294 @@ export const CommunicationProvider = ({ children }) => {
   );
 
   /* =====================================================
+     DELETE MESSAGE FOR ME SOCKET EVENT
+  ====================================================== */
+
+  const handleMessageDeletedForMe =
+    useCallback((deletionData) => {
+      if (!deletionData?.messageId) {
+        return;
+      }
+
+      const deletedMessageId =
+        String(deletionData.messageId);
+
+      /*
+       * Remove the message from the currently
+       * loaded message list.
+       */
+      setMessages((currentMessages) =>
+        currentMessages
+          .filter(
+            (message) =>
+              String(
+                getMessageId(message)
+              ) !== deletedMessageId
+          )
+          .map((message) => {
+            /*
+             * A reply to the deleted message must not
+             * continue exposing the deleted message's
+             * content through its reply preview.
+             */
+            const replyTo =
+              message.replyTo;
+
+            if (
+              !replyTo ||
+              String(
+                getMessageId(replyTo)
+              ) !== deletedMessageId
+            ) {
+              return message;
+            }
+
+            return {
+              ...message,
+              replyTo:
+                createDeletedForMeReply(
+                  replyTo
+                ),
+            };
+          })
+      );
+
+      /*
+       * If the deleted message was the current
+       * reply target, clear reply mode.
+       */
+      setReplyingTo((current) => {
+        if (
+          !current ||
+          String(
+            getMessageId(current)
+          ) !== deletedMessageId
+        ) {
+          return current;
+        }
+
+        return null;
+      });
+    }, []);
+
+  /* =====================================================
+     DELETE MESSAGE FOR EVERYONE SOCKET EVENT
+  ====================================================== */
+
+  const handleMessageDeleted =
+    useCallback((deletionData) => {
+      if (!deletionData?.messageId) {
+        return;
+      }
+
+      const deletedMessageId =
+        String(deletionData.messageId);
+
+      /*
+       * Replace the message with a tombstone
+       * instead of removing it.
+       */
+      setMessages((currentMessages) =>
+        currentMessages.map((message) => {
+          const messageId = String(
+            getMessageId(message)
+          );
+
+          if (
+            messageId === deletedMessageId
+          ) {
+            return createDeletedForEveryoneMessage(
+              message,
+              deletionData.deletedAt
+            );
+          }
+
+          /*
+           * Replies should also stop displaying
+           * the deleted parent's content.
+           */
+          const replyTo =
+            message.replyTo;
+
+          if (
+            replyTo &&
+            String(
+              getMessageId(replyTo)
+            ) === deletedMessageId
+          ) {
+            return {
+              ...message,
+              replyTo:
+                createDeletedForEveryoneMessage(
+                  replyTo,
+                  deletionData.deletedAt
+                ),
+            };
+          }
+
+          return message;
+        })
+      );
+
+      /*
+       * Keep the active reply preview synchronized.
+       */
+      setReplyingTo((current) => {
+        if (
+          !current ||
+          String(
+            getMessageId(current)
+          ) !== deletedMessageId
+        ) {
+          return current;
+        }
+
+        return createDeletedForEveryoneMessage(
+          current,
+          deletionData.deletedAt
+        );
+      });
+
+      /*
+       * If this deleted message is currently shown
+       * as the conversation's last message, turn that
+       * preview into a tombstone too.
+       *
+       * Delete-for-me is intentionally NOT handled here
+       * because its conversation preview is user-specific
+       * and will be handled separately.
+       */
+      setConversations((current) =>
+        current.map((conversation) => {
+          if (
+            String(conversation.id) !==
+            String(
+              deletionData.conversationId
+            )
+          ) {
+            return conversation;
+          }
+
+          const lastMessage =
+            conversation.lastMessage;
+
+          if (
+            !lastMessage ||
+            String(
+              getMessageId(lastMessage)
+            ) !== deletedMessageId
+          ) {
+            return conversation;
+          }
+
+          return {
+            ...conversation,
+            lastMessage:
+              createDeletedForEveryoneMessage(
+                lastMessage,
+                deletionData.deletedAt
+              ),
+          };
+        })
+      );
+    }, []);
+
+  /* =====================================================
+     DELETE MESSAGE FOR ME
+  ====================================================== */
+
+  const deleteMessageForMe =
+    useCallback(
+      async (messageId) => {
+        try {
+          const response =
+            await communicationService.deleteMessageForMe(
+              messageId
+            );
+
+          const result = response.data;
+
+          /*
+           * Update immediately for a responsive UI.
+           *
+           * The socket event will also arrive, but the
+           * handler is idempotent, so it is safe to run
+           * again.
+           */
+          handleMessageDeletedForMe({
+            messageId:
+              result?.messageId ||
+              result?.id ||
+              messageId,
+            conversationId:
+              result?.conversationId,
+          });
+
+          return result;
+        } catch (error) {
+          console.error(
+            "Failed to delete message for me:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      [handleMessageDeletedForMe]
+    );
+
+  /* =====================================================
+     DELETE MESSAGE FOR EVERYONE
+  ====================================================== */
+
+  const deleteMessageForEveryone =
+    useCallback(
+      async (messageId) => {
+        try {
+          const response =
+            await communicationService.deleteMessageForEveryone(
+              messageId
+            );
+
+          const result = response.data;
+
+          /*
+           * Update immediately for the current user.
+           *
+           * The socket event will also arrive for every
+           * participant, including the sender. Applying
+           * the same tombstone twice is harmless.
+           */
+          handleMessageDeleted({
+            messageId:
+              result?.messageId ||
+              result?.id ||
+              messageId,
+            conversationId:
+              result?.conversationId,
+            deletedForEveryone:
+              result?.deletedForEveryone !==
+              false,
+            deletedAt:
+              result?.deletedAt || null,
+          });
+
+          return result;
+        } catch (error) {
+          console.error(
+            "Failed to delete message for everyone:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      [handleMessageDeleted]
+    );
+
+  /* =====================================================
      CREATE GROUP
-  ===================================================== */
+  ====================================================== */
 
   const createGroupConversation =
     useCallback(
@@ -386,68 +746,93 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      SOCKET MESSAGE
-  ===================================================== */
+  ====================================================== */
 
   const handleMessage = useCallback(
     (message) => {
-      /*
-       * Add message to the active conversation
-       * only if it belongs to the currently
-       * selected conversation.
-       */
+      if (!message?.conversationId) {
+        return;
+      }
+
+      const conversationId = String(
+        message.conversationId
+      );
+
+      const isActive =
+        conversationId ===
+        String(activeConversationId);
+
+      const isOwnMessage =
+        String(message.sender?.id) ===
+        String(user?.id);
+
       setMessages((current) => {
-        if (
-          current.some(
-            (item) =>
-              String(item.id) ===
-              String(message.id)
-          )
-        ) {
-          return current;
+        if (isActive) {
+          if (
+            current.some(
+              (item) =>
+                String(item.id) ===
+                String(message.id)
+            )
+          ) {
+            return current;
+          }
+
+          return [
+            ...current,
+            message,
+          ];
         }
 
-        if (
-          String(
-            message.conversationId
-          ) !==
-          String(activeConversationId)
-        ) {
-          return current;
-        }
-
-        return [
-          ...current,
-          message,
-        ];
+        return current;
       });
 
-      /*
-       * Keep the conversation preview updated.
-       */
-      setConversations((current) =>
-        current.map((conversation) =>
-          String(conversation.id) ===
-          String(
-            message.conversationId
-          )
-            ? {
-                ...conversation,
-                lastMessage: message,
-                lastMessageAt:
-                  message.createdAt,
-                updatedAt:
-                  message.createdAt,
-              }
-            : conversation
-        )
-      );
+      setConversations((current) => {
+        const existing =
+          current.find(
+            (conversation) =>
+              String(conversation.id) ===
+              conversationId
+          );
+
+        if (!existing) {
+          return current;
+        }
+
+        const updatedConversation = {
+          ...existing,
+          lastMessage: message,
+          lastMessageAt:
+            message.createdAt,
+          updatedAt:
+            message.createdAt,
+
+          unreadCount: isActive || isOwnMessage
+            ? 0
+            : Number(
+                existing.unreadCount || 0
+              ) + 1,
+        };
+
+        return [
+          updatedConversation,
+          ...current.filter(
+            (conversation) =>
+              String(conversation.id) !==
+              conversationId
+          ),
+        ];
+      });
     },
-    [activeConversationId]
+    [
+      activeConversationId,
+      user?.id,
+    ]
   );
 
   /* =====================================================
      NEW CONVERSATION
-  ===================================================== */
+  ====================================================== */
 
   const handleConversationNew =
     useCallback((conversation) => {
@@ -471,45 +856,41 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      CONVERSATION UPDATED
-  ===================================================== */
+  ====================================================== */
 
   const handleConversationUpdated =
-    useCallback(
-      (payload) => {
-        if (!payload?.conversationId) {
-          return;
-        }
+    useCallback((payload) => {
+      if (!payload?.conversationId) {
+        return;
+      }
 
-        setConversations((current) =>
-          current.map(
-            (conversation) =>
-              String(conversation.id) ===
-              String(
-                payload.conversationId
-              )
-                ? {
-                    ...conversation,
-                    ...(payload.lastMessage
-                      ? {
-                          lastMessage:
-                            payload.lastMessage,
-                          lastMessageAt:
-                            payload
-                              .lastMessage
-                              .createdAt,
-                        }
-                      : {}),
-                  }
-                : conversation
-          )
-        );
-      },
-      []
-    );
+      setConversations((current) =>
+        current.map(
+          (conversation) =>
+            String(conversation.id) ===
+            String(
+              payload.conversationId
+            )
+              ? {
+                  ...conversation,
+                  ...(payload.lastMessage
+                    ? {
+                        lastMessage:
+                          payload.lastMessage,
+                        lastMessageAt:
+                          payload.lastMessage
+                            .createdAt,
+                      }
+                    : {}),
+                }
+              : conversation
+        )
+      );
+    }, []);
 
   /* =====================================================
      READ
-  ===================================================== */
+  ====================================================== */
 
   const handleMessageRead =
     useCallback(() => {
@@ -522,7 +903,7 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      TYPING
-  ===================================================== */
+  ====================================================== */
 
   const handleTypingStart =
     useCallback(
@@ -565,22 +946,19 @@ export const CommunicationProvider = ({ children }) => {
     );
 
   const handleTypingStop =
-    useCallback(
-      (payload) => {
-        setTypingUsers((current) =>
-          current.filter(
-            (id) =>
-              String(id) !==
-              String(payload.userId)
-          )
-        );
-      },
-      []
-    );
+    useCallback((payload) => {
+      setTypingUsers((current) =>
+        current.filter(
+          (id) =>
+            String(id) !==
+            String(payload.userId)
+        )
+      );
+    }, []);
 
   /* =====================================================
      SOCKET
-  ===================================================== */
+  ====================================================== */
 
   const socket =
     useCommunicationSocket({
@@ -606,11 +984,17 @@ export const CommunicationProvider = ({ children }) => {
 
       onReaction:
         handleReaction,
+
+      onMessageDeleted:
+        handleMessageDeleted,
+
+      onMessageDeletedForMe:
+        handleMessageDeletedForMe,
     });
 
   /* =====================================================
      INITIAL LOAD
-  ===================================================== */
+  ====================================================== */
 
   useEffect(() => {
     if (!user) {
@@ -625,7 +1009,7 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      JOIN ACTIVE CONVERSATION
-  ===================================================== */
+  ====================================================== */
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -649,7 +1033,7 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      ACTIVE CONVERSATION
-  ===================================================== */
+  ====================================================== */
 
   const activeConversation =
     conversations.find(
@@ -662,7 +1046,7 @@ export const CommunicationProvider = ({ children }) => {
 
   /* =====================================================
      CONTEXT VALUE
-  ===================================================== */
+  ====================================================== */
 
   const value = useMemo(
     () => ({
@@ -708,6 +1092,10 @@ export const CommunicationProvider = ({ children }) => {
       sendReply,
 
       toggleMessageReaction,
+
+      deleteMessageForMe,
+
+      deleteMessageForEveryone,
 
       startTyping:
         socket.startTyping,
@@ -760,6 +1148,10 @@ export const CommunicationProvider = ({ children }) => {
 
       toggleMessageReaction,
 
+      deleteMessageForMe,
+
+      deleteMessageForEveryone,
+
       loadConversations,
     ]
   );
@@ -773,19 +1165,24 @@ export const CommunicationProvider = ({ children }) => {
   );
 };
 
-export const useCommunication = () => {
-  const context =
-    useContext(
-      CommunicationContext
-    );
+/* =====================================================
+   HOOK
+====================================================== */
 
-  if (!context) {
-    throw new Error(
-      "useCommunication must be used inside CommunicationProvider"
-    );
-  }
+export const useCommunication =
+  () => {
+    const context =
+      useContext(
+        CommunicationContext
+      );
 
-  return context;
-};
+    if (!context) {
+      throw new Error(
+        "useCommunication must be used inside CommunicationProvider"
+      );
+    }
+
+    return context;
+  };
 
 export default CommunicationContext;

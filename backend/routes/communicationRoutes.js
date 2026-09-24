@@ -13,6 +13,8 @@ const {
   sendMessage,
   markConversationRead,
   toggleReaction,
+  deleteMessageForMe,
+  deleteMessageForEveryone,
 } = require("../controllers/communicationController");
 
 const { upload } = require("../middleware/uploadMiddleware");
@@ -63,6 +65,15 @@ router.post(
 router.post(
   "/messages/:id/reactions",
   toggleReaction
+);
+
+router.delete(
+  "/messages/:id/me", 
+  deleteMessageForMe
+);
+router.delete(
+  "/messages/:id/everyone", 
+  deleteMessageForEveryone
 );
 
 router.post(

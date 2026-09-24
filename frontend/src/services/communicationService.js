@@ -165,6 +165,28 @@ const communicationService = {
     return response.data;
   },
 
+    deleteMessageForMe: async (
+    messageId
+    ) => {
+      return apiRequest(
+        `/communication/messages/${messageId}/me`,
+        {
+          method: "DELETE",
+        }
+      );
+    },
+
+    deleteMessageForEveryone: async (
+      messageId
+    ) => {
+      return apiRequest(
+        `/communication/messages/${messageId}/everyone`,
+        {
+          method: "DELETE",
+        }
+      );
+    },
+
   getMessageThread: async (
     conversationId,
     messageId
