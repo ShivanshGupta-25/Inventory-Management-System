@@ -4,7 +4,10 @@ import {
   useState,
 } from "react";
 
-import { Reply } from "lucide-react";
+import {
+  Check,
+  Reply,
+} from "lucide-react";
 
 import {
   useCommunication,
@@ -16,54 +19,59 @@ import {
 
 import MessageActionBar from "./MessageActionBar";
 import MessageReplyQuote from "./MessageReplyQuote";
-import MessageAttachments, {
-  isImageAttachment,
-} from "./MessageAttachments";
+import MessageAttachments from "./MessageAttachments";
 import MessagePreviewModals from "./MessagePreviewModals";
 
 /* =========================================================
    MAIN MESSAGE ITEM
+
+   Supports:
+   - Reply
+   - Swipe to reply
+   - Long press selection
+   - More → Select
+   - Reactions
+   - Delete for me
+   - Delete for everyone
+   - Attachments
+   - Reply previews
+   - Message selection
 ========================================================= */
 
 const MessageItem = ({
   message,
   own,
   onReply,
+
+  /* =======================================================
+     MESSAGE SELECTION
+  ======================================================== */
+
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterSelectionMode,
 }) => {
-  const [
-    previewAttachment,
-    setPreviewAttachment,
-  ] = useState(null);
+  const [previewAttachment, setPreviewAttachment] =
+    useState(null);
 
-  const [
-    previewDocument,
-    setPreviewDocument,
-  ] = useState(null);
+  const [previewDocument, setPreviewDocument] =
+    useState(null);
 
-  const [
-    showActionBar,
-    setShowActionBar,
-  ] = useState(false);
+  const [showActionBar, setShowActionBar] =
+    useState(false);
 
-  const [
-    showActionMenu,
-    setShowActionMenu,
-  ] = useState(false);
+  const [showActionMenu, setShowActionMenu] =
+    useState(false);
 
-  const [
-    reacting,
-    setReacting,
-  ] = useState(false);
+  const [reacting, setReacting] =
+    useState(false);
 
-  const [
-    deletingForMe,
-    setDeletingForMe,
-  ] = useState(false);
+  const [deletingForMe, setDeletingForMe] =
+    useState(false);
 
-  const [
-    deletingForEveryone,
-    setDeletingForEveryone,
-  ] = useState(false);
+  const [deletingForEveryone, setDeletingForEveryone] =
+    useState(false);
 
   const {
     toggleMessageReaction,
@@ -75,82 +83,160 @@ const MessageItem = ({
 
   /* =======================================================
      SWIPE / LONG PRESS
-  ======================================================= */
+  ======================================================== */
 
   const SWIPE_TRIGGER_DISTANCE = 56;
   const SWIPE_MAX_DISTANCE = 88;
   const LONG_PRESS_DURATION = 500;
 
-  const [swipeOffset, setSwipeOffset] =
-    useState(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
 
-  const [isSwiping, setIsSwiping] =
-    useState(false);
+  const touchStateRef = useRef({
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    lockedAxis: null,
+  });
 
-  const touchStateRef =
-    useRef({
-      startX: 0,
-      startY: 0,
-      tracking: false,
-      lockedAxis: null,
-    });
+  const longPressTimerRef = useRef(null);
+  const longPressTriggeredRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const suppressClickTimerRef = useRef(null);
+  const messageShellRef = useRef(null);
 
-  const longPressTimerRef =
-    useRef(null);
+  /* =======================================================
+     DATA
+  ======================================================== */
 
-  const longPressTriggeredRef =
-    useRef(false);
+  const messageId =
+    message?.id ||
+    message?._id;
 
-  const suppressClickRef =
-    useRef(false);
+  const text =
+    message?.text ||
+    message?.content ||
+    "";
 
-  const suppressClickTimerRef =
-    useRef(null);
+  const attachments =
+    Array.isArray(message?.attachments)
+      ? message.attachments
+      : [];
 
-  const messageShellRef =
-    useRef(null);
+  const reactions =
+    Array.isArray(message?.reactions)
+      ? message.reactions
+      : [];
 
-  const showActionBarForTouch =
-    () => {
-      clearTimeout(
-        longPressTimerRef.current
-      );
+  const hasText =
+    Boolean(text.trim());
 
-      longPressTriggeredRef.current =
-        true;
+  const hasAttachments =
+    attachments.length > 0;
 
-      suppressClickRef.current =
-        true;
+  const repliedMessage =
+    message?.replyTo ||
+    null;
 
+  const deletedForEveryone =
+    Boolean(message?.deletedForEveryone);
+
+  const time = message?.createdAt
+    ? new Date(
+        message.createdAt
+      ).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+  /* =======================================================
+     SELECTION
+  ======================================================== */
+
+  const handleToggleSelection = (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    if (!messageId) {
+      return;
+    }
+
+    onToggleSelect?.(message);
+  };
+
+  /*
+   * Enter selection mode from:
+   * - More → Select
+   * - Long press
+   * - Right click
+   */
+  const enterSelectionMode = () => {
+    if (!messageId) {
+      return;
+    }
+
+    setShowActionBar(false);
+    setShowActionMenu(false);
+
+    onEnterSelectionMode?.(message);
+  };
+
+  /* =======================================================
+     LONG PRESS
+  ======================================================== */
+
+  const showActionBarForTouch = () => {
+    clearTimeout(
+      longPressTimerRef.current
+    );
+
+    longPressTriggeredRef.current = true;
+    suppressClickRef.current = true;
+
+    if (onEnterSelectionMode) {
+      enterSelectionMode();
+    } else {
       setShowActionBar(true);
       setShowActionMenu(false);
+    }
 
-      if (
-        window.navigator?.vibrate
-      ) {
-        window.navigator.vibrate(
-          10
-        );
-      }
+    if (
+      typeof window !== "undefined" &&
+      window.navigator?.vibrate
+    ) {
+      window.navigator.vibrate(10);
+    }
 
-      clearTimeout(
-        suppressClickTimerRef.current
-      );
+    clearTimeout(
+      suppressClickTimerRef.current
+    );
 
-      suppressClickTimerRef.current =
-        setTimeout(() => {
-          suppressClickRef.current =
-            false;
-        }, 800);
-    };
+    suppressClickTimerRef.current =
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 800);
+  };
 
-  const handleTouchStart = (
-    event
-  ) => {
-    const touch =
-      event.touches?.[0];
+  /* =======================================================
+     TOUCH START
+  ======================================================== */
+
+  const handleTouchStart = (event) => {
+    const touch = event.touches?.[0];
 
     if (!touch) {
+      return;
+    }
+
+    if (selectionMode) {
+      touchStateRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        tracking: false,
+        lockedAxis: null,
+      };
+
       return;
     }
 
@@ -161,8 +247,7 @@ const MessageItem = ({
       lockedAxis: null,
     };
 
-    longPressTriggeredRef.current =
-      false;
+    longPressTriggeredRef.current = false;
 
     clearTimeout(
       longPressTimerRef.current
@@ -175,9 +260,11 @@ const MessageItem = ({
       );
   };
 
-  const handleTouchMove = (
-    event
-  ) => {
+  /* =======================================================
+     TOUCH MOVE
+  ======================================================== */
+
+  const handleTouchMove = (event) => {
     const state =
       touchStateRef.current;
 
@@ -185,8 +272,15 @@ const MessageItem = ({
       return;
     }
 
-    const touch =
-      event.touches?.[0];
+    if (selectionMode) {
+      clearTimeout(
+        longPressTimerRef.current
+      );
+
+      return;
+    }
+
+    const touch = event.touches?.[0];
 
     if (!touch) {
       return;
@@ -213,13 +307,8 @@ const MessageItem = ({
       }
     }
 
-    /*
-     * Vertical movement means the user is
-     * scrolling. Also cancel long press.
-     */
     if (
-      state.lockedAxis ===
-      "y"
+      state.lockedAxis === "y"
     ) {
       clearTimeout(
         longPressTimerRef.current
@@ -229,8 +318,7 @@ const MessageItem = ({
     }
 
     if (
-      state.lockedAxis ===
-      "x"
+      state.lockedAxis === "x"
     ) {
       clearTimeout(
         longPressTimerRef.current
@@ -240,26 +328,37 @@ const MessageItem = ({
         ? Math.min(deltaX, 0)
         : Math.max(deltaX, 0);
 
-      const clamped =
-        Math.max(
-          -SWIPE_MAX_DISTANCE,
-          Math.min(
-            SWIPE_MAX_DISTANCE,
-            directional
-          )
-        );
+      const clamped = Math.max(
+        -SWIPE_MAX_DISTANCE,
+        Math.min(
+          SWIPE_MAX_DISTANCE,
+          directional
+        )
+      );
 
       setIsSwiping(true);
       setSwipeOffset(clamped);
     }
   };
 
-  const handleTouchEnd = (
-    event
-  ) => {
+  /* =======================================================
+     TOUCH END
+  ======================================================== */
+
+  const handleTouchEnd = (event) => {
     clearTimeout(
       longPressTimerRef.current
     );
+
+    if (selectionMode) {
+      touchStateRef.current.tracking =
+        false;
+
+      setIsSwiping(false);
+      setSwipeOffset(0);
+
+      return;
+    }
 
     const wasLongPress =
       longPressTriggeredRef.current;
@@ -282,8 +381,7 @@ const MessageItem = ({
     ) {
       event?.preventDefault?.();
 
-      suppressClickRef.current =
-        true;
+      suppressClickRef.current = true;
 
       clearTimeout(
         suppressClickTimerRef.current
@@ -291,18 +389,16 @@ const MessageItem = ({
 
       suppressClickTimerRef.current =
         setTimeout(() => {
-          suppressClickRef.current =
-            false;
+          suppressClickRef.current = false;
         }, 800);
 
       onReply?.(message);
 
       if (
+        typeof window !== "undefined" &&
         window.navigator?.vibrate
       ) {
-        window.navigator.vibrate(
-          10
-        );
+        window.navigator.vibrate(10);
       }
     }
 
@@ -313,23 +409,31 @@ const MessageItem = ({
     setSwipeOffset(0);
   };
 
-  const handleMessageClickCapture = (
-    event
-  ) => {
-    if (!suppressClickRef.current) {
+  /* =======================================================
+     CLICK
+  ======================================================== */
+
+  const handleMessageClick = (event) => {
+    if (selectionMode) {
+      handleToggleSelection(event);
       return;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
+    if (suppressClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
 
-    suppressClickRef.current =
-      false;
+      suppressClickRef.current = false;
 
-    clearTimeout(
-      suppressClickTimerRef.current
-    );
+      clearTimeout(
+        suppressClickTimerRef.current
+      );
+    }
   };
+
+  /* =======================================================
+     CLEANUP
+  ======================================================== */
 
   useEffect(() => {
     return () => {
@@ -344,69 +448,15 @@ const MessageItem = ({
   }, []);
 
   /* =======================================================
-     DATA
-  ======================================================= */
-
-  const messageId =
-    message.id ||
-    message._id;
-
-  const text =
-    message.text ||
-    message.content ||
-    "";
-
-  const attachments =
-    Array.isArray(
-      message.attachments
-    )
-      ? message.attachments
-      : [];
-
-  const reactions =
-    Array.isArray(
-      message.reactions
-    )
-      ? message.reactions
-      : [];
-
-  const hasText =
-    Boolean(text.trim());
-
-  const hasAttachments =
-    attachments.length > 0;
-
-  const repliedMessage =
-    message.replyTo ||
-    null;
-
-  const deletedForEveryone =
-    Boolean(
-      message.deletedForEveryone
-    );
-
-  const time = new Date(
-    message.createdAt
-  ).toLocaleTimeString(
-    [],
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  );
-
-  /* =======================================================
      ACTIONS
-  ======================================================= */
+  ======================================================== */
 
   const closeActions = () => {
     setShowActionBar(false);
     setShowActionMenu(false);
   };
 
-  const hasReacted = (
-    reaction
-  ) => {
+  const hasReacted = (reaction) => {
     return Boolean(
       reaction?.userIds?.some(
         (id) =>
@@ -416,14 +466,17 @@ const MessageItem = ({
     );
   };
 
-  const handleReaction = async (
-    emoji
-  ) => {
+  /* =======================================================
+     REACTION
+  ======================================================== */
+
+  const handleReaction = async (emoji) => {
     if (
       !messageId ||
       !emoji ||
       reacting ||
-      deletedForEveryone
+      deletedForEveryone ||
+      selectionMode
     ) {
       return;
     }
@@ -436,8 +489,7 @@ const MessageItem = ({
         emoji
       );
 
-      setShowActionMenu(false);
-      setShowActionBar(false);
+      closeActions();
     } catch (error) {
       console.error(
         "Failed to update reaction:",
@@ -448,33 +500,40 @@ const MessageItem = ({
     }
   };
 
-  const handleDeleteForMe =
-    async () => {
-      if (
-        !messageId ||
-        deletingForMe ||
-        deletingForEveryone
-      ) {
-        return;
-      }
+  /* =======================================================
+     DELETE FOR ME
+  ======================================================== */
 
-      try {
-        setDeletingForMe(true);
+  const handleDeleteForMe = async () => {
+    if (
+      !messageId ||
+      deletingForMe ||
+      deletingForEveryone
+    ) {
+      return;
+    }
 
-        await deleteMessageForMe(
-          messageId
-        );
+    try {
+      setDeletingForMe(true);
 
-        closeActions();
-      } catch (error) {
-        console.error(
-          "Failed to delete message for me:",
-          error
-        );
-      } finally {
-        setDeletingForMe(false);
-      }
-    };
+      await deleteMessageForMe(
+        messageId
+      );
+
+      closeActions();
+    } catch (error) {
+      console.error(
+        "Failed to delete message for me:",
+        error
+      );
+    } finally {
+      setDeletingForMe(false);
+    }
+  };
+
+  /* =======================================================
+     DELETE FOR EVERYONE
+  ======================================================== */
 
   const handleDeleteForEveryone =
     async () => {
@@ -488,9 +547,7 @@ const MessageItem = ({
       }
 
       try {
-        setDeletingForEveryone(
-          true
-        );
+        setDeletingForEveryone(true);
 
         await deleteMessageForEveryone(
           messageId
@@ -503,25 +560,30 @@ const MessageItem = ({
           error
         );
       } finally {
-        setDeletingForEveryone(
-          false
-        );
+        setDeletingForEveryone(false);
       }
     };
 
-  const handleContextMenu = (
-    event
-  ) => {
+  /* =======================================================
+     CONTEXT MENU / RIGHT CLICK
+  ======================================================== */
+
+  const handleContextMenu = (event) => {
     event.preventDefault();
     event.stopPropagation();
+
+    if (onEnterSelectionMode) {
+      enterSelectionMode();
+      return;
+    }
 
     setShowActionBar(true);
     setShowActionMenu(false);
   };
 
   /* =======================================================
-     CLOSE ACTIONS ON OUTSIDE CLICK
-  ======================================================= */
+     OUTSIDE CLICK
+  ======================================================== */
 
   useEffect(() => {
     if (
@@ -542,9 +604,7 @@ const MessageItem = ({
         }
       };
 
-    const handleEscape = (
-      event
-    ) => {
+    const handleEscape = (event) => {
       if (
         event.key === "Escape"
       ) {
@@ -580,7 +640,7 @@ const MessageItem = ({
 
   /* =======================================================
      JUMP TO ORIGINAL MESSAGE
-  ======================================================= */
+  ======================================================== */
 
   const scrollToMessage = (
     targetId
@@ -620,7 +680,7 @@ const MessageItem = ({
 
   /* =======================================================
      RENDER
-  ======================================================= */
+  ======================================================== */
 
   return (
     <>
@@ -629,6 +689,10 @@ const MessageItem = ({
           own
             ? "justify-end"
             : "justify-start"
+        } ${
+          selected
+            ? "relative"
+            : ""
         }`}
       >
         <div
@@ -642,84 +706,117 @@ const MessageItem = ({
             handleContextMenu
           }
         >
+          {/* SELECTION INDICATOR */}
+
+          {selectionMode && (
+            <button
+              type="button"
+              onClick={
+                handleToggleSelection
+              }
+              aria-label={
+                selected
+                  ? "Deselect message"
+                  : "Select message"
+              }
+              className={`absolute top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border-2 shadow-sm transition ${
+                own
+                  ? "-left-8"
+                  : "-right-8"
+              } ${
+                selected
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-slate-300 bg-white text-transparent hover:border-blue-400"
+              }`}
+            >
+              {selected && (
+                <Check size={14} />
+              )}
+            </button>
+          )}
+
+          {/* SENDER */}
+
           {!own && (
             <div className="mb-1 px-1 text-xs font-medium text-gray-600">
               {message.sender?.name ||
+                message.sender?.fullName ||
                 "Unknown user"}
             </div>
           )}
 
-          {/* =================================================
-              ACTION BAR
-          ================================================== */}
+          {/* ACTION BAR */}
 
-          <MessageActionBar
-            own={own}
-            reactions={reactions}
-            userId={user?.id}
-            reacting={reacting}
-            mobileOpen={
-              showActionBar
-            }
-            menuOpen={
-              showActionMenu
-            }
-            deletingForMe={
-              deletingForMe
-            }
-            deletingForEveryone={
-              deletingForEveryone
-            }
-            canReact={
-              !deletedForEveryone
-            }
-            onReaction={
-              handleReaction
-            }
-            onMore={() => {
-              setShowActionBar(
-                true
-              );
-              setShowActionMenu(
-                (current) =>
-                  !current
-              );
-            }}
-            onDeleteForMe={
-              handleDeleteForMe
-            }
-            onDeleteForEveryone={
-              handleDeleteForEveryone
-            }
-            onCancel={closeActions}
-          />
+          {!selectionMode && (
+            <MessageActionBar
+              own={own}
+              reactions={reactions}
+              userId={user?.id}
+              reacting={reacting}
+              mobileOpen={
+                showActionBar
+              }
+              menuOpen={
+                showActionMenu
+              }
+              deletingForMe={
+                deletingForMe
+              }
+              deletingForEveryone={
+                deletingForEveryone
+              }
+              canReact={
+                !deletedForEveryone
+              }
+              onReaction={
+                handleReaction
+              }
+              onMore={() => {
+                setShowActionBar(true);
+                setShowActionMenu(
+                  (current) =>
+                    !current
+                );
+              }}
+              onDeleteForMe={
+                handleDeleteForMe
+              }
+              onDeleteForEveryone={
+                handleDeleteForEveryone
+              }
+              onSelect={
+                enterSelectionMode
+              }
+              onCancel={
+                closeActions
+              }
+            />
+          )}
 
-          {/* =================================================
-              SWIPE REPLY INDICATOR
-          ================================================== */}
+          {/* SWIPE REPLY INDICATOR */}
 
-          <div
-            className={`pointer-events-none absolute top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-opacity ${
-              own
-                ? "right-0"
-                : "left-0"
-            }`}
-            style={{
-              opacity: Math.min(
-                Math.abs(
-                  swipeOffset
-                ) /
-                  SWIPE_TRIGGER_DISTANCE,
-                1
-              ),
-            }}
-          >
-            <Reply size={15} />
-          </div>
+          {!selectionMode && (
+            <div
+              className={`pointer-events-none absolute top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-opacity ${
+                own
+                  ? "right-0"
+                  : "left-0"
+              }`}
+              style={{
+                opacity: Math.min(
+                  Math.abs(
+                    swipeOffset
+                  ) /
+                    SWIPE_TRIGGER_DISTANCE,
+                  1
+                ),
+              }}
+            >
+              <Reply size={15} />
+            </div>
+          )}
 
-          {/* =================================================
-              MESSAGE BUBBLE
-          ================================================== */}
+          {/* MESSAGE BUBBLE */}
 
           <div
             id={`message-${messageId}`}
@@ -735,22 +832,33 @@ const MessageItem = ({
             onTouchCancel={
               handleTouchEnd
             }
-            onClickCapture={
-              handleMessageClickCapture
+            onClick={
+              handleMessageClick
             }
             style={{
-              transform: `translateX(${swipeOffset}px)`,
+              transform:
+                selectionMode
+                  ? "translateX(0)"
+                  : `translateX(${swipeOffset}px)`,
+
               transition:
                 isSwiping
                   ? "none"
                   : "transform 200ms ease-out",
+
               touchAction:
-                "pan-y",
+                selectionMode
+                  ? "manipulation"
+                  : "pan-y",
             }}
             className={`min-w-0 select-none rounded-2xl transition-shadow ${
               own
                 ? "rounded-br-md bg-blue-600 text-white"
                 : "rounded-bl-md bg-gray-100 text-gray-900"
+            } ${
+              selected
+                ? "ring-2 ring-blue-500 ring-offset-2"
+                : ""
             } ${
               hasAttachments &&
               !hasText &&
@@ -760,9 +868,7 @@ const MessageItem = ({
                 : "px-4 py-2.5"
             }`}
           >
-            {/* =================================================
-                DELETED MESSAGE
-            ================================================== */}
+            {/* DELETED MESSAGE */}
 
             {deletedForEveryone ? (
               <p
@@ -806,9 +912,7 @@ const MessageItem = ({
                     attachments={
                       attachments
                     }
-                    hasText={
-                      hasText
-                    }
+                    hasText={hasText}
                     repliedMessage={
                       repliedMessage
                     }
@@ -821,6 +925,8 @@ const MessageItem = ({
                   />
                 )}
 
+                {/* EMPTY MESSAGE */}
+
                 {!hasText &&
                   !hasAttachments && (
                     <p className="text-sm text-gray-500">
@@ -831,17 +937,14 @@ const MessageItem = ({
             )}
           </div>
 
-          {/* =================================================
-              REACTIONS
-          ================================================== */}
+          {/* REACTIONS */}
 
           {!deletedForEveryone &&
-            reactions.length >
-              0 && (
+            reactions.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1 px-1">
                 {reactions.map(
                   (reaction) => {
-                    const selected =
+                    const selectedReaction =
                       hasReacted(
                         reaction
                       );
@@ -860,10 +963,11 @@ const MessageItem = ({
                         disabled={
                           reacting ||
                           deletingForMe ||
-                          deletingForEveryone
+                          deletingForEveryone ||
+                          selectionMode
                         }
                         className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-sm transition ${
-                          selected
+                          selectedReaction
                             ? "border-blue-300 bg-blue-50"
                             : "border-slate-200 bg-white hover:bg-slate-50"
                         }`}
@@ -887,51 +991,17 @@ const MessageItem = ({
               </div>
             )}
 
-          {/* =================================================
-              REPLY / THREAD ACTION
-          ================================================== */}
+          {/* REPLY / THREAD */}
 
-          <div
-            className={`mt-1 flex items-center gap-3 px-1 ${
-              own
-                ? "justify-end"
-                : "justify-start"
-            }`}
-          >
-            {!deletedForEveryone && (
-              <button
-                type="button"
-                onClick={() =>
-                  onReply?.(
-                    message
-                  )
-                }
-                className="-mx-1 flex min-h-[28px] items-center gap-1 px-1 text-xs font-medium text-gray-400 opacity-100 transition hover:text-blue-600 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-              >
-                <Reply size={13} />
-
-                <span>
-                  Reply
-                </span>
-              </button>
-            )}
-
-            {Number(
-              message.replyCount ||
-                0
-            ) > 0 &&
-              (deletedForEveryone ? (
-                <span className="text-xs font-medium text-gray-400">
-                  {
-                    message.replyCount
-                  }{" "}
-                  {Number(
-                    message.replyCount
-                  ) === 1
-                    ? "reply"
-                    : "replies"}
-                </span>
-              ) : (
+          {!selectionMode && (
+            <div
+              className={`mt-1 flex items-center gap-3 px-1 ${
+                own
+                  ? "justify-end"
+                  : "justify-start"
+              }`}
+            >
+              {!deletedForEveryone && (
                 <button
                   type="button"
                   onClick={() =>
@@ -939,23 +1009,55 @@ const MessageItem = ({
                       message
                     )
                   }
-                  className="text-xs font-medium text-blue-600 transition hover:text-blue-700"
+                  className="-mx-1 flex min-h-[28px] items-center gap-1 px-1 text-xs font-medium text-gray-400 opacity-100 transition hover:text-blue-600 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 >
-                  {
-                    message.replyCount
-                  }{" "}
-                  {Number(
-                    message.replyCount
-                  ) === 1
-                    ? "reply"
-                    : "replies"}
-                </button>
-              ))}
-          </div>
+                  <Reply size={13} />
 
-          {/* =================================================
-              TIME
-          ================================================== */}
+                  <span>
+                    Reply
+                  </span>
+                </button>
+              )}
+
+              {Number(
+                message.replyCount ||
+                  0
+              ) > 0 &&
+                (deletedForEveryone ? (
+                  <span className="text-xs font-medium text-gray-400">
+                    {
+                      message.replyCount
+                    }{" "}
+                    {Number(
+                      message.replyCount
+                    ) === 1
+                      ? "reply"
+                      : "replies"}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onReply?.(
+                        message
+                      )
+                    }
+                    className="text-xs font-medium text-blue-600 transition hover:text-blue-700"
+                  >
+                    {
+                      message.replyCount
+                    }{" "}
+                    {Number(
+                      message.replyCount
+                    ) === 1
+                      ? "reply"
+                      : "replies"}
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {/* TIME */}
 
           <div
             className={`mt-1 px-1 text-[11px] text-gray-400 ${
@@ -969,9 +1071,7 @@ const MessageItem = ({
         </div>
       </div>
 
-      {/* =================================================
-          PREVIEW MODALS
-      ================================================== */}
+      {/* PREVIEW MODALS */}
 
       <MessagePreviewModals
         previewAttachment={

@@ -14,11 +14,18 @@ import { useAuth } from "../hooks/useAuth";
 const CommunicationContext = createContext(null);
 
 /* =====================================================
-   MESSAGE DELETION HELPERS
+   HELPERS
 ====================================================== */
 
 const getMessageId = (message) =>
-  message?.id || message?._id || null;
+  message?.id ||
+  message?._id ||
+  null;
+
+const getConversationId = (conversation) =>
+  conversation?.id ||
+  conversation?._id ||
+  null;
 
 const createDeletedForEveryoneMessage = (
   message,
@@ -54,7 +61,8 @@ export const CommunicationProvider = ({
 }) => {
   const { user } = useAuth();
 
-  const token = localStorage.getItem("token");
+  const token =
+    localStorage.getItem("token");
 
   const [conversations, setConversations] =
     useState([]);
@@ -64,7 +72,8 @@ export const CommunicationProvider = ({
     setActiveConversationId,
   ] = useState(null);
 
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] =
+    useState([]);
 
   const [users, setUsers] = useState([]);
 
@@ -81,10 +90,6 @@ export const CommunicationProvider = ({
   const [typingUsers, setTypingUsers] =
     useState([]);
 
-  /* =====================================================
-     REPLY STATE
-  ====================================================== */
-
   const [replyingTo, setReplyingTo] =
     useState(null);
 
@@ -100,7 +105,9 @@ export const CommunicationProvider = ({
         const response =
           await communicationService.getConversations();
 
-        setConversations(response.data || []);
+        setConversations(
+          response.data || []
+        );
       } catch (error) {
         console.error(
           "Failed to load conversations:",
@@ -157,7 +164,9 @@ export const CommunicationProvider = ({
             conversationId
           );
 
-        setMessages(response.data || []);
+        setMessages(
+          response.data || []
+        );
 
         await communicationService.markRead(
           conversationId
@@ -182,13 +191,13 @@ export const CommunicationProvider = ({
     useCallback(
       async (conversationId) => {
         setTypingUsers([]);
-
         setReplyingTo(null);
 
         setConversations((current) =>
           current.map((conversation) =>
-            String(conversation.id) ===
-            String(conversationId)
+            String(
+              getConversationId(conversation)
+            ) === String(conversationId)
               ? {
                   ...conversation,
                   unreadCount: 0,
@@ -231,16 +240,7 @@ export const CommunicationProvider = ({
             replyTo
           );
 
-        const message = response.data;
-
-        /*
-         * Socket.IO also broadcasts the message.
-         *
-         * Do not append it here because doing so
-         * would cause duplicate messages.
-         */
-
-        return message;
+        return response.data;
       } catch (error) {
         console.error(
           "Failed to send message:",
@@ -271,13 +271,13 @@ export const CommunicationProvider = ({
           replyingTo.id ||
           replyingTo._id;
 
-        const result = await sendMessage(
-          text,
-          [],
-          replyToId
-        );
+        const result =
+          await sendMessage(
+            text,
+            [],
+            replyToId
+          );
 
-        // Clear reply mode after successful send.
         setReplyingTo(null);
 
         return result;
@@ -298,12 +298,15 @@ export const CommunicationProvider = ({
   );
 
   /* =====================================================
-     TOGGLE MESSAGE REACTION
+     REACTION
   ====================================================== */
 
   const toggleMessageReaction =
     useCallback(
-      async (messageId, emoji) => {
+      async (
+        messageId,
+        emoji
+      ) => {
         return communicationService.toggleMessageReaction(
           messageId,
           emoji
@@ -312,68 +315,17 @@ export const CommunicationProvider = ({
       []
     );
 
-  /* =====================================================
-     CREATE DIRECT
-  ====================================================== */
-
-  const createDirectConversation =
-    useCallback(
-      async (userId) => {
-        const response =
-          await communicationService.createDirectConversation(
-            userId
-          );
-
-        const conversation =
-          response.data;
-
-        setConversations((current) => {
-          const exists = current.some(
-            (item) =>
-              String(item.id) ===
-              String(conversation.id)
-          );
-
-          if (exists) {
-            return current;
-          }
-
-          return [
-            conversation,
-            ...current,
-          ];
-        });
-
-        setActiveConversationId(
-          conversation.id
-        );
-
-        // New conversation cannot have
-        // an active reply from another conversation.
-        setReplyingTo(null);
-
-        await loadMessages(
-          conversation.id
-        );
-
-        return conversation;
-      },
-      [loadMessages]
-    );
-
-  /* =====================================================
-     REACTION SOCKET EVENT
-  ====================================================== */
-
   const handleReaction = useCallback(
     (reactionData) => {
       if (!reactionData?.messageId) {
         return;
       }
 
-      setMessages((currentMessages) =>
-        currentMessages.map((message) =>
-          String(message.id) ===
+      setMessages((current) =>
+        current.map((message) =>
+          String(
+            getMessageId(message)
+          ) ===
           String(
             reactionData.messageId
           )
@@ -386,11 +338,6 @@ export const CommunicationProvider = ({
             : message
         )
       );
-
-      /*
-       * If the message being replied to receives
-       * a reaction, keep the reply preview in sync.
-       */
 
       setReplyingTo((current) => {
         if (
@@ -417,7 +364,7 @@ export const CommunicationProvider = ({
   );
 
   /* =====================================================
-     DELETE MESSAGE FOR ME SOCKET EVENT
+     SINGLE DELETE FOR ME
   ====================================================== */
 
   const handleMessageDeletedForMe =
@@ -429,12 +376,8 @@ export const CommunicationProvider = ({
       const deletedMessageId =
         String(deletionData.messageId);
 
-      /*
-       * Remove the message from the currently
-       * loaded message list.
-       */
-      setMessages((currentMessages) =>
-        currentMessages
+      setMessages((current) =>
+        current
           .filter(
             (message) =>
               String(
@@ -442,11 +385,6 @@ export const CommunicationProvider = ({
               ) !== deletedMessageId
           )
           .map((message) => {
-            /*
-             * A reply to the deleted message must not
-             * continue exposing the deleted message's
-             * content through its reply preview.
-             */
             const replyTo =
               message.replyTo;
 
@@ -469,10 +407,6 @@ export const CommunicationProvider = ({
           })
       );
 
-      /*
-       * If the deleted message was the current
-       * reply target, clear reply mode.
-       */
       setReplyingTo((current) => {
         if (
           !current ||
@@ -488,7 +422,80 @@ export const CommunicationProvider = ({
     }, []);
 
   /* =====================================================
-     DELETE MESSAGE FOR EVERYONE SOCKET EVENT
+     BULK DELETE FOR ME SOCKET
+  ====================================================== */
+
+  const handleMessagesDeletedForMe =
+    useCallback((deletionData) => {
+      const messageIds =
+        Array.isArray(
+          deletionData?.messageIds
+        )
+          ? deletionData.messageIds
+          : [];
+
+      if (!messageIds.length) {
+        return;
+      }
+
+      const deletedIds =
+        new Set(
+          messageIds.map(String)
+        );
+
+      setMessages((current) =>
+        current
+          .filter(
+            (message) =>
+              !deletedIds.has(
+                String(
+                  getMessageId(message)
+                )
+              )
+          )
+          .map((message) => {
+            const replyTo =
+              message.replyTo;
+
+            if (
+              !replyTo ||
+              !deletedIds.has(
+                String(
+                  getMessageId(replyTo)
+                )
+              )
+            ) {
+              return message;
+            }
+
+            return {
+              ...message,
+              replyTo:
+                createDeletedForMeReply(
+                  replyTo
+                ),
+            };
+          })
+      );
+
+      setReplyingTo((current) => {
+        if (
+          !current ||
+          !deletedIds.has(
+            String(
+              getMessageId(current)
+            )
+          )
+        ) {
+          return current;
+        }
+
+        return null;
+      });
+    }, []);
+
+  /* =====================================================
+     SINGLE DELETE FOR EVERYONE
   ====================================================== */
 
   const handleMessageDeleted =
@@ -500,18 +507,12 @@ export const CommunicationProvider = ({
       const deletedMessageId =
         String(deletionData.messageId);
 
-      /*
-       * Replace the message with a tombstone
-       * instead of removing it.
-       */
-      setMessages((currentMessages) =>
-        currentMessages.map((message) => {
-          const messageId = String(
-            getMessageId(message)
-          );
-
+      setMessages((current) =>
+        current.map((message) => {
           if (
-            messageId === deletedMessageId
+            String(
+              getMessageId(message)
+            ) === deletedMessageId
           ) {
             return createDeletedForEveryoneMessage(
               message,
@@ -519,10 +520,6 @@ export const CommunicationProvider = ({
             );
           }
 
-          /*
-           * Replies should also stop displaying
-           * the deleted parent's content.
-           */
           const replyTo =
             message.replyTo;
 
@@ -546,9 +543,6 @@ export const CommunicationProvider = ({
         })
       );
 
-      /*
-       * Keep the active reply preview synchronized.
-       */
       setReplyingTo((current) => {
         if (
           !current ||
@@ -565,19 +559,12 @@ export const CommunicationProvider = ({
         );
       });
 
-      /*
-       * If this deleted message is currently shown
-       * as the conversation's last message, turn that
-       * preview into a tombstone too.
-       *
-       * Delete-for-me is intentionally NOT handled here
-       * because its conversation preview is user-specific
-       * and will be handled separately.
-       */
       setConversations((current) =>
         current.map((conversation) => {
           if (
-            String(conversation.id) !==
+            String(
+              getConversationId(conversation)
+            ) !==
             String(
               deletionData.conversationId
             )
@@ -610,7 +597,178 @@ export const CommunicationProvider = ({
     }, []);
 
   /* =====================================================
-     DELETE MESSAGE FOR ME
+     BULK DELETE FOR EVERYONE SOCKET
+  ====================================================== */
+
+  const handleMessagesDeleted =
+    useCallback((deletionData) => {
+      const messageIds =
+        Array.isArray(
+          deletionData?.messageIds
+        )
+          ? deletionData.messageIds
+          : [];
+
+      if (!messageIds.length) {
+        return;
+      }
+
+      const deletedIds =
+        new Set(
+          messageIds.map(String)
+        );
+
+      const deletedAt =
+        deletionData?.deletedAt || null;
+
+      setMessages((current) =>
+        current.map((message) => {
+          const messageId = String(
+            getMessageId(message)
+          );
+
+          if (
+            deletedIds.has(messageId)
+          ) {
+            return createDeletedForEveryoneMessage(
+              message,
+              deletedAt
+            );
+          }
+
+          const replyTo =
+            message.replyTo;
+
+          if (
+            replyTo &&
+            deletedIds.has(
+              String(
+                getMessageId(replyTo)
+              )
+            )
+          ) {
+            return {
+              ...message,
+              replyTo:
+                createDeletedForEveryoneMessage(
+                  replyTo,
+                  deletedAt
+                ),
+            };
+          }
+
+          return message;
+        })
+      );
+
+      setReplyingTo((current) => {
+        if (
+          !current ||
+          !deletedIds.has(
+            String(
+              getMessageId(current)
+            )
+          )
+        ) {
+          return current;
+        }
+
+        return createDeletedForEveryoneMessage(
+          current,
+          deletedAt
+        );
+      });
+
+      /*
+       * Backend returns recalculated conversation
+       * previews after bulk deletion.
+       */
+      const conversationUpdates =
+        Array.isArray(
+          deletionData?.conversationUpdates
+        )
+          ? deletionData.conversationUpdates
+          : [];
+
+      if (conversationUpdates.length) {
+        setConversations((current) =>
+          current.map((conversation) => {
+            const conversationId =
+              String(
+                getConversationId(
+                  conversation
+                )
+              );
+
+            const update =
+              conversationUpdates.find(
+                (item) =>
+                  String(
+                    item.conversationId
+                  ) === conversationId
+              );
+
+            if (!update) {
+              return conversation;
+            }
+
+            return {
+              ...conversation,
+              ...(update.lastMessage
+                ? {
+                    lastMessage:
+                      update.lastMessage,
+                  }
+                : {}),
+              ...(update.lastMessageAt
+                ? {
+                    lastMessageAt:
+                      update.lastMessageAt,
+                  }
+                : {}),
+            };
+          })
+        );
+
+        return;
+      }
+
+      /*
+       * Fallback for older socket payloads.
+       */
+      if (
+        deletionData?.conversationId
+      ) {
+        setConversations((current) =>
+          current.map((conversation) =>
+            String(
+              getConversationId(
+                conversation
+              )
+            ) ===
+            String(
+              deletionData.conversationId
+            )
+              ? {
+                  ...conversation,
+                  ...(deletionData.lastMessage
+                    ? {
+                        lastMessage:
+                          deletionData.lastMessage,
+                        lastMessageAt:
+                          deletionData.lastMessage
+                            .createdAt,
+                      }
+                    : {}),
+                }
+              : conversation
+          )
+        );
+      }
+    }, []);
+
+  /* =====================================================
+     DELETE SINGLE
   ====================================================== */
 
   const deleteMessageForMe =
@@ -622,15 +780,9 @@ export const CommunicationProvider = ({
               messageId
             );
 
-          const result = response.data;
+          const result =
+            response.data;
 
-          /*
-           * Update immediately for a responsive UI.
-           *
-           * The socket event will also arrive, but the
-           * handler is idempotent, so it is safe to run
-           * again.
-           */
           handleMessageDeletedForMe({
             messageId:
               result?.messageId ||
@@ -653,10 +805,6 @@ export const CommunicationProvider = ({
       [handleMessageDeletedForMe]
     );
 
-  /* =====================================================
-     DELETE MESSAGE FOR EVERYONE
-  ====================================================== */
-
   const deleteMessageForEveryone =
     useCallback(
       async (messageId) => {
@@ -666,15 +814,9 @@ export const CommunicationProvider = ({
               messageId
             );
 
-          const result = response.data;
+          const result =
+            response.data;
 
-          /*
-           * Update immediately for the current user.
-           *
-           * The socket event will also arrive for every
-           * participant, including the sender. Applying
-           * the same tombstone twice is harmless.
-           */
           handleMessageDeleted({
             messageId:
               result?.messageId ||
@@ -682,11 +824,9 @@ export const CommunicationProvider = ({
               messageId,
             conversationId:
               result?.conversationId,
-            deletedForEveryone:
-              result?.deletedForEveryone !==
-              false,
             deletedAt:
-              result?.deletedAt || null,
+              result?.deletedAt ||
+              null,
           });
 
           return result;
@@ -700,6 +840,196 @@ export const CommunicationProvider = ({
         }
       },
       [handleMessageDeleted]
+    );
+
+  /* =====================================================
+     BULK DELETE FOR ME
+  ====================================================== */
+
+  const deleteMessagesForMe =
+    useCallback(
+      async (messageIds) => {
+        if (
+          !Array.isArray(messageIds) ||
+          !messageIds.length
+        ) {
+          return null;
+        }
+
+        try {
+          const response =
+            await communicationService.deleteMessagesForMe(
+              messageIds
+            );
+
+          const result =
+            response.data;
+
+          handleMessagesDeletedForMe({
+            messageIds:
+              result?.messageIds ||
+              messageIds,
+            conversationIds:
+              result?.conversationIds ||
+              [],
+          });
+
+          return result;
+        } catch (error) {
+          console.error(
+            "Failed to delete messages for me:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      [handleMessagesDeletedForMe]
+    );
+
+  /* =====================================================
+     BULK DELETE FOR EVERYONE
+  ====================================================== */
+
+  const deleteMessagesForEveryone =
+    useCallback(
+      async (messageIds) => {
+        if (
+          !Array.isArray(messageIds) ||
+          !messageIds.length
+        ) {
+          return null;
+        }
+
+        try {
+          const response =
+            await communicationService.deleteMessagesForEveryone(
+              messageIds
+            );
+
+          const result =
+            response.data;
+
+          handleMessagesDeleted({
+            messageIds:
+              result?.messageIds ||
+              messageIds,
+            conversationIds:
+              result?.conversationIds ||
+              [],
+            deletedAt:
+              result?.deletedAt ||
+              null,
+            conversationUpdates:
+              result?.conversationUpdates ||
+              [],
+          });
+
+          return result;
+        } catch (error) {
+          console.error(
+            "Failed to delete messages for everyone:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      [handleMessagesDeleted]
+    );
+
+  /* =====================================================
+     FORWARD
+  ====================================================== */
+
+  const forwardMessages =
+    useCallback(
+      async (
+        messageIds,
+        conversationIds
+      ) => {
+        if (
+          !Array.isArray(messageIds) ||
+          !messageIds.length ||
+          !Array.isArray(
+            conversationIds
+          ) ||
+          !conversationIds.length
+        ) {
+          return null;
+        }
+
+        try {
+          const response =
+            await communicationService.forwardMessages(
+              messageIds,
+              conversationIds
+            );
+
+          return response.data;
+        } catch (error) {
+          console.error(
+            "Failed to forward messages:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      []
+    );
+
+  /* =====================================================
+     CREATE DIRECT
+  ====================================================== */
+
+  const createDirectConversation =
+    useCallback(
+      async (userId) => {
+        const response =
+          await communicationService.createDirectConversation(
+            userId
+          );
+
+        const conversation =
+          response.data;
+
+        setConversations((current) => {
+          const exists = current.some(
+            (item) =>
+              String(
+                getConversationId(item)
+              ) ===
+              String(
+                getConversationId(
+                  conversation
+                )
+              )
+          );
+
+          if (exists) {
+            return current;
+          }
+
+          return [
+            conversation,
+            ...current,
+          ];
+        });
+
+        setActiveConversationId(
+          conversation.id
+        );
+
+        setReplyingTo(null);
+
+        await loadMessages(
+          conversation.id
+        );
+
+        return conversation;
+      },
+      [loadMessages]
     );
 
   /* =====================================================
@@ -725,8 +1055,14 @@ export const CommunicationProvider = ({
           conversation,
           ...current.filter(
             (item) =>
-              String(item.id) !==
-              String(conversation.id)
+              String(
+                getConversationId(item)
+              ) !==
+              String(
+                getConversationId(
+                  conversation
+                )
+              )
           ),
         ]);
 
@@ -735,8 +1071,6 @@ export const CommunicationProvider = ({
         );
 
         setMessages([]);
-
-        // Clear any reply from another conversation.
         setReplyingTo(null);
 
         return conversation;
@@ -754,45 +1088,55 @@ export const CommunicationProvider = ({
         return;
       }
 
-      const conversationId = String(
-        message.conversationId
-      );
+      const conversationId =
+        String(message.conversationId);
+
+      const messageId =
+        getMessageId(message);
 
       const isActive =
         conversationId ===
         String(activeConversationId);
 
       const isOwnMessage =
-        String(message.sender?.id) ===
-        String(user?.id);
+        String(
+          message.sender?.id ||
+            message.sender?._id ||
+            message.senderId
+        ) === String(user?.id);
 
       setMessages((current) => {
-        if (isActive) {
-          if (
-            current.some(
-              (item) =>
-                String(item.id) ===
-                String(message.id)
-            )
-          ) {
-            return current;
-          }
-
-          return [
-            ...current,
-            message,
-          ];
+        if (!isActive) {
+          return current;
         }
 
-        return current;
+        if (
+          messageId &&
+          current.some(
+            (item) =>
+              String(
+                getMessageId(item)
+              ) === String(messageId)
+          )
+        ) {
+          return current;
+        }
+
+        return [
+          ...current,
+          message,
+        ];
       });
 
       setConversations((current) => {
         const existing =
           current.find(
             (conversation) =>
-              String(conversation.id) ===
-              conversationId
+              String(
+                getConversationId(
+                  conversation
+                )
+              ) === conversationId
           );
 
         if (!existing) {
@@ -806,20 +1150,24 @@ export const CommunicationProvider = ({
             message.createdAt,
           updatedAt:
             message.createdAt,
-
-          unreadCount: isActive || isOwnMessage
-            ? 0
-            : Number(
-                existing.unreadCount || 0
-              ) + 1,
+          unreadCount:
+            isActive || isOwnMessage
+              ? 0
+              : Number(
+                  existing.unreadCount ||
+                    0
+                ) + 1,
         };
 
         return [
           updatedConversation,
           ...current.filter(
             (conversation) =>
-              String(conversation.id) !==
-              conversationId
+              String(
+                getConversationId(
+                  conversation
+                )
+              ) !== conversationId
           ),
         ];
       });
@@ -836,11 +1184,21 @@ export const CommunicationProvider = ({
 
   const handleConversationNew =
     useCallback((conversation) => {
+      if (!conversation?.id) {
+        return;
+      }
+
       setConversations((current) => {
         const exists = current.some(
           (item) =>
-            String(item.id) ===
-            String(conversation.id)
+            String(
+              getConversationId(item)
+            ) ===
+            String(
+              getConversationId(
+                conversation
+              )
+            )
         );
 
         if (exists) {
@@ -867,7 +1225,11 @@ export const CommunicationProvider = ({
       setConversations((current) =>
         current.map(
           (conversation) =>
-            String(conversation.id) ===
+            String(
+              getConversationId(
+                conversation
+              )
+            ) ===
             String(
               payload.conversationId
             )
@@ -877,6 +1239,15 @@ export const CommunicationProvider = ({
                     ? {
                         lastMessage:
                           payload.lastMessage,
+                      }
+                    : {}),
+                  ...(payload.lastMessageAt
+                    ? {
+                        lastMessageAt:
+                          payload.lastMessageAt,
+                      }
+                    : payload.lastMessage
+                    ? {
                         lastMessageAt:
                           payload.lastMessage
                             .createdAt,
@@ -893,13 +1264,7 @@ export const CommunicationProvider = ({
   ====================================================== */
 
   const handleMessageRead =
-    useCallback(() => {
-      /*
-       * Read state can be expanded later.
-       * lastReadAt is already persisted
-       * by the backend.
-       */
-    }, []);
+    useCallback(() => {}, []);
 
   /* =====================================================
      TYPING
@@ -990,6 +1355,12 @@ export const CommunicationProvider = ({
 
       onMessageDeletedForMe:
         handleMessageDeletedForMe,
+
+      onMessagesDeleted:
+        handleMessagesDeleted,
+
+      onMessagesDeletedForMe:
+        handleMessagesDeletedForMe,
     });
 
   /* =====================================================
@@ -1038,7 +1409,9 @@ export const CommunicationProvider = ({
   const activeConversation =
     conversations.find(
       (conversation) =>
-        String(conversation.id) ===
+        String(
+          getConversationId(conversation)
+        ) ===
         String(
           activeConversationId
         )
@@ -1051,24 +1424,15 @@ export const CommunicationProvider = ({
   const value = useMemo(
     () => ({
       conversations,
-
       activeConversation,
-
       activeConversationId,
-
       messages,
-
       users,
-
       typingUsers,
-
       loadingConversations,
-
       loadingMessages,
 
-      /* Reply state */
       replyingTo,
-
       setReplyingTo,
 
       connected:
@@ -1080,22 +1444,23 @@ export const CommunicationProvider = ({
       setActiveConversationId,
 
       selectConversation,
-
       searchUsers,
 
       createDirectConversation,
-
       createGroupConversation,
 
       sendMessage,
-
       sendReply,
 
       toggleMessageReaction,
 
       deleteMessageForMe,
-
       deleteMessageForEveryone,
+
+      deleteMessagesForMe,
+      deleteMessagesForEveryone,
+
+      forwardMessages,
 
       startTyping:
         socket.startTyping,
@@ -1108,49 +1473,38 @@ export const CommunicationProvider = ({
     }),
     [
       conversations,
-
       activeConversation,
-
       activeConversationId,
-
       messages,
-
       users,
-
       typingUsers,
-
       loadingConversations,
-
       loadingMessages,
-
-      /* Reply state */
       replyingTo,
 
       socket.connected,
-
       socket.connectionStatus,
-
       socket.startTyping,
-
       socket.stopTyping,
 
       selectConversation,
-
       searchUsers,
 
       createDirectConversation,
-
       createGroupConversation,
 
       sendMessage,
-
       sendReply,
 
       toggleMessageReaction,
 
       deleteMessageForMe,
-
       deleteMessageForEveryone,
+
+      deleteMessagesForMe,
+      deleteMessagesForEveryone,
+
+      forwardMessages,
 
       loadConversations,
     ]

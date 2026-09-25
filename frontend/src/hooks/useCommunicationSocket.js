@@ -9,27 +9,24 @@ import { io } from "socket.io-client";
 
 const SOCKET_URL = "http://localhost:5000";
 
+const noop = () => {};
+
 const useCommunicationSocket = ({
   token,
-  onMessage,
-  onConversationNew,
-  onConversationUpdated,
-  onMessageRead,
-  onTypingStart,
-  onTypingStop,
-  onReaction,
-  onMessageDeleted,
-  onMessageDeletedForMe,
+  onMessage = noop,
+  onConversationNew = noop,
+  onConversationUpdated = noop,
+  onMessageRead = noop,
+  onTypingStart = noop,
+  onTypingStop = noop,
+  onReaction = noop,
+  onMessageDeleted = noop,
+  onMessageDeletedForMe = noop,
+  onMessagesDeleted = noop,
+  onMessagesDeletedForMe = noop,
 }) => {
   const socketRef = useRef(null);
 
-  /*
-   * Connection states:
-   *
-   * connecting   -> trying to connect
-   * connected    -> Socket.IO connection is active
-   * disconnected -> connection is not active
-   */
   const [connectionStatus, setConnectionStatus] =
     useState("connecting");
 
@@ -45,15 +42,13 @@ const useCommunicationSocket = ({
       auth: {
         token,
       },
-
-      // Optional but recommended for local development.
       transports: ["websocket"],
     });
 
     socketRef.current = socket;
 
     /* =====================================================
-       CONNECTION EVENTS
+       CONNECTION
     ====================================================== */
 
     socket.on("connect", () => {
@@ -87,7 +82,10 @@ const useCommunicationSocket = ({
        MESSAGE EVENTS
     ====================================================== */
 
-    socket.on("message:new", onMessage);
+    socket.on(
+      "message:new",
+      onMessage
+    );
 
     socket.on(
       "conversation:new",
@@ -105,7 +103,7 @@ const useCommunicationSocket = ({
     );
 
     /* =====================================================
-       REACTION EVENTS
+       REACTIONS
     ====================================================== */
 
     socket.on(
@@ -114,7 +112,7 @@ const useCommunicationSocket = ({
     );
 
     /* =====================================================
-   DELETION EVENTS
+       SINGLE DELETION
     ====================================================== */
 
     socket.on(
@@ -128,7 +126,21 @@ const useCommunicationSocket = ({
     );
 
     /* =====================================================
-       TYPING EVENTS
+       BULK DELETION
+    ====================================================== */
+
+    socket.on(
+      "messages:deleted",
+      onMessagesDeleted
+    );
+
+    socket.on(
+      "messages:deletedForMe",
+      onMessagesDeletedForMe
+    );
+
+    /* =====================================================
+       TYPING
     ====================================================== */
 
     socket.on(
@@ -149,9 +161,13 @@ const useCommunicationSocket = ({
       socket.removeAllListeners();
       socket.disconnect();
 
-      socketRef.current = null;
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
 
-      setConnectionStatus("disconnected");
+      setConnectionStatus(
+        "disconnected"
+      );
     };
   }, [
     token,
@@ -164,6 +180,8 @@ const useCommunicationSocket = ({
     onReaction,
     onMessageDeleted,
     onMessageDeletedForMe,
+    onMessagesDeleted,
+    onMessagesDeletedForMe,
   ]);
 
   /* =====================================================
@@ -172,6 +190,10 @@ const useCommunicationSocket = ({
 
   const joinConversation = useCallback(
     (conversationId) => {
+      if (!conversationId) {
+        return;
+      }
+
       socketRef.current?.emit(
         "conversation:join",
         conversationId
@@ -182,6 +204,10 @@ const useCommunicationSocket = ({
 
   const leaveConversation = useCallback(
     (conversationId) => {
+      if (!conversationId) {
+        return;
+      }
+
       socketRef.current?.emit(
         "conversation:leave",
         conversationId
@@ -196,6 +222,10 @@ const useCommunicationSocket = ({
 
   const startTyping = useCallback(
     (conversationId) => {
+      if (!conversationId) {
+        return;
+      }
+
       socketRef.current?.emit(
         "typing:start",
         conversationId
@@ -206,6 +236,10 @@ const useCommunicationSocket = ({
 
   const stopTyping = useCallback(
     (conversationId) => {
+      if (!conversationId) {
+        return;
+      }
+
       socketRef.current?.emit(
         "typing:stop",
         conversationId

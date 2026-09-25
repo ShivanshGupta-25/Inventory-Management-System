@@ -1,6 +1,10 @@
 import apiRequest from "./api";
 
 const communicationService = {
+  /* =====================================================
+     USERS
+  ===================================================== */
+
   getUsers: async (search = "") => {
     const query = search
       ? `?search=${encodeURIComponent(search)}`
@@ -13,6 +17,10 @@ const communicationService = {
       }
     );
   },
+
+  /* =====================================================
+     CONVERSATIONS
+  ===================================================== */
 
   getConversations: async () => {
     return apiRequest(
@@ -63,6 +71,10 @@ const communicationService = {
       }
     );
   },
+
+  /* =====================================================
+     MESSAGES
+  ===================================================== */
 
   getMessages: async (
     conversationId,
@@ -137,6 +149,10 @@ const communicationService = {
     );
   },
 
+  /* =====================================================
+     READ STATUS
+  ===================================================== */
+
   markRead: async (
     conversationId
   ) => {
@@ -148,44 +164,113 @@ const communicationService = {
     );
   },
 
+  /* =====================================================
+     REACTIONS
+  ===================================================== */
+
   toggleMessageReaction: async (
     messageId,
     emoji
   ) => {
-    const response = await apiRequest(
-      `/communication/messages/${messageId}/reactions`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          emoji,
-        }),
-      }
-    );
+    const response =
+      await apiRequest(
+        `/communication/messages/${messageId}/reactions`,
+        {
+          method: "POST",
+
+          body: JSON.stringify({
+            emoji,
+          }),
+        }
+      );
 
     return response.data;
   },
 
-    deleteMessageForMe: async (
-    messageId
-    ) => {
-      return apiRequest(
-        `/communication/messages/${messageId}/me`,
-        {
-          method: "DELETE",
-        }
-      );
-    },
+  /* =====================================================
+     SINGLE MESSAGE DELETE
+  ===================================================== */
 
-    deleteMessageForEveryone: async (
-      messageId
-    ) => {
-      return apiRequest(
-        `/communication/messages/${messageId}/everyone`,
-        {
-          method: "DELETE",
-        }
-      );
-    },
+  deleteMessageForMe: async (
+    messageId
+  ) => {
+    return apiRequest(
+      `/communication/messages/${messageId}/me`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
+
+  deleteMessageForEveryone: async (
+    messageId
+  ) => {
+    return apiRequest(
+      `/communication/messages/${messageId}/everyone`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
+
+  /* =====================================================
+     BULK DELETE
+  ===================================================== */
+
+  deleteMessagesForMe: async (
+    messageIds
+  ) => {
+    return apiRequest(
+      "/communication/messages/bulk/me",
+      {
+        method: "DELETE",
+
+        body: JSON.stringify({
+          messageIds,
+        }),
+      }
+    );
+  },
+
+  deleteMessagesForEveryone: async (
+    messageIds
+  ) => {
+    return apiRequest(
+      "/communication/messages/bulk/everyone",
+      {
+        method: "DELETE",
+
+        body: JSON.stringify({
+          messageIds,
+        }),
+      }
+    );
+  },
+
+  /* =====================================================
+     FORWARD MESSAGES
+  ===================================================== */
+
+  forwardMessages: async (
+    messageIds,
+    conversationIds
+  ) => {
+    return apiRequest(
+      "/communication/messages/forward",
+      {
+        method: "POST",
+
+        body: JSON.stringify({
+          messageIds,
+          conversationIds,
+        }),
+      }
+    );
+  },
+
+  /* =====================================================
+     MESSAGE THREAD
+  ===================================================== */
 
   getMessageThread: async (
     conversationId,

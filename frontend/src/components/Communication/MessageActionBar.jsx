@@ -3,6 +3,7 @@ import {
   MoreHorizontal,
   Trash2,
   X,
+  CheckSquare,
 } from "lucide-react";
 
 const QUICK_REACTIONS = [
@@ -26,6 +27,7 @@ const MessageActionBar = ({
   canReact = true,
   onReaction,
   onMore,
+  onSelect,
   onDeleteForMe,
   onDeleteForEveryone,
   onCancel,
@@ -34,7 +36,8 @@ const MessageActionBar = ({
     return Boolean(
       reaction?.userIds?.some(
         (id) =>
-          String(id) === String(userId)
+          String(id) ===
+          String(userId)
       )
     );
   };
@@ -46,7 +49,9 @@ const MessageActionBar = ({
   return (
     <div
       className={`absolute ${
-        own ? "right-0" : "left-0"
+        own
+          ? "right-0"
+          : "left-0"
       } -top-12 z-50 transition-all duration-150 ${
         mobileOpen
           ? "pointer-events-auto opacity-100"
@@ -59,43 +64,52 @@ const MessageActionBar = ({
         event.stopPropagation();
       }}
     >
-      {/* =================================================
-          ACTION BAR
-      ================================================== */}
+      {/* ACTION BAR */}
 
       <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2 py-1.5 shadow-xl">
         {canReact &&
-          QUICK_REACTIONS.map((emoji) => {
-            const selected =
-              reactions.some(
-                (reaction) =>
-                  reaction.emoji === emoji &&
-                  hasReacted(reaction)
-              );
+          QUICK_REACTIONS.map(
+            (emoji) => {
+              const selected =
+                reactions.some(
+                  (reaction) =>
+                    reaction.emoji ===
+                      emoji &&
+                    hasReacted(
+                      reaction
+                    )
+                );
 
-            return (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() =>
-                  onReaction(emoji)
-                }
-                disabled={reacting || deleting}
-                aria-label={`React ${emoji}`}
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-lg transition ${
-                  selected
-                    ? "bg-blue-100 ring-2 ring-blue-400"
-                    : "hover:bg-slate-100"
-                } ${
-                  reacting || deleting
-                    ? "cursor-not-allowed opacity-50"
-                    : ""
-                }`}
-              >
-                {emoji}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() =>
+                    onReaction(
+                      emoji
+                    )
+                  }
+                  disabled={
+                    reacting ||
+                    deleting
+                  }
+                  aria-label={`React ${emoji}`}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-lg transition ${
+                    selected
+                      ? "bg-blue-100 ring-2 ring-blue-400"
+                      : "hover:bg-slate-100"
+                  } ${
+                    reacting ||
+                    deleting
+                      ? "cursor-not-allowed opacity-50"
+                      : ""
+                  }`}
+                >
+                  {emoji}
+                </button>
+              );
+            }
+          )}
 
         <div className="mx-1 h-6 w-px bg-slate-200" />
 
@@ -111,9 +125,7 @@ const MessageActionBar = ({
         </button>
       </div>
 
-      {/* =================================================
-          THREE-DOT MENU
-      ================================================== */}
+      {/* THREE DOT MENU */}
 
       {menuOpen && (
         <div
@@ -123,6 +135,30 @@ const MessageActionBar = ({
               : "left-0"
           }`}
         >
+          {/* SELECT */}
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+
+              onSelect?.();
+            }}
+            disabled={deleting}
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <CheckSquare
+              size={16}
+            />
+
+            <span>
+              Select
+            </span>
+          </button>
+
+          {/* DELETE FOR ME */}
+
           <button
             type="button"
             onClick={onDeleteForMe}
@@ -143,6 +179,8 @@ const MessageActionBar = ({
             </span>
           </button>
 
+          {/* CANCEL */}
+
           <button
             type="button"
             onClick={onCancel}
@@ -155,6 +193,8 @@ const MessageActionBar = ({
               Cancel
             </span>
           </button>
+
+          {/* DELETE FOR EVERYONE */}
 
           {own && (
             <button

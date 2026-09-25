@@ -57,6 +57,31 @@ const reactionSchema = new mongoose.Schema(
   }
 );
 
+const forwardedFromSchema = new mongoose.Schema(
+  {
+    messageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      required: true,
+    },
+
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      required: true,
+    },
+
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const messageSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -98,10 +123,18 @@ const messageSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Original message information when
+    // this message was forwarded.
+    forwardedFrom: {
+      type: forwardedFromSchema,
+      default: null,
+    },
+
     reactions: {
       type: [reactionSchema],
       default: [],
     },
+
     deletedFor: {
       type: [
         {
@@ -140,4 +173,12 @@ messageSchema.index({
   createdAt: 1,
 });
 
-module.exports = mongoose.model("Message", messageSchema);
+// Forwarded-message lookup
+messageSchema.index({
+  "forwardedFrom.messageId": 1,
+});
+
+module.exports = mongoose.model(
+  "Message",
+  messageSchema
+);

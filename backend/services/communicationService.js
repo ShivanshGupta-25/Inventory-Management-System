@@ -27,6 +27,126 @@ const normalizeUser = (user) => {
   };
 };
 
+const createServiceError = (
+  message,
+  statusCode = 400
+) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+/* =====================================================
+   NORMALIZE MESSAGE
+===================================================== */
+
+const normalizeMessage = (
+  message,
+  {
+    includeDeletedContent = false,
+  } = {}
+) => {
+  if (!message) {
+    return null;
+  }
+
+  const deletedForEveryone =
+    Boolean(message.deletedForEveryone);
+
+  const hideContent =
+    deletedForEveryone &&
+    !includeDeletedContent;
+
+  return {
+    id: message._id,
+
+    conversationId:
+      message.conversationId,
+
+    type: message.type,
+
+    text: hideContent
+      ? ""
+      : message.text || "",
+
+    attachments: hideContent
+      ? []
+      : message.attachments || [],
+
+    reactions: hideContent
+      ? []
+      : message.reactions || [],
+
+    createdAt: message.createdAt,
+
+    updatedAt: message.updatedAt,
+
+    deletedForEveryone,
+
+    deletedAt:
+      message.deletedAt || null,
+
+    replyCount:
+      message.replyCount || 0,
+
+    sender: normalizeUser(
+      message.senderId
+    ),
+
+    forwardedFrom:
+      message.forwardedFrom
+        ? {
+            messageId:
+              message.forwardedFrom
+                .messageId,
+
+            conversationId:
+              message.forwardedFrom
+                .conversationId,
+
+            sender:
+              normalizeUser(
+                message.forwardedFrom
+                  .senderId
+              ),
+          }
+        : null,
+
+    replyTo:
+      message.replyTo
+        ? {
+            id:
+              message.replyTo._id,
+
+            text:
+              message.replyTo
+                .deletedForEveryone
+                ? ""
+                : message.replyTo.text ||
+                  "",
+
+            createdAt:
+              message.replyTo.createdAt,
+
+            sender:
+              normalizeUser(
+                message.replyTo.senderId
+              ),
+
+            deletedForEveryone:
+              Boolean(
+                message.replyTo
+                  .deletedForEveryone
+              ),
+
+            deletedAt:
+              message.replyTo.deletedAt ||
+              null,
+          }
+        : null,
+  };
+};
+
 /* =====================================================
    GET COMMUNICATION USERS
 ===================================================== */
@@ -44,7 +164,10 @@ const getCommunicationUsers = async (
   if (search.trim()) {
     const escapedSearch = search
       .trim()
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      .replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
 
     query.$or = [
       {
@@ -77,7 +200,9 @@ const getCommunicationUsers = async (
 
 const findUserById = async (userId) => {
   if (!isValidObjectId(userId)) {
-    throw new Error("Invalid user ID");
+    throw createServiceError(
+      "Invalid user ID"
+    );
   }
 
   const user = await User.findById(userId)
@@ -85,7 +210,10 @@ const findUserById = async (userId) => {
     .lean();
 
   if (!user) {
-    throw new Error("User not found");
+    throw createServiceError(
+      "User not found",
+      404
+    );
   }
 
   return user;
@@ -113,19 +241,17 @@ const requireParticipant = async (
   conversationId,
   userId
 ) => {
-  const participant = await getParticipant(
-    conversationId,
-    userId
-  );
-
-  if (!participant) {
-    const error = new Error(
-      "You are not a participant in this conversation"
+  const participant =
+    await getParticipant(
+      conversationId,
+      userId
     );
 
-    error.statusCode = 403;
-
-    throw error;
+  if (!participant) {
+    throw createServiceError(
+      "You are not a participant in this conversation",
+      403
+    );
   }
 
   return participant;
@@ -158,30 +284,29 @@ const getConversations = async (userId) => {
       continue;
     }
 
-    /* =====================================================
-       LATEST MESSAGE VISIBLE TO THIS USER
-    ====================================================== */
-
     const lastVisibleMessage =
       await Message.findOne({
         conversationId:
           conversation._id,
+
         deletedFor: {
           $ne: userId,
         },
       })
         .populate({
           path: "senderId",
-          select: "_id name email role",
+          select:
+            "_id name email role",
+        })
+        .populate({
+          path: "forwardedFrom.senderId",
+          select:
+            "_id name email role",
         })
         .sort({
           createdAt: -1,
         })
         .lean();
-
-    /* =====================================================
-       PARTICIPANTS
-    ====================================================== */
 
     const conversationParticipants =
       await ConversationParticipant.find({
@@ -194,62 +319,43 @@ const getConversations = async (userId) => {
         )
         .lean();
 
-    /* =====================================================
-       LAST MESSAGE PREVIEW
-    ====================================================== */
-
     let lastMessage = null;
 
     if (lastVisibleMessage) {
-      const deletedForEveryone =
-        Boolean(
-          lastVisibleMessage.deletedForEveryone
+      const normalized =
+        normalizeMessage(
+          lastVisibleMessage
         );
 
       lastMessage = {
-        id: lastVisibleMessage._id,
-        type: lastVisibleMessage.type,
+        ...normalized,
 
-        /*
-         * Never expose deleted content in the
-         * conversation preview.
-         */
-        text: deletedForEveryone
-          ? "This message was deleted"
-          : lastVisibleMessage.text ||
-            "",
-
-        createdAt:
-          lastVisibleMessage.createdAt,
-
-        deletedForEveryone,
-
-        deletedAt:
-          lastVisibleMessage.deletedAt ||
-          null,
-
-        sender: normalizeUser(
-          lastVisibleMessage.senderId
-        ),
+        text:
+          lastVisibleMessage
+            .deletedForEveryone
+            ? "This message was deleted"
+            : normalized.text,
       };
     }
 
-    /* =====================================================
-       RESULT
-    ====================================================== */
-
     conversations.push({
       id: conversation._id,
-      type: conversation.type,
-      name: conversation.name,
-      createdBy: conversation.createdBy,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
 
-      /*
-       * This is now user-specific rather than blindly
-       * using Conversation.lastMessageAt.
-       */
+      type:
+        conversation.type,
+
+      name:
+        conversation.name,
+
+      createdBy:
+        conversation.createdBy,
+
+      createdAt:
+        conversation.createdAt,
+
+      updatedAt:
+        conversation.updatedAt,
+
       lastMessageAt:
         lastVisibleMessage?.createdAt ||
         null,
@@ -266,18 +372,24 @@ const getConversations = async (userId) => {
             name: item.userId.name,
             email: item.userId.email,
             role: item.userId.role,
+
             participantRole:
               item.role,
+
             joinedAt:
               item.joinedAt,
+
             lastReadAt:
               item.lastReadAt,
           })),
 
       currentUserParticipant: {
-        role: participant.role,
+        role:
+          participant.role,
+
         joinedAt:
           participant.joinedAt,
+
         lastReadAt:
           participant.lastReadAt,
       },
@@ -296,13 +408,9 @@ const getConversation = async (
   userId
 ) => {
   if (!isValidObjectId(conversationId)) {
-    const error = new Error(
+    throw createServiceError(
       "Invalid conversation ID"
     );
-
-    error.statusCode = 400;
-
-    throw error;
   }
 
   await requireParticipant(
@@ -316,13 +424,10 @@ const getConversation = async (
     ).lean();
 
   if (!conversation) {
-    const error = new Error(
-      "Conversation not found"
+    throw createServiceError(
+      "Conversation not found",
+      404
     );
-
-    error.statusCode = 404;
-
-    throw error;
   }
 
   const participants =
@@ -337,25 +442,45 @@ const getConversation = async (
 
   return {
     id: conversation._id,
-    type: conversation.type,
-    name: conversation.name,
-    createdBy: conversation.createdBy,
-    createdAt: conversation.createdAt,
-    updatedAt: conversation.updatedAt,
+
+    type:
+      conversation.type,
+
+    name:
+      conversation.name,
+
+    createdBy:
+      conversation.createdBy,
+
+    createdAt:
+      conversation.createdAt,
+
+    updatedAt:
+      conversation.updatedAt,
+
     lastMessageAt:
       conversation.lastMessageAt,
 
-    participants: participants
-      .filter((item) => item.userId)
-      .map((item) => ({
-        id: item.userId._id,
-        name: item.userId.name,
-        email: item.userId.email,
-        role: item.userId.role,
-        participantRole: item.role,
-        joinedAt: item.joinedAt,
-        lastReadAt: item.lastReadAt,
-      })),
+    participants:
+      participants
+        .filter(
+          (item) => item.userId
+        )
+        .map((item) => ({
+          id: item.userId._id,
+          name: item.userId.name,
+          email: item.userId.email,
+          role: item.userId.role,
+
+          participantRole:
+            item.role,
+
+          joinedAt:
+            item.joinedAt,
+
+          lastReadAt:
+            item.lastReadAt,
+        })),
   };
 };
 
@@ -380,6 +505,7 @@ const getMessages = async (
 
   const query = {
     conversationId,
+
     deletedFor: {
       $ne: userId,
     },
@@ -390,47 +516,55 @@ const getMessages = async (
     isValidObjectId(options.before)
   ) {
     const referenceMessage =
-      await Message.findById(options.before)
+      await Message.findById(
+        options.before
+      )
         .select("createdAt")
         .lean();
 
     if (referenceMessage) {
       query.createdAt = {
-        $lt: referenceMessage.createdAt,
+        $lt:
+          referenceMessage.createdAt,
       };
     }
   }
 
-  const messages = await Message.find(query)
-    .populate(
-      "senderId",
-      "_id name email role"
-    )
-    .populate({
-      path: "replyTo",
-      populate: {
-        path: "senderId",
-        select: "_id name email role",
-      },
-    })
-    .sort({
-      createdAt: -1,
-    })
-    .limit(limit)
-    .lean();
+  const messages =
+    await Message.find(query)
+      .populate(
+        "senderId",
+        "_id name email role"
+      )
+      .populate({
+        path: "replyTo",
 
-  /* ===================================================
-     GET REPLY COUNTS FOR CURRENT MESSAGE PAGE
+        populate: {
+          path: "senderId",
+          select:
+            "_id name email role",
+        },
+      })
+      .populate({
+        path:
+          "forwardedFrom.senderId",
 
-     This performs ONE aggregation instead of
-     performing a query for every individual message.
-  =================================================== */
+        select:
+          "_id name email role",
+      })
+      .sort({
+        createdAt: -1,
+      })
+      .limit(limit)
+      .lean();
 
-  const messageIds = messages.map(
-    (message) => message._id
-  );
+  const messageIds =
+    messages.map(
+      (message) => message._id
+    );
 
-  let replyCountMap = new Map();
+  let replyCountMap =
+    new Map();
 
   if (messageIds.length > 0) {
     const replyCounts =
@@ -446,9 +580,11 @@ const getMessages = async (
             },
           },
         },
+
         {
           $group: {
             _id: "$replyTo",
+
             count: {
               $sum: 1,
             },
@@ -456,96 +592,28 @@ const getMessages = async (
         },
       ]);
 
-    replyCountMap = new Map(
-      replyCounts.map((item) => [
-        String(item._id),
-        item.count,
-      ])
-    );
+    replyCountMap =
+      new Map(
+        replyCounts.map(
+          (item) => [
+            String(item._id),
+            item.count,
+          ]
+        )
+      );
   }
-
-  /* ===================================================
-     FORMAT RESPONSE
-  =================================================== */
 
   return messages
     .reverse()
     .map((message) => ({
-      id: message._id,
-
-      conversationId:
-        message.conversationId,
-
-      type: message.type,
-
-      text:
-        message.deletedForEveryone
-          ? ""
-          : message.text || "",
-
-      attachments:
-        message.deletedForEveryone
-          ? []
-          : message.attachments || [],
-
-      reactions:
-        message.deletedForEveryone
-          ? []
-          : message.reactions || [],
-
-      createdAt:
-        message.createdAt,
-
-      updatedAt:
-        message.updatedAt,
-
-      deletedForEveryone:
-        Boolean(message.deletedForEveryone),
-
-      deletedAt:
-        message.deletedAt || null,
+      ...normalizeMessage(
+        message
+      ),
 
       replyCount:
         replyCountMap.get(
           String(message._id)
         ) || 0,
-
-      sender:
-        normalizeUser(
-          message.senderId
-        ),
-
-      replyTo:
-        message.replyTo
-          ? {
-              id:
-                message.replyTo._id,
-
-              text:
-                message.replyTo
-                  .deletedForEveryone
-                  ? ""
-                  : message.replyTo.text || "",
-
-              createdAt:
-                message.replyTo.createdAt,
-
-              sender:
-                normalizeUser(
-                  message.replyTo.senderId
-                ),
-
-              deletedForEveryone:
-                Boolean(
-                  message.replyTo
-                    .deletedForEveryone
-                ),
-
-              deletedAt:
-                message.replyTo.deletedAt ||
-                null,
-            }
-          : null,
     }));
 };
 
@@ -553,229 +621,236 @@ const getMessages = async (
    FIND OR CREATE DIRECT CONVERSATION
 ===================================================== */
 
-const createDirectConversation = async (
-  currentUserId,
-  targetUserId
-) => {
-  if (
-    !isValidObjectId(targetUserId)
-  ) {
-    const error = new Error(
-      "Invalid target user ID"
-    );
+const createDirectConversation =
+  async (
+    currentUserId,
+    targetUserId
+  ) => {
+    if (
+      !isValidObjectId(
+        targetUserId
+      )
+    ) {
+      throw createServiceError(
+        "Invalid target user ID"
+      );
+    }
 
-    error.statusCode = 400;
+    if (
+      String(currentUserId) ===
+      String(targetUserId)
+    ) {
+      throw createServiceError(
+        "You cannot create a conversation with yourself"
+      );
+    }
 
-    throw error;
-  }
+    const targetUser =
+      await findUserById(
+        targetUserId
+      );
 
-  if (
-    String(currentUserId) ===
-    String(targetUserId)
-  ) {
-    const error = new Error(
-      "You cannot create a conversation with yourself"
-    );
+    const currentParticipations =
+      await ConversationParticipant.find({
+        userId: currentUserId,
+      }).select("conversationId");
 
-    error.statusCode = 400;
+    const conversationIds =
+      currentParticipations.map(
+        (item) =>
+          item.conversationId
+      );
 
-    throw error;
-  }
+    let conversation = null;
 
-  const targetUser =
-    await findUserById(targetUserId);
+    if (conversationIds.length) {
+      const targetParticipation =
+        await ConversationParticipant.findOne(
+          {
+            userId:
+              targetUserId,
 
-  const currentParticipations =
-    await ConversationParticipant.find({
-      userId: currentUserId,
-    }).select("conversationId");
+            conversationId: {
+              $in:
+                conversationIds,
+            },
+          }
+        ).lean();
 
-  const conversationIds =
-    currentParticipations.map(
-      (item) => item.conversationId
-    );
+      if (targetParticipation) {
+        const possibleConversation =
+          await Conversation.findOne({
+            _id:
+              targetParticipation.conversationId,
 
-  let conversation = null;
+            type: "direct",
+          }).lean();
 
-  if (conversationIds.length) {
-    const targetParticipation =
-      await ConversationParticipant.findOne({
-        userId: targetUserId,
-        conversationId: {
-          $in: conversationIds,
-        },
-      }).lean();
+        if (possibleConversation) {
+          const participantCount =
+            await ConversationParticipant.countDocuments(
+              {
+                conversationId:
+                  possibleConversation._id,
+              }
+            );
 
-    if (targetParticipation) {
-      const possibleConversation =
-        await Conversation.findOne({
-          _id:
-            targetParticipation.conversationId,
-          type: "direct",
-        }).lean();
-
-      if (possibleConversation) {
-        const participantCount =
-          await ConversationParticipant.countDocuments(
-            {
-              conversationId:
-                possibleConversation._id,
-            }
-          );
-
-        if (participantCount === 2) {
-          conversation =
-            possibleConversation;
+          if (
+            participantCount === 2
+          ) {
+            conversation =
+              possibleConversation;
+          }
         }
       }
     }
-  }
 
-  if (!conversation) {
-    conversation =
-      await Conversation.create({
-        type: "direct",
-        name: "",
-        createdBy: currentUserId,
-      });
+    if (!conversation) {
+      conversation =
+        await Conversation.create({
+          type: "direct",
+          name: "",
+          createdBy:
+            currentUserId,
+        });
 
-    await ConversationParticipant.insertMany(
-      [
-        {
-          conversationId:
-            conversation._id,
-          userId: currentUserId,
-          role: "member",
-        },
-        {
-          conversationId:
-            conversation._id,
-          userId: targetUser._id,
-          role: "member",
-        },
-      ]
+      await ConversationParticipant.insertMany(
+        [
+          {
+            conversationId:
+              conversation._id,
+
+            userId:
+              currentUserId,
+
+            role: "member",
+          },
+
+          {
+            conversationId:
+              conversation._id,
+
+            userId:
+              targetUser._id,
+
+            role: "member",
+          },
+        ]
+      );
+    }
+
+    return getConversation(
+      conversation._id,
+      currentUserId
     );
-  }
-
-  return getConversation(
-    conversation._id,
-    currentUserId
-  );
-};
+  };
 
 /* =====================================================
    CREATE GROUP
 ===================================================== */
 
-const createGroupConversation = async (
-  currentUserId,
-  { name, participantIds = [] }
-) => {
-  const trimmedName = name?.trim();
-
-  if (!trimmedName) {
-    const error = new Error(
-      "Group name is required"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  if (trimmedName.length > 100) {
-    const error = new Error(
-      "Group name cannot exceed 100 characters"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  if (!Array.isArray(participantIds)) {
-    const error = new Error(
-      "Participant IDs must be an array"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const uniqueParticipantIds = [
+const createGroupConversation =
+  async (
     currentUserId,
-    ...participantIds,
-  ].map(String);
-
-  const uniqueIds = [
-    ...new Set(uniqueParticipantIds),
-  ];
-
-  for (const id of uniqueIds) {
-    if (!isValidObjectId(id)) {
-      const error = new Error(
-        "One or more participant IDs are invalid"
-      );
-
-      error.statusCode = 400;
-
-      throw error;
+    {
+      name,
+      participantIds = [],
     }
-  }
+  ) => {
+    const trimmedName =
+      name?.trim();
 
-  const users = await User.find({
-    _id: {
-      $in: uniqueIds,
-    },
-  })
-    .select("_id name email role")
-    .lean();
+    if (!trimmedName) {
+      throw createServiceError(
+        "Group name is required"
+      );
+    }
 
-  if (users.length !== uniqueIds.length) {
-    const error = new Error(
-      "One or more participants were not found"
+    if (trimmedName.length > 100) {
+      throw createServiceError(
+        "Group name cannot exceed 100 characters"
+      );
+    }
+
+    if (!Array.isArray(participantIds)) {
+      throw createServiceError(
+        "Participant IDs must be an array"
+      );
+    }
+
+    const uniqueParticipantIds = [
+      currentUserId,
+      ...participantIds,
+    ].map(String);
+
+    const uniqueIds = [
+      ...new Set(
+        uniqueParticipantIds
+      ),
+    ];
+
+    for (const id of uniqueIds) {
+      if (!isValidObjectId(id)) {
+        throw createServiceError(
+          "One or more participant IDs are invalid"
+        );
+      }
+    }
+
+    const users =
+      await User.find({
+        _id: {
+          $in: uniqueIds,
+        },
+      })
+        .select(
+          "_id name email role"
+        )
+        .lean();
+
+    if (
+      users.length !==
+      uniqueIds.length
+    ) {
+      throw createServiceError(
+        "One or more participants were not found"
+      );
+    }
+
+    if (uniqueIds.length < 3) {
+      throw createServiceError(
+        "A group conversation requires at least three participants"
+      );
+    }
+
+    const conversation =
+      await Conversation.create({
+        type: "group",
+        name: trimmedName,
+        createdBy:
+          currentUserId,
+      });
+
+    await ConversationParticipant.insertMany(
+      uniqueIds.map((id) => ({
+        conversationId:
+          conversation._id,
+
+        userId: id,
+
+        role:
+          String(id) ===
+          String(currentUserId)
+            ? "admin"
+            : "member",
+      }))
     );
 
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  if (uniqueIds.length < 3) {
-    const error = new Error(
-      "A group conversation requires at least three participants"
+    return getConversation(
+      conversation._id,
+      currentUserId
     );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const conversation =
-    await Conversation.create({
-      type: "group",
-      name: trimmedName,
-      createdBy: currentUserId,
-    });
-
-  await ConversationParticipant.insertMany(
-    uniqueIds.map((id) => ({
-      conversationId:
-        conversation._id,
-      userId: id,
-      role:
-        String(id) === String(currentUserId)
-          ? "admin"
-          : "member",
-    }))
-  );
-
-  return getConversation(
-    conversation._id,
-    currentUserId
-  );
-};
+  };
 
 /* =====================================================
    SEND MESSAGE
@@ -802,32 +877,20 @@ const sendMessage = async (
       : "";
 
   if (trimmedText.length > 5000) {
-    const error = new Error(
+    throw createServiceError(
       "Message cannot exceed 5000 characters"
     );
-
-    error.statusCode = 400;
-
-    throw error;
   }
 
   if (
     replyTo &&
     !isValidObjectId(replyTo)
   ) {
-    const error = new Error(
+    throw createServiceError(
       "Invalid reply message ID"
     );
-
-    error.statusCode = 400;
-
-    throw error;
   }
 
-  /*
-   * Verify the parent message belongs
-   * to the same conversation.
-   */
   if (replyTo) {
     const repliedMessage =
       await Message.findOne({
@@ -836,13 +899,9 @@ const sendMessage = async (
       }).lean();
 
     if (!repliedMessage) {
-      const error = new Error(
+      throw createServiceError(
         "Reply message not found in this conversation"
       );
-
-      error.statusCode = 400;
-
-      throw error;
     }
   }
 
@@ -850,25 +909,28 @@ const sendMessage = async (
     !trimmedText &&
     (!files || files.length === 0)
   ) {
-    const error = new Error(
+    throw createServiceError(
       "Message must contain text or an attachment"
     );
-
-    error.statusCode = 400;
-
-    throw error;
   }
 
   const attachments = (
     files || []
   ).map((file) => {
     const isImage =
-      file.mimetype.startsWith("image/");
+      file.mimetype.startsWith(
+        "image/"
+      );
 
     return {
-      name: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
+      name:
+        file.originalname,
+
+      mimeType:
+        file.mimetype,
+
+      size:
+        file.size,
 
       url: `${baseUrl}/uploads/${
         isImage
@@ -876,7 +938,8 @@ const sendMessage = async (
           : "documents"
       }/${file.filename}`,
 
-      path: file.path,
+      path:
+        file.path,
     };
   });
 
@@ -903,6 +966,7 @@ const sendMessage = async (
       type,
       text: trimmedText,
       attachments,
+
       replyTo:
         replyTo || null,
     });
@@ -911,7 +975,9 @@ const sendMessage = async (
     conversationId,
     {
       $set: {
-        lastMessage: message._id,
+        lastMessage:
+          message._id,
+
         lastMessageAt:
           message.createdAt,
       },
@@ -928,91 +994,33 @@ const sendMessage = async (
       )
       .populate({
         path: "replyTo",
+
         populate: {
           path: "senderId",
           select:
             "_id name email role",
         },
       })
+      .populate({
+        path:
+          "forwardedFrom.senderId",
+
+        select:
+          "_id name email role",
+      })
       .lean();
 
-  /*
-   * A newly-created message normally has
-   * zero replies. Keeping replyCount here
-   * makes the socket/REST message shape
-   * consistent with getMessages().
-   */
   const replyCount =
     await Message.countDocuments({
       replyTo: message._id,
     });
 
   return {
-    id: populatedMessage._id,
-
-    conversationId:
-      populatedMessage.conversationId,
-
-    type: populatedMessage.type,
-
-    text:
-      populatedMessage.text || "",
-
-    attachments:
-      populatedMessage.attachments || [],
-
-    reactions:
-      populatedMessage.reactions || [],
-
-    createdAt:
-      populatedMessage.createdAt,
-
-    updatedAt:
-      populatedMessage.updatedAt,
-
-    replyCount,
-
-    sender: normalizeUser(
-      populatedMessage.senderId
+    ...normalizeMessage(
+      populatedMessage
     ),
 
-    replyTo:
-      populatedMessage.replyTo
-        ? {
-            id:
-              populatedMessage
-                .replyTo._id,
-
-            text:
-              populatedMessage
-                .replyTo.deletedForEveryone
-                ? ""
-                : populatedMessage
-                    .replyTo.text || "",
-
-            createdAt:
-              populatedMessage
-                .replyTo.createdAt,
-
-            sender:
-              normalizeUser(
-                populatedMessage
-                  .replyTo.senderId
-              ),
-
-            deletedForEveryone:
-              Boolean(
-                populatedMessage
-                  .replyTo
-                  .deletedForEveryone
-              ),
-
-            deletedAt:
-              populatedMessage
-                .replyTo
-                .deletedAt || null,
-          }
-        : null,
+    replyCount,
   };
 };
 
@@ -1030,13 +1038,16 @@ const markConversationRead = async (
       userId
     );
 
-  participant.lastReadAt = new Date();
+  participant.lastReadAt =
+    new Date();
 
   await participant.save();
 
   return {
     conversationId,
-    lastReadAt: participant.lastReadAt,
+
+    lastReadAt:
+      participant.lastReadAt,
   };
 };
 
@@ -1044,166 +1055,174 @@ const markConversationRead = async (
    TOGGLE MESSAGE REACTION
 ===================================================== */
 
-const toggleMessageReaction = async ({
-  messageId,
-  userId,
-  emoji,
-}) => {
-  if (!isValidObjectId(messageId)) {
-    const error = new Error(
-      "Invalid message ID"
+const toggleMessageReaction =
+  async ({
+    messageId,
+    userId,
+    emoji,
+  }) => {
+    if (!isValidObjectId(messageId)) {
+      throw createServiceError(
+        "Invalid message ID"
+      );
+    }
+
+    if (
+      !emoji ||
+      typeof emoji !== "string"
+    ) {
+      throw createServiceError(
+        "Emoji is required"
+      );
+    }
+
+    const cleanEmoji =
+      emoji.trim();
+
+    if (!cleanEmoji) {
+      throw createServiceError(
+        "Emoji is required"
+      );
+    }
+
+    if (cleanEmoji.length > 20) {
+      throw createServiceError(
+        "Emoji is too long"
+      );
+    }
+
+    const message =
+      await Message.findById(
+        messageId
+      );
+
+    if (!message) {
+      throw createServiceError(
+        "Message not found",
+        404
+      );
+    }
+
+    await requireParticipant(
+      message.conversationId,
+      userId
     );
 
-    error.statusCode = 400;
+    if (
+      message.deletedForEveryone
+    ) {
+      throw createServiceError(
+        "Cannot react to a deleted message"
+      );
+    }
 
-    throw error;
-  }
+    if (
+      !Array.isArray(
+        message.reactions
+      )
+    ) {
+      message.reactions = [];
+    }
 
-  if (
-    !emoji ||
-    typeof emoji !== "string"
-  ) {
-    const error = new Error(
-      "Emoji is required"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const cleanEmoji = emoji.trim();
-
-  if (!cleanEmoji) {
-    const error = new Error(
-      "Emoji is required"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  if (cleanEmoji.length > 20) {
-    const error = new Error(
-      "Emoji is too long"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const message =
-    await Message.findById(messageId);
-
-  if (!message) {
-    const error = new Error(
-      "Message not found"
-    );
-
-    error.statusCode = 404;
-
-    throw error;
-  }
-
-  await requireParticipant(
-    message.conversationId,
-    userId
-  );
-
-  if (!Array.isArray(message.reactions)) {
-    message.reactions = [];
-  }
-
-  const currentReaction =
-    message.reactions.find(
-      (reaction) =>
-        reaction.userIds?.some(
-          (id) =>
-            String(id) ===
-            String(userId)
-        )
-    );
-
-  if (
-    currentReaction?.emoji ===
-    cleanEmoji
-  ) {
-    currentReaction.userIds =
-      currentReaction.userIds.filter(
-        (id) =>
-          String(id) !==
-          String(userId)
+    const currentReaction =
+      message.reactions.find(
+        (reaction) =>
+          reaction.userIds?.some(
+            (id) =>
+              String(id) ===
+              String(userId)
+          )
       );
 
     if (
-      currentReaction.userIds.length ===
-      0
+      currentReaction?.emoji ===
+      cleanEmoji
     ) {
-      message.reactions =
-        message.reactions.filter(
-          (reaction) =>
-            reaction.emoji !==
-            cleanEmoji
+      currentReaction.userIds =
+        currentReaction.userIds.filter(
+          (id) =>
+            String(id) !==
+            String(userId)
         );
+
+      if (
+        currentReaction.userIds
+          .length === 0
+      ) {
+        message.reactions =
+          message.reactions.filter(
+            (reaction) =>
+              reaction.emoji !==
+              cleanEmoji
+          );
+      }
+
+      await message.save();
+
+      return {
+        id:
+          message._id,
+
+        conversationId:
+          message.conversationId,
+
+        reactions:
+          message.reactions,
+      };
+    }
+
+    if (currentReaction) {
+      currentReaction.userIds =
+        currentReaction.userIds.filter(
+          (id) =>
+            String(id) !==
+            String(userId)
+        );
+
+      if (
+        currentReaction.userIds
+          .length === 0
+      ) {
+        message.reactions =
+          message.reactions.filter(
+            (reaction) =>
+              reaction.emoji !==
+              currentReaction.emoji
+          );
+      }
+    }
+
+    const newReaction =
+      message.reactions.find(
+        (reaction) =>
+          reaction.emoji ===
+          cleanEmoji
+      );
+
+    if (newReaction) {
+      newReaction.userIds.push(
+        userId
+      );
+    } else {
+      message.reactions.push({
+        emoji: cleanEmoji,
+        userIds: [userId],
+      });
     }
 
     await message.save();
 
     return {
-      id: message._id,
+      id:
+        message._id,
+
       conversationId:
         message.conversationId,
-      reactions: message.reactions,
+
+      reactions:
+        message.reactions,
     };
-  }
-
-  if (currentReaction) {
-    currentReaction.userIds =
-      currentReaction.userIds.filter(
-        (id) =>
-          String(id) !==
-          String(userId)
-      );
-
-    if (
-      currentReaction.userIds.length ===
-      0
-    ) {
-      message.reactions =
-        message.reactions.filter(
-          (reaction) =>
-            reaction.emoji !==
-            currentReaction.emoji
-        );
-    }
-  }
-
-  const newReaction =
-    message.reactions.find(
-      (reaction) =>
-        reaction.emoji === cleanEmoji
-    );
-
-  if (newReaction) {
-    newReaction.userIds.push(userId);
-  } else {
-    message.reactions.push({
-      emoji: cleanEmoji,
-      userIds: [userId],
-    });
-  }
-
-  await message.save();
-
-  return {
-    id: message._id,
-    conversationId:
-      message.conversationId,
-    reactions: message.reactions,
   };
-};
 
 /* =====================================================
    DELETE MESSAGE FOR ME
@@ -1214,26 +1233,21 @@ const deleteMessageForMe = async ({
   userId,
 }) => {
   if (!isValidObjectId(messageId)) {
-    const error = new Error(
+    throw createServiceError(
       "Invalid message ID"
     );
-
-    error.statusCode = 400;
-
-    throw error;
   }
 
   const message =
-    await Message.findById(messageId);
-
-  if (!message) {
-    const error = new Error(
-      "Message not found"
+    await Message.findById(
+      messageId
     );
 
-    error.statusCode = 404;
-
-    throw error;
+  if (!message) {
+    throw createServiceError(
+      "Message not found",
+      404
+    );
   }
 
   await requireParticipant(
@@ -1241,24 +1255,33 @@ const deleteMessageForMe = async ({
     userId
   );
 
-  if (!Array.isArray(message.deletedFor)) {
+  if (
+    !Array.isArray(
+      message.deletedFor
+    )
+  ) {
     message.deletedFor = [];
   }
 
   const alreadyDeleted =
     message.deletedFor.some(
       (id) =>
-        String(id) === String(userId)
+        String(id) ===
+        String(userId)
     );
 
   if (!alreadyDeleted) {
-    message.deletedFor.push(userId);
+    message.deletedFor.push(
+      userId
+    );
 
     await message.save();
   }
 
   return {
-    id: message._id,
+    id:
+      message._id,
+
     conversationId:
       message.conversationId,
   };
@@ -1268,70 +1291,689 @@ const deleteMessageForMe = async ({
    DELETE MESSAGE FOR EVERYONE
 ===================================================== */
 
-const deleteMessageForEveryone = async ({
-  messageId,
+const deleteMessageForEveryone =
+  async ({
+    messageId,
+    userId,
+  }) => {
+    if (!isValidObjectId(messageId)) {
+      throw createServiceError(
+        "Invalid message ID"
+      );
+    }
+
+    const message =
+      await Message.findById(
+        messageId
+      );
+
+    if (!message) {
+      throw createServiceError(
+        "Message not found",
+        404
+      );
+    }
+
+    await requireParticipant(
+      message.conversationId,
+      userId
+    );
+
+    if (
+      String(message.senderId) !==
+      String(userId)
+    ) {
+      throw createServiceError(
+        "You can only delete your own messages for everyone",
+        403
+      );
+    }
+
+    if (
+      !message.deletedForEveryone
+    ) {
+      message.deletedForEveryone =
+        true;
+
+      message.deletedAt =
+        new Date();
+
+      await message.save();
+    }
+
+    return {
+      id:
+        message._id,
+
+      conversationId:
+        message.conversationId,
+
+      deletedForEveryone:
+        message.deletedForEveryone,
+
+      deletedAt:
+        message.deletedAt,
+    };
+  };
+
+/* =====================================================
+   BULK DELETE MESSAGE FOR ME
+===================================================== */
+
+const deleteMessagesForMe =
+  async ({
+    messageIds,
+    userId,
+  }) => {
+    if (
+      !Array.isArray(messageIds) ||
+      messageIds.length === 0
+    ) {
+      throw createServiceError(
+        "At least one message ID is required"
+      );
+    }
+
+    const uniqueMessageIds = [
+      ...new Set(
+        messageIds.map(String)
+      ),
+    ];
+
+    if (
+      uniqueMessageIds.length >
+      100
+    ) {
+      throw createServiceError(
+        "You can delete up to 100 messages at once"
+      );
+    }
+
+    for (const messageId of
+      uniqueMessageIds) {
+      if (
+        !isValidObjectId(
+          messageId
+        )
+      ) {
+        throw createServiceError(
+          `Invalid message ID: ${messageId}`
+        );
+      }
+    }
+
+    const messages =
+      await Message.find({
+        _id: {
+          $in: uniqueMessageIds,
+        },
+      }).lean();
+
+    if (
+      messages.length !==
+      uniqueMessageIds.length
+    ) {
+      throw createServiceError(
+        "One or more messages were not found",
+        404
+      );
+    }
+
+    const conversationIds = [
+      ...new Set(
+        messages.map(
+          (message) =>
+            String(
+              message.conversationId
+            )
+        )
+      ),
+    ];
+
+    for (const conversationId of
+      conversationIds) {
+      await requireParticipant(
+        conversationId,
+        userId
+      );
+    }
+
+    const updateResult =
+      await Message.updateMany(
+        {
+          _id: {
+            $in: uniqueMessageIds,
+          },
+
+          deletedFor: {
+            $ne: userId,
+          },
+        },
+
+        {
+          $addToSet: {
+            deletedFor: userId,
+          },
+        }
+      );
+
+    return {
+      messageIds:
+        uniqueMessageIds,
+
+      conversationIds,
+
+      modifiedCount:
+        updateResult.modifiedCount ||
+        0,
+    };
+  };
+
+/* =====================================================
+   GET CONVERSATION LAST MESSAGE
+===================================================== */
+
+const getConversationLastMessage =
+  async (conversationId) => {
+    const message =
+      await Message.findOne({
+        conversationId,
+      })
+        .populate(
+          "senderId",
+          "_id name email role"
+        )
+        .populate({
+          path:
+            "forwardedFrom.senderId",
+
+          select:
+            "_id name email role",
+        })
+        .sort({
+          createdAt: -1,
+        })
+        .lean();
+
+    if (!message) {
+      return null;
+    }
+
+    const normalized =
+      normalizeMessage(message);
+
+    if (
+      message.deletedForEveryone
+    ) {
+      normalized.text =
+        "This message was deleted";
+    }
+
+    return normalized;
+  };
+
+/* =====================================================
+   BULK DELETE MESSAGE FOR EVERYONE
+===================================================== */
+
+const deleteMessagesForEveryone =
+  async ({
+    messageIds,
+    userId,
+  }) => {
+    if (
+      !Array.isArray(messageIds) ||
+      messageIds.length === 0
+    ) {
+      throw createServiceError(
+        "At least one message ID is required"
+      );
+    }
+
+    const uniqueMessageIds = [
+      ...new Set(
+        messageIds.map(String)
+      ),
+    ];
+
+    if (
+      uniqueMessageIds.length >
+      100
+    ) {
+      throw createServiceError(
+        "You can delete up to 100 messages at once"
+      );
+    }
+
+    for (const messageId of
+      uniqueMessageIds) {
+      if (
+        !isValidObjectId(
+          messageId
+        )
+      ) {
+        throw createServiceError(
+          `Invalid message ID: ${messageId}`
+        );
+      }
+    }
+
+    const messages =
+      await Message.find({
+        _id: {
+          $in: uniqueMessageIds,
+        },
+      }).lean();
+
+    if (
+      messages.length !==
+      uniqueMessageIds.length
+    ) {
+      throw createServiceError(
+        "One or more messages were not found",
+        404
+      );
+    }
+
+    const conversationIds = [
+      ...new Set(
+        messages.map(
+          (message) =>
+            String(
+              message.conversationId
+            )
+        )
+      ),
+    ];
+
+    for (const conversationId of
+      conversationIds) {
+      await requireParticipant(
+        conversationId,
+        userId
+      );
+    }
+
+    const unauthorizedMessage =
+      messages.find(
+        (message) =>
+          String(message.senderId) !==
+          String(userId)
+      );
+
+    if (unauthorizedMessage) {
+      throw createServiceError(
+        "You can only delete your own messages for everyone",
+        403
+      );
+    }
+
+    const now = new Date();
+
+    await Message.updateMany(
+      {
+        _id: {
+          $in: uniqueMessageIds,
+        },
+
+        senderId: userId,
+
+        deletedForEveryone: {
+          $ne: true,
+        },
+      },
+
+      {
+        $set: {
+          deletedForEveryone:
+            true,
+
+          deletedAt: now,
+        },
+      }
+    );
+
+    const conversationUpdates =
+      [];
+
+    for (const conversationId of
+      conversationIds) {
+      const lastMessage =
+        await getConversationLastMessage(
+          conversationId
+        );
+
+      conversationUpdates.push({
+        conversationId,
+        lastMessage,
+      });
+
+      if (lastMessage) {
+        await Conversation.findByIdAndUpdate(
+          conversationId,
+          {
+            $set: {
+              lastMessage:
+                lastMessage.id,
+
+              lastMessageAt:
+                lastMessage.createdAt,
+            },
+          }
+        );
+      } else {
+        await Conversation.findByIdAndUpdate(
+          conversationId,
+          {
+            $set: {
+              lastMessage: null,
+              lastMessageAt: null,
+            },
+          }
+        );
+      }
+    }
+
+    return {
+      messageIds:
+        uniqueMessageIds,
+
+      conversationIds,
+
+      deletedAt: now,
+
+      conversationUpdates,
+    };
+  };
+
+/* =====================================================
+   FORWARD MESSAGES
+===================================================== */
+
+const forwardMessages = async ({
+  messageIds,
+  conversationIds,
   userId,
 }) => {
-  if (!isValidObjectId(messageId)) {
-    const error = new Error(
-      "Invalid message ID"
-    );
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const message =
-    await Message.findById(messageId);
-
-  if (!message) {
-    const error = new Error(
-      "Message not found"
-    );
-
-    error.statusCode = 404;
-
-    throw error;
-  }
-
-  await requireParticipant(
-    message.conversationId,
-    userId
-  );
-
-  /*
-   * Only the original sender can delete
-   * a message for everyone.
-   */
   if (
-    String(message.senderId) !==
-    String(userId)
+    !Array.isArray(messageIds) ||
+    messageIds.length === 0
   ) {
-    const error = new Error(
-      "You can only delete your own messages for everyone"
+    throw createServiceError(
+      "At least one message ID is required"
     );
-
-    error.statusCode = 403;
-
-    throw error;
   }
 
-  if (!message.deletedForEveryone) {
-    message.deletedForEveryone = true;
-    message.deletedAt = new Date();
+  if (
+    !Array.isArray(conversationIds) ||
+    conversationIds.length === 0
+  ) {
+    throw createServiceError(
+      "At least one destination conversation is required"
+    );
+  }
 
-    await message.save();
+  const uniqueMessageIds = [
+    ...new Set(
+      messageIds.map(String)
+    ),
+  ];
+
+  const uniqueConversationIds = [
+    ...new Set(
+      conversationIds.map(String)
+    ),
+  ];
+
+  if (
+    uniqueMessageIds.length >
+    100
+  ) {
+    throw createServiceError(
+      "You can forward up to 100 messages at once"
+    );
+  }
+
+  if (
+    uniqueConversationIds.length >
+    50
+  ) {
+    throw createServiceError(
+      "You can forward to up to 50 conversations at once"
+    );
+  }
+
+  for (const messageId of
+    uniqueMessageIds) {
+    if (
+      !isValidObjectId(
+        messageId
+      )
+    ) {
+      throw createServiceError(
+        `Invalid message ID: ${messageId}`
+      );
+    }
+  }
+
+  for (const conversationId of
+    uniqueConversationIds) {
+    if (
+      !isValidObjectId(
+        conversationId
+      )
+    ) {
+      throw createServiceError(
+        `Invalid conversation ID: ${conversationId}`
+      );
+    }
+  }
+
+  const sourceMessages =
+    await Message.find({
+      _id: {
+        $in: uniqueMessageIds,
+      },
+
+      deletedFor: {
+        $ne: userId,
+      },
+    })
+      .populate(
+        "senderId",
+        "_id name email role"
+      )
+      .sort({
+        createdAt: 1,
+      })
+      .lean();
+
+  if (
+    sourceMessages.length !==
+    uniqueMessageIds.length
+  ) {
+    throw createServiceError(
+      "One or more selected messages are unavailable"
+    );
+  }
+
+  const deletedMessage =
+    sourceMessages.find(
+      (message) =>
+        message.deletedForEveryone
+    );
+
+  if (deletedMessage) {
+    throw createServiceError(
+      "Deleted messages cannot be forwarded"
+    );
+  }
+
+  const sourceConversationIds = [
+    ...new Set(
+      sourceMessages.map(
+        (message) =>
+          String(
+            message.conversationId
+          )
+      )
+    ),
+  ];
+
+  for (const conversationId of
+    sourceConversationIds) {
+    await requireParticipant(
+      conversationId,
+      userId
+    );
+  }
+
+  for (const conversationId of
+    uniqueConversationIds) {
+    await requireParticipant(
+      conversationId,
+      userId
+    );
+  }
+
+  const createdMessages = [];
+  const conversationResults = [];
+
+  for (const conversationId of
+    uniqueConversationIds) {
+    const destinationMessages = [];
+
+    for (const sourceMessage of
+      sourceMessages) {
+      const sourceSenderId =
+        sourceMessage.senderId?._id ||
+        sourceMessage.senderId;
+
+      const forwardedMessage =
+        await Message.create({
+          conversationId,
+
+          senderId:
+            userId,
+
+          type:
+            sourceMessage.type,
+
+          text:
+            sourceMessage.text || "",
+
+          attachments:
+            sourceMessage.attachments ||
+            [],
+
+          replyTo: null,
+
+          reactions: [],
+
+          deletedFor: [],
+
+          deletedForEveryone:
+            false,
+
+          deletedAt: null,
+
+          forwardedFrom: {
+            messageId:
+              sourceMessage._id,
+
+            conversationId:
+              sourceMessage.conversationId,
+
+            senderId:
+              sourceSenderId,
+          },
+        });
+
+      destinationMessages.push(
+        forwardedMessage
+      );
+    }
+
+    const lastCreatedMessage =
+      destinationMessages[
+        destinationMessages.length - 1
+      ];
+
+    if (lastCreatedMessage) {
+      await Conversation.findByIdAndUpdate(
+        conversationId,
+        {
+          $set: {
+            lastMessage:
+              lastCreatedMessage._id,
+
+            lastMessageAt:
+              lastCreatedMessage.createdAt,
+          },
+        }
+      );
+    }
+
+    const createdMessageIds =
+      destinationMessages.map(
+        (message) =>
+          message._id
+      );
+
+    const populatedMessages =
+      await Message.find({
+        _id: {
+          $in:
+            createdMessageIds,
+        },
+      })
+        .populate(
+          "senderId",
+          "_id name email role"
+        )
+        .populate({
+          path:
+            "forwardedFrom.senderId",
+
+          select:
+            "_id name email role",
+        })
+        .sort({
+          createdAt: 1,
+        })
+        .lean();
+
+    const normalizedMessages =
+      populatedMessages.map(
+        (message) =>
+          normalizeMessage(
+            message
+          )
+      );
+
+    createdMessages.push(
+      ...normalizedMessages
+    );
+
+    conversationResults.push({
+      conversationId,
+
+      messages:
+        normalizedMessages,
+
+      lastMessage:
+        normalizedMessages[
+          normalizedMessages.length - 1
+        ] || null,
+    });
   }
 
   return {
-    id: message._id,
-    conversationId:
-      message.conversationId,
-    deletedForEveryone:
-      message.deletedForEveryone,
-    deletedAt:
-      message.deletedAt,
+    messages:
+      createdMessages,
+
+    conversations:
+      conversationResults,
   };
 };
 
@@ -1350,13 +1992,9 @@ const getMessageThread = async (
   );
 
   if (!isValidObjectId(messageId)) {
-    const error = new Error(
+    throw createServiceError(
       "Invalid message ID"
     );
-
-    error.statusCode = 400;
-
-    throw error;
   }
 
   const parentMessage =
@@ -1368,30 +2006,28 @@ const getMessageThread = async (
         "senderId",
         "_id name email role"
       )
+      .populate({
+        path:
+          "forwardedFrom.senderId",
+
+        select:
+          "_id name email role",
+      })
       .lean();
 
   if (!parentMessage) {
-    const error = new Error(
-      "Message not found"
+    throw createServiceError(
+      "Message not found",
+      404
     );
-
-    error.statusCode = 404;
-
-    throw error;
   }
 
-  /*
-   * Only direct replies to this message
-   * belong to this thread.
-   *
-   * Messages deleted for the current user
-   * are hidden, while globally deleted
-   * messages remain as tombstones.
-   */
   const replies =
     await Message.find({
       conversationId,
+
       replyTo: messageId,
+
       deletedFor: {
         $ne: userId,
       },
@@ -1400,103 +2036,35 @@ const getMessageThread = async (
         "senderId",
         "_id name email role"
       )
+      .populate({
+        path:
+          "forwardedFrom.senderId",
+
+        select:
+          "_id name email role",
+      })
       .sort({
         createdAt: 1,
       })
       .lean();
 
   return {
-    parent: {
-      id: parentMessage._id,
-
-      conversationId:
-        parentMessage.conversationId,
-
-      type: parentMessage.type,
-
-      text:
-        parentMessage.deletedForEveryone
-          ? ""
-          : parentMessage.text || "",
-
-      attachments:
-        parentMessage.deletedForEveryone
-          ? []
-          : parentMessage.attachments || [],
-
-      reactions:
-        parentMessage.deletedForEveryone
-          ? []
-          : parentMessage.reactions || [],
-
-      createdAt:
-        parentMessage.createdAt,
-
-      updatedAt:
-        parentMessage.updatedAt,
-
-      deletedForEveryone:
-        Boolean(
-          parentMessage.deletedForEveryone
-        ),
-
-      deletedAt:
-        parentMessage.deletedAt || null,
-
-      replyCount: replies.length,
-
-      sender: normalizeUser(
-        parentMessage.senderId
+    parent:
+      normalizeMessage(
+        parentMessage,
+        {
+          includeDeletedContent:
+            false,
+        }
       ),
-    },
 
-    replies: replies.map(
-      (message) => ({
-        id: message._id,
-
-        conversationId:
-          message.conversationId,
-
-        type: message.type,
-
-        text:
-          message.deletedForEveryone
-            ? ""
-            : message.text || "",
-
-        attachments:
-          message.deletedForEveryone
-            ? []
-            : message.attachments || [],
-
-        reactions:
-          message.deletedForEveryone
-            ? []
-            : message.reactions || [],
-
-        createdAt:
-          message.createdAt,
-
-        updatedAt:
-          message.updatedAt,
-
-        deletedForEveryone:
-          Boolean(
-            message.deletedForEveryone
-          ),
-
-        deletedAt:
-          message.deletedAt || null,
-
-        replyCount: 0,
-
-        sender: normalizeUser(
-          message.senderId
-        ),
-
-        replyTo: message.replyTo,
-      })
-    ),
+    replies:
+      replies.map(
+        (message) =>
+          normalizeMessage(
+            message
+          )
+      ),
   };
 };
 
@@ -1517,4 +2085,7 @@ module.exports = {
   toggleMessageReaction,
   deleteMessageForMe,
   deleteMessageForEveryone,
+  deleteMessagesForMe,
+  deleteMessagesForEveryone,
+  forwardMessages,
 };

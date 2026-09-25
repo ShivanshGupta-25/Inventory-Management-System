@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -9,48 +10,83 @@ import {
   FileText,
   Paperclip,
   Send,
-  Users,
   X,
 } from "lucide-react";
 
 import MessageItem from "./MessageItem";
+import MessageSelectionToolbar from "./MessageSelectionToolbar";
+import ForwardMessageModal from "./ForwardMessageModal";
 
-const MAX_FILES = 5;
+import {
+  useCommunication,
+} from "../../context/CommunicationContext";
 
-const MAX_FILE_SIZE =
-  10 * 1024 * 1024;
+/* =========================================================
+   CONSTANTS
+========================================================= */
 
-const ALLOWED_MIME_TYPES = [
+const MAX_ATTACHMENTS = 5;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const ACCEPTED_FILE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
   "application/pdf",
+  "text/plain",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
-const formatFileSize = (
-  bytes = 0
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const getMessageId = (message) =>
+  message?.id ||
+  message?._id ||
+  null;
+
+const getConversationId = (
+  conversation
+) =>
+  conversation?.id ||
+  conversation?._id ||
+  null;
+
+const getConversationName = (
+  conversation
 ) => {
-  if (bytes < 1024) {
-    return `${bytes} B`;
+  if (!conversation) {
+    return "Conversation";
   }
 
-  if (bytes < 1024 * 1024) {
-    return `${(
-      bytes / 1024
-    ).toFixed(1)} KB`;
-  }
-
-  return `${(
-    bytes /
-    (1024 * 1024)
-  ).toFixed(1)} MB`;
+  return (
+    conversation.name ||
+    conversation.title ||
+    conversation.participantName ||
+    "Conversation"
+  );
 };
+
+const getFilePreviewUrl = (
+  file
+) => {
+  if (!file) {
+    return null;
+  }
+
+  return URL.createObjectURL(file);
+};
+
+/* =========================================================
+   MAIN COMPONENT
+========================================================= */
 
 const ConversationWindow = ({
   conversation,
@@ -66,7 +102,29 @@ const ConversationWindow = ({
   replyingTo,
   onCancelReply,
 }) => {
-  const [text, setText] =
+  /* =======================================================
+     COMMUNICATION
+  ======================================================== */
+
+  const {
+    conversations,
+
+    // Bulk actions
+    deleteMessagesForMe,
+    deleteMessagesForEveryone,
+    forwardMessages,
+
+    // Existing single-message actions
+    toggleMessageReaction,
+    deleteMessageForMe,
+    deleteMessageForEveryone,
+  } = useCommunication();
+
+  /* =======================================================
+     COMPOSER STATE
+  ======================================================== */
+
+  const [composerText, setComposerText] =
     useState("");
 
   const [selectedFiles, setSelectedFiles] =
@@ -75,52 +133,282 @@ const ConversationWindow = ({
   const [filePreviews, setFilePreviews] =
     useState([]);
 
-  const [fileError, setFileError] =
-    useState("");
-
   const [sending, setSending] =
     useState(false);
 
-  /*
-   * =====================================================
-   * MESSAGE SCROLL REFS
-   * =====================================================
-   */
+  /* =======================================================
+     SELECTION STATE
+  ======================================================== */
+
+  const [
+    selectionMode,
+    setSelectionMode,
+  ] = useState(false);
+
+  const [
+    selectedMessageIds,
+    setSelectedMessageIds,
+  ] = useState(new Set());
+
+  const [
+    processingSelection,
+    setProcessingSelection,
+  ] = useState(false);
+
+  /* =======================================================
+     FORWARD MODAL STATE
+  ======================================================== */
+
+  const [
+    showForwardModal,
+    setShowForwardModal,
+  ] = useState(false);
+
+  /* =======================================================
+     SCROLL
+  ======================================================== */
 
   const messagesContainerRef =
     useRef(null);
 
-  const messagesContentRef =
+  const fileInputRef =
     useRef(null);
 
-  const previousConversationIdRef =
-    useRef(null);
-
-  const hasInitializedScrollRef =
-    useRef(false);
-
-  /*
-   * true when the user is currently close enough
-   * to the bottom that new messages should auto-scroll.
-   */
-  const shouldAutoScrollRef =
+  const shouldScrollToBottomRef =
     useRef(true);
 
-  /*
-   * =====================================================
-   * CONVERSATION ID
-   * =====================================================
-   */
+  /* =======================================================
+     CURRENT CONVERSATION
+  ======================================================== */
 
   const conversationId =
-    conversation?.id ||
-    conversation?._id;
+    getConversationId(
+      conversation
+    );
 
-  /*
-   * =====================================================
-   * MESSAGE SCROLL HANDLER
-   * =====================================================
-   */
+  /* =======================================================
+     MESSAGE MAP
+  ======================================================== */
+
+  const messageById = useMemo(() => {
+    const map = new Map();
+
+    (messages || []).forEach(
+      (message) => {
+        const id =
+          getMessageId(message);
+
+        if (id) {
+          map.set(
+            String(id),
+            message
+          );
+        }
+      }
+    );
+
+    return map;
+  }, [messages]);
+
+  /* =======================================================
+     SELECTED MESSAGES
+  ======================================================== */
+
+  const selectedMessages = useMemo(
+    () =>
+      Array.from(
+        selectedMessageIds
+      )
+        .map((id) =>
+          messageById.get(
+            String(id)
+          )
+        )
+        .filter(Boolean),
+    [
+      selectedMessageIds,
+      messageById,
+    ]
+  );
+
+  const selectedCount =
+    selectedMessageIds.size;
+
+  /* =======================================================
+     SELECTION ELIGIBILITY
+  ======================================================== */
+
+  const canDeleteForEveryone =
+    selectedMessages.length > 0 &&
+    selectedMessages.every(
+      (message) => {
+        const senderId =
+          message?.sender?.id ||
+          message?.sender?._id ||
+          message?.senderId;
+
+        return (
+          String(senderId) ===
+            String(currentUserId) &&
+          !message?.deletedForEveryone
+        );
+      }
+    );
+
+  const canForward =
+    selectedMessages.length > 0 &&
+    selectedMessages.every(
+      (message) =>
+        !message?.deletedForEveryone
+    );
+
+  /* =======================================================
+     CLEAR SELECTION
+  ======================================================== */
+
+  const clearSelection = () => {
+    setSelectionMode(false);
+
+    setSelectedMessageIds(
+      new Set()
+    );
+
+    setShowForwardModal(false);
+  };
+
+  /* =======================================================
+     ENTER SELECTION MODE
+  ======================================================== */
+
+  const enterSelectionMode = (
+    messageOrId
+  ) => {
+    const messageId =
+      typeof messageOrId === "object"
+        ? getMessageId(messageOrId)
+        : messageOrId;
+
+    if (!messageId) {
+      return;
+    }
+
+    setSelectionMode(true);
+
+    setSelectedMessageIds(
+      new Set([
+        String(messageId),
+      ])
+    );
+
+    setShowForwardModal(false);
+  };
+
+  /* =======================================================
+     TOGGLE MESSAGE SELECTION
+  ======================================================== */
+
+  const toggleMessageSelection = (
+    messageOrId
+  ) => {
+    const messageId =
+      typeof messageOrId === "object"
+        ? getMessageId(messageOrId)
+        : messageOrId;
+
+    if (!messageId) {
+      return;
+    }
+
+    const id = String(messageId);
+
+    setSelectedMessageIds(
+      (current) => {
+        const next = new Set(
+          current
+        );
+
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+
+        return next;
+      }
+    );
+  };
+
+  /* =======================================================
+     EXIT SELECTION WHEN EMPTY
+  ======================================================== */
+
+  useEffect(() => {
+    if (
+      selectionMode &&
+      selectedMessageIds.size === 0
+    ) {
+      setSelectionMode(false);
+    }
+  }, [
+    selectionMode,
+    selectedMessageIds,
+  ]);
+
+  /* =======================================================
+     CLEAR SELECTION WHEN
+     CONVERSATION CHANGES
+  ======================================================== */
+
+  useEffect(() => {
+    setSelectionMode(false);
+
+    setSelectedMessageIds(
+      new Set()
+    );
+
+    setShowForwardModal(false);
+  }, [conversationId]);
+
+  /* =======================================================
+     SCROLL TO BOTTOM
+  ======================================================== */
+
+  const scrollToBottom = (
+    behavior = "auto"
+  ) => {
+    const container =
+      messagesContainerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    });
+  };
+
+  useEffect(() => {
+    if (!messages?.length) {
+      return;
+    }
+
+    if (
+      shouldScrollToBottomRef.current
+    ) {
+      requestAnimationFrame(() => {
+        scrollToBottom("auto");
+      });
+    }
+  }, [
+    messages,
+    conversationId,
+  ]);
+
+  /* =======================================================
+     DETECT USER SCROLL POSITION
+  ======================================================== */
 
   const handleMessagesScroll = () => {
     const container =
@@ -135,304 +423,232 @@ const ConversationWindow = ({
       container.scrollTop -
       container.clientHeight;
 
-    /*
-     * Consider the user "at the bottom" if they are
-     * within 120px of it.
-     */
-    shouldAutoScrollRef.current =
-      distanceFromBottom <= 120;
+    shouldScrollToBottomRef.current =
+      distanceFromBottom < 120;
   };
 
-  /*
-   * =====================================================
-   * SCROLL TO MOST RECENT MESSAGE
-   *
-   * When a conversation is opened:
-   * - wait for messages to render
-   * - scroll directly to the bottom
-   *
-   * When new messages arrive:
-   * - scroll only if user was already near bottom
-   * - do not interrupt users reading older messages
-   * =====================================================
-   */
+  /* =======================================================
+     REPLY TARGET
+  ======================================================== */
 
   useEffect(() => {
-    const container =
-      messagesContainerRef.current;
-
-    if (!container) {
-      return;
-    }
-
-    const isNewConversation =
-      previousConversationIdRef.current !==
-      conversationId;
-
-    if (isNewConversation) {
-      previousConversationIdRef.current =
-        conversationId;
-
-      /*
-       * Every time the user switches to a conversation,
-       * we want to open at the newest message.
-       */
-      shouldAutoScrollRef.current =
-        true;
-
-      hasInitializedScrollRef.current =
-        false;
-    }
-
-    /*
-     * Don't try to scroll while there are no messages.
-     */
-    if (!messages.length) {
+    if (!replyingTo) {
       return;
     }
 
     /*
-     * Wait until React has rendered the messages.
+     * Do not modify scroll position merely
+     * because a reply was selected.
      */
-    requestAnimationFrame(() => {
-      const currentContainer =
-        messagesContainerRef.current;
+  }, [replyingTo]);
 
-      if (!currentContainer) {
-        return;
-      }
+  /* =======================================================
+     COMPOSER
+  ======================================================== */
 
-      /*
-       * FIRST LOAD OF THIS CONVERSATION
-       *
-       * Always go to the newest message.
-       */
-      if (
-        !hasInitializedScrollRef.current
-      ) {
-        currentContainer.scrollTop =
-          currentContainer.scrollHeight;
-
-        hasInitializedScrollRef.current =
-          true;
-
-        return;
-      }
-
-      /*
-       * EXISTING CONVERSATION
-       *
-       * Only follow new messages if the user
-       * was already near the bottom.
-       */
-      if (
-        shouldAutoScrollRef.current
-      ) {
-        currentContainer.scrollTop =
-          currentContainer.scrollHeight;
-      }
-    });
-  }, [
-    conversationId,
-    messages.length,
-  ]);
-
-  /*
-   * =====================================================
-   * KEEP BOTTOM POSITION WHEN CONTENT HEIGHT CHANGES
-   *
-   * This is especially useful for:
-   * - images
-   * - attachments
-   * - lazy-loaded content
-   * - fonts/layout changes
-   * =====================================================
-   */
-
-  useEffect(() => {
-    const container =
-      messagesContainerRef.current;
-
-    const content =
-      messagesContentRef.current;
-
-    if (
-      !container ||
-      !content
-    ) {
-      return;
-    }
-
-    if (
-      typeof ResizeObserver ===
-      "undefined"
-    ) {
-      return;
-    }
-
-    const observer =
-      new ResizeObserver(() => {
-        if (
-          shouldAutoScrollRef.current
-        ) {
-          container.scrollTop =
-            container.scrollHeight;
-        }
-      });
-
-    observer.observe(content);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [conversationId]);
-
-  /*
-   * =====================================================
-   * FILE PREVIEWS
-   * =====================================================
-   */
-
-  useEffect(() => {
-    const previews =
-      selectedFiles.map(
-        (file) => ({
-          file,
-
-          url: file.type.startsWith(
-            "image/"
-          )
-            ? URL.createObjectURL(
-                file
-              )
-            : null,
-        })
-      );
-
-    setFilePreviews(previews);
-
-    return () => {
-      previews.forEach(
-        (preview) => {
-          if (preview.url) {
-            URL.revokeObjectURL(
-              preview.url
-            );
-          }
-        }
-      );
-    };
-  }, [selectedFiles]);
-
-  /*
-   * =====================================================
-   * FILE SELECTION
-   * =====================================================
-   */
-
-  const handleFileChange = (
+  const handleComposerChange = (
     event
   ) => {
-    const files = Array.from(
-      event.target.files || []
-    );
+    const value =
+      event.target.value;
 
-    if (!files.length) {
+    setComposerText(value);
+
+    if (conversationId) {
+      if (value.trim()) {
+        onTypingStart?.(
+          conversationId
+        );
+      } else {
+        onTypingStop?.(
+          conversationId
+        );
+      }
+    }
+  };
+
+  /* =======================================================
+     SEND
+  ======================================================== */
+
+  const handleSend = async () => {
+    const text =
+      composerText.trim();
+
+    if (
+      (!text &&
+        selectedFiles.length === 0) ||
+      sending
+    ) {
       return;
     }
 
-    setFileError("");
+    try {
+      setSending(true);
 
-    const availableSlots =
-      MAX_FILES -
-      selectedFiles.length;
-
-    if (availableSlots <= 0) {
-      setFileError(
-        `You can attach up to ${MAX_FILES} files.`
+      await onSend?.(
+        text,
+        selectedFiles
       );
 
-      event.target.value = "";
+      setComposerText("");
 
-      return;
+      setSelectedFiles([]);
+
+      setFilePreviews([]);
+
+      if (conversationId) {
+        onTypingStop?.(
+          conversationId
+        );
+      }
+
+      shouldScrollToBottomRef.current =
+        true;
+
+      requestAnimationFrame(() => {
+        scrollToBottom("smooth");
+      });
+    } catch (error) {
+      console.error(
+        "Failed to send message:",
+        error
+      );
+    } finally {
+      setSending(false);
     }
+  };
 
-    const filesToAdd =
-      files.slice(
-        0,
-        availableSlots
-      );
+  /* =======================================================
+     KEYBOARD
+  ======================================================== */
 
-    const validFiles = [];
+  const handleComposerKeyDown = (
+    event
+  ) => {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
 
-    for (const file of filesToAdd) {
-      if (
-        !ALLOWED_MIME_TYPES.includes(
-          file.type
-        )
-      ) {
-        setFileError(
-          `"${file.name}" is not a supported file type.`
-        );
+      handleSend();
+    }
+  };
 
-        continue;
-      }
+  /* =======================================================
+     FILE VALIDATION
+  ======================================================== */
 
-      if (
-        file.size >
-        MAX_FILE_SIZE
-      ) {
-        setFileError(
-          `"${file.name}" exceeds the 10 MB file size limit.`
-        );
-
-        continue;
-      }
-
-      const duplicate =
-        selectedFiles.some(
-          (existingFile) =>
-            existingFile.name ===
-              file.name &&
-            existingFile.size ===
-              file.size &&
-            existingFile.lastModified ===
-              file.lastModified
-        );
-
-      if (duplicate) {
-        continue;
-      }
-
-      validFiles.push(file);
+  const validateFile = (
+    file
+  ) => {
+    if (!file) {
+      return false;
     }
 
     if (
-      files.length >
-      availableSlots
+      file.size >
+      MAX_FILE_SIZE
     ) {
-      setFileError(
-        `You can attach up to ${MAX_FILES} files.`
+      window.alert(
+        `${file.name} is larger than 10 MB.`
+      );
+
+      return false;
+    }
+
+    if (
+      file.type &&
+      !ACCEPTED_FILE_TYPES.includes(
+        file.type
+      )
+    ) {
+      window.alert(
+        `${file.name} is not a supported file type.`
+      );
+
+      return false;
+    }
+
+    return true;
+  };
+
+  /* =======================================================
+     ADD FILES
+  ======================================================== */
+
+  const handleFilesSelected = (
+    event
+  ) => {
+    const incomingFiles =
+      Array.from(
+        event.target.files || []
+      );
+
+    if (!incomingFiles.length) {
+      return;
+    }
+
+    const validFiles =
+      incomingFiles.filter(
+        validateFile
+      );
+
+    const remainingSlots =
+      MAX_ATTACHMENTS -
+      selectedFiles.length;
+
+    const filesToAdd =
+      validFiles.slice(
+        0,
+        Math.max(
+          0,
+          remainingSlots
+        )
+      );
+
+    if (
+      validFiles.length >
+      filesToAdd.length
+    ) {
+      window.alert(
+        `You can attach up to ${MAX_ATTACHMENTS} files.`
       );
     }
 
-    if (validFiles.length > 0) {
-      setSelectedFiles(
-        (current) => [
-          ...current,
-          ...validFiles,
-        ]
-      );
+    if (!filesToAdd.length) {
+      event.target.value = "";
+      return;
     }
+
+    setSelectedFiles(
+      (current) => [
+        ...current,
+        ...filesToAdd,
+      ]
+    );
+
+    setFilePreviews(
+      (current) => [
+        ...current,
+        ...filesToAdd.map(
+          (file) => ({
+            file,
+            url: getFilePreviewUrl(
+              file
+            ),
+          })
+        ),
+      ]
+    );
 
     event.target.value = "";
   };
 
-  /*
-   * =====================================================
-   * REMOVE FILE
-   * =====================================================
-   */
+  /* =======================================================
+     REMOVE FILE
+  ======================================================== */
 
   const removeSelectedFile = (
     index
@@ -445,369 +661,578 @@ const ConversationWindow = ({
         )
     );
 
-    setFileError("");
+    setFilePreviews(
+      (current) => {
+        const preview =
+          current[index];
+
+        if (preview?.url) {
+          URL.revokeObjectURL(
+            preview.url
+          );
+        }
+
+        return current.filter(
+          (_, fileIndex) =>
+            fileIndex !== index
+        );
+      }
+    );
   };
 
-  /*
-   * =====================================================
-   * CLEAR FILES
-   * =====================================================
-   */
+  /* =======================================================
+     CLEANUP FILE PREVIEWS
+  ======================================================== */
 
-  const clearSelectedFiles = () => {
-    setSelectedFiles([]);
-    setFileError("");
+  useEffect(() => {
+    return () => {
+      filePreviews.forEach(
+        (preview) => {
+          if (preview?.url) {
+            URL.revokeObjectURL(
+              preview.url
+            );
+          }
+        }
+      );
+    };
+  }, [filePreviews]);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value =
-        "";
-    }
-  };
+  /* =======================================================
+     REPLY
+  ======================================================== */
 
-  /*
-   * =====================================================
-   * FILE INPUT REF
-   * =====================================================
-   */
-
-  const fileInputRef =
-    useRef(null);
-
-  /*
-   * =====================================================
-   * OPEN FILE PICKER
-   * =====================================================
-   */
-
-  const openFilePicker = () => {
-    if (sending) {
+  const handleReply = (
+    message
+  ) => {
+    if (selectionMode) {
       return;
     }
 
-    if (
-      selectedFiles.length >=
-      MAX_FILES
-    ) {
-      setFileError(
-        `You can attach up to ${MAX_FILES} files.`
+    onReply?.(message);
+  };
+
+  /* =======================================================
+     CANCEL REPLY
+  ======================================================== */
+
+  const handleCancelReply = () => {
+    onCancelReply?.();
+  };
+
+  /* =======================================================
+     SINGLE MESSAGE ACTIONS
+  ======================================================== */
+
+  const handleMessageReaction = async (
+    messageId,
+    emoji
+  ) => {
+    if (!toggleMessageReaction) {
+      return;
+    }
+
+    try {
+      await toggleMessageReaction(
+        messageId,
+        emoji
+      );
+    } catch (error) {
+      console.error(
+        "Failed to toggle message reaction:",
+        error
+      );
+    }
+  };
+
+  const handleSingleDeleteForMe =
+    async (message) => {
+      const messageId =
+        getMessageId(message);
+
+      if (
+        !messageId ||
+        !deleteMessageForMe
+      ) {
+        return;
+      }
+
+      try {
+        await deleteMessageForMe(
+          messageId
+        );
+      } catch (error) {
+        console.error(
+          "Failed to delete message for me:",
+          error
+        );
+      }
+    };
+
+  const handleSingleDeleteForEveryone =
+    async (message) => {
+      const messageId =
+        getMessageId(message);
+
+      if (
+        !messageId ||
+        !deleteMessageForEveryone
+      ) {
+        return;
+      }
+
+      try {
+        await deleteMessageForEveryone(
+          messageId
+        );
+      } catch (error) {
+        console.error(
+          "Failed to delete message for everyone:",
+          error
+        );
+      }
+    };
+
+  /* =======================================================
+     DELETE SELECTION
+  ======================================================== */
+
+  const handleDeleteSelection =
+    async () => {
+      if (
+        !selectedCount ||
+        processingSelection
+      ) {
+        return;
+      }
+
+      const ids = Array.from(
+        selectedMessageIds
       );
 
+      /*
+       * If every selected message belongs
+       * to the current user, it can be
+       * deleted for everyone.
+       */
+      if (canDeleteForEveryone) {
+        const deleteForEveryone =
+          window.confirm(
+            `Delete ${selectedCount} ${
+              selectedCount === 1
+                ? "message"
+                : "messages"
+            } for everyone?\n\nClick OK to delete for everyone.`
+          );
+
+        if (deleteForEveryone) {
+          try {
+            setProcessingSelection(
+              true
+            );
+
+            await deleteMessagesForEveryone(
+              ids
+            );
+
+            clearSelection();
+
+            return;
+          } catch (error) {
+            console.error(
+              "Failed to delete selected messages for everyone:",
+              error
+            );
+
+            window.alert(
+              "Some messages could not be deleted for everyone."
+            );
+
+            return;
+          } finally {
+            setProcessingSelection(
+              false
+            );
+          }
+        }
+      }
+
+      /*
+       * Delete for me.
+       */
+      const deleteForMe =
+        window.confirm(
+          `Delete ${selectedCount} ${
+            selectedCount === 1
+              ? "message"
+              : "messages"
+          } for you?`
+        );
+
+      if (!deleteForMe) {
+        return;
+      }
+
+      try {
+        setProcessingSelection(
+          true
+        );
+
+        await deleteMessagesForMe(
+          ids
+        );
+
+        clearSelection();
+      } catch (error) {
+        console.error(
+          "Failed to delete selected messages:",
+          error
+        );
+
+        window.alert(
+          "Some messages could not be deleted."
+        );
+      } finally {
+        setProcessingSelection(
+          false
+        );
+      }
+    };
+
+  /* =======================================================
+     OPEN FORWARD MODAL
+  ======================================================== */
+
+  const openForwardModal = () => {
+    if (
+      !selectedCount ||
+      !canForward ||
+      processingSelection
+    ) {
       return;
     }
 
-    fileInputRef.current?.click();
+    setShowForwardModal(true);
   };
 
-  /*
-   * =====================================================
-   * SEND
-   * =====================================================
-   */
+  /* =======================================================
+     CLOSE FORWARD MODAL
+  ======================================================== */
 
-  const submit = async (
-    event
+  const closeForwardModal = () => {
+    if (processingSelection) {
+      return;
+    }
+
+    setShowForwardModal(false);
+  };
+
+  /* =======================================================
+     FORWARD
+  ======================================================== */
+
+  const handleForward = async (
+    destinationConversationIds
   ) => {
-    event.preventDefault();
-
-    const value =
-      text.trim();
-
     if (
-      !value &&
-      selectedFiles.length ===
-        0
+      !selectedCount ||
+      !destinationConversationIds?.length ||
+      processingSelection
     ) {
       return;
     }
 
     try {
-      setSending(true);
-
-      /*
-       * Keep the user at the bottom when
-       * sending their own message.
-       */
-      shouldAutoScrollRef.current =
-        true;
-
-      await onSend(
-        value,
-        selectedFiles,
-        replyingTo?.id || replyingTo?._id || null
+      setProcessingSelection(
+        true
       );
 
-      setText("");
-      setSelectedFiles([]);
-      setFileError("");
+      await forwardMessages(
+        Array.from(
+          selectedMessageIds
+        ),
+        destinationConversationIds
+      );
 
-      onTypingStop?.();
-      onCancelReply?.();
+      setShowForwardModal(false);
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value =
-          "";
-      }
-    } catch {
-      /*
-       * Keep the composer contents
-       * so the user can retry.
-       */
+      clearSelection();
+    } catch (error) {
+      console.error(
+        "Failed to forward messages:",
+        error
+      );
+
+      window.alert(
+        "The selected messages could not be forwarded."
+      );
     } finally {
-      setSending(false);
+      setProcessingSelection(
+        false
+      );
     }
   };
 
-  /*
-   * =====================================================
-   * TEXT
-   * =====================================================
-   */
+  /* =======================================================
+     TYPING LABEL
+  ======================================================== */
 
-  const handleChange = (
-    event
-  ) => {
-    const value =
-      event.target.value;
+  const typingLabel = useMemo(() => {
+    const users =
+      Array.isArray(
+        typingUsers
+      )
+        ? typingUsers
+        : [];
 
-    setText(value);
-
-    if (value.trim()) {
-      onTypingStart?.();
-    } else {
-      onTypingStop?.();
+    if (!users.length) {
+      return "";
     }
-  };
 
-  /*
-   * =====================================================
-   * KEYBOARD
-   * =====================================================
-   */
-
-  const handleKeyDown = (
-    event
-  ) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-
-      if (!sending) {
-        submit(event);
-      }
+    if (users.length === 1) {
+      return "typing...";
     }
-  };
 
-  /*
-   * =====================================================
-   * EMPTY CONVERSATION
-   * =====================================================
-   */
+    if (users.length === 2) {
+      return "2 people are typing...";
+    }
+
+    return `${users.length} people are typing...`;
+  }, [typingUsers]);
+
+  /* =======================================================
+     CONVERSATION TITLE
+  ======================================================== */
+
+  const conversationName =
+    getConversationName(
+      conversation
+    );
+
+  /* =======================================================
+     EMPTY CONVERSATION
+  ======================================================== */
 
   if (!conversation) {
     return (
-      <div className="flex h-full min-h-0 items-center justify-center overflow-hidden bg-white">
-        <div className="text-center text-gray-500">
-          <p className="text-sm">
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-white">
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-700">
             Select a conversation
-            to start messaging.
+          </p>
+
+          <p className="mt-1 text-xs text-gray-400">
+            Choose a conversation to
+            start messaging.
           </p>
         </div>
       </div>
     );
   }
 
-  const typingNames =
-    Array.isArray(typingUsers)
-      ? typingUsers
-      : [];
+  /* =======================================================
+     RENDER
+  ======================================================== */
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
-      {/* =====================================================
-          CHAT HEADER
-      ====================================================== */}
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-white">
+      {/* =================================================
+          HEADER
+      ================================================== */}
 
-      <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex min-h-[64px] items-center gap-3 px-4">
+      {selectionMode ? (
+        <MessageSelectionToolbar
+          selectedCount={
+            selectedCount
+          }
+          onCancel={
+            clearSelection
+          }
+          onForward={
+            openForwardModal
+          }
+          onDelete={
+            handleDeleteSelection
+          }
+          processing={
+            processingSelection
+          }
+        />
+      ) : (
+        <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-3 py-3">
           {/* BACK */}
 
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 md:hidden"
-            aria-label="Back"
-          >
-            <ArrowLeft size={19} />
-          </button>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 md:hidden"
+              aria-label="Back"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
 
           {/* AVATAR */}
 
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700">
-            {conversation.name
-              ?.charAt(0)
-              ?.toUpperCase() ||
-              "C"}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+            {conversationName
+              .charAt(0)
+              .toUpperCase()}
           </div>
 
           {/* CONVERSATION INFO */}
 
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-sm font-semibold text-slate-900">
-              {conversation.name ||
-                "Conversation"}
-            </h2>
+            <p className="truncate text-sm font-semibold text-gray-900">
+              {conversationName}
+            </p>
 
-            <div className="flex items-center gap-1 text-xs text-slate-500">
-              <Users size={13} />
-
-              <span>
-                {conversation
-                  .participants
-                  ?.length || 0}{" "}
-                participants
-              </span>
-            </div>
-          </div>
-
-          {/* EXISTING HEADER ACTIONS CAN GO HERE */}
-        </div>
-      </header>
-
-      {/* =====================================================
-          MESSAGES
-
-          THIS IS THE ONLY MESSAGE SCROLL AREA
-      ====================================================== */}
-
-      <div
-        ref={messagesContainerRef}
-        onScroll={
-          handleMessagesScroll
-        }
-        className="
-          min-h-0
-          min-w-0
-          flex-1
-          overflow-x-hidden
-          overflow-y-auto
-          overscroll-contain
-          px-4
-          py-4
-        "
-      >
-        <div
-          ref={messagesContentRef}
-          className="
-            flex
-            min-h-full
-            w-full
-            min-w-0
-            flex-col
-            gap-2
-            pb-2
-          "
-        >
-          {loading ? (
-            <div className="flex min-h-[200px] items-center justify-center">
-              <p className="text-sm text-gray-500">
-                Loading messages...
+            {typingLabel ? (
+              <p className="truncate text-xs font-medium text-blue-600">
+                {typingLabel}
               </p>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex min-h-[200px] items-center justify-center">
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-700">
-                  No messages yet
-                </p>
-
-                <p className="mt-1 text-xs text-gray-400">
-                  Send a message to
-                  start the conversation.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {messages.map(
-                (message) => {
-                  const senderId =
-                    message.sender?._id ||
-                    message.sender?.id ||
-                    message.senderId ||
-                    message.userId;
-
-                  const own =
-                    String(
-                      senderId
-                    ) ===
-                    String(
-                      currentUserId
-                    );
-
-                  return (
-                    <MessageItem
-                      key={
-                        message.id ||
-                        message._id
-                      }
-                      message={message}
-                      own={own}
-                      onReply={
-                        onReply
-                      }
-                    />
-                  );
-                }
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* =====================================================
-          TYPING INDICATOR
-      ====================================================== */}
-
-      {typingNames.length > 0 && (
-        <div className="shrink-0 border-t border-gray-100 bg-white px-4 py-2">
-          <div className="truncate text-xs text-gray-400">
-            {typingNames.join(", ")}
-
-            {typingNames.length === 1
-              ? " is typing..."
-              : " are typing..."}
+            ) : (
+              <p className="truncate text-xs text-gray-400">
+                {conversation?.type ===
+                "group"
+                  ? "Group conversation"
+                  : "Conversation"}
+              </p>
+            )}
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          SELECTED FILES
-      ====================================================== */}
+      {/* =================================================
+          MESSAGE AREA
+      ================================================== */}
 
-      {selectedFiles.length > 0 && (
-        <div className="shrink-0 border-t border-slate-100 bg-slate-50 px-4 py-3">
-          <div className="min-w-0">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium text-gray-600">
-                Attachments (
-                {selectedFiles.length}
-                /{MAX_FILES})
+      <div
+        ref={
+          messagesContainerRef
+        }
+        onScroll={
+          handleMessagesScroll
+        }
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-5"
+      >
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-sm text-gray-400">
+              Loading messages...
+            </div>
+          </div>
+        ) : messages?.length ? (
+          <div className="flex flex-col gap-3">
+            {messages.map(
+              (message) => {
+                const messageId =
+                  getMessageId(
+                    message
+                  );
+
+                const senderId =
+                  message?.sender?.id ||
+                  message?.sender?._id ||
+                  message?.senderId;
+
+                const own =
+                  String(senderId) ===
+                  String(
+                    currentUserId
+                  );
+
+                return (
+                  <MessageItem
+                    key={messageId}
+                    message={message}
+                    own={own}
+                    currentUserId={currentUserId}
+                    onReply={handleReply}
+                    onReaction={handleMessageReaction}
+                    onDeleteForMe={handleSingleDeleteForMe}
+                    onDeleteForEveryone={
+                      handleSingleDeleteForEveryone
+                    }
+                    selectionMode={selectionMode}
+                    selected={selectedMessageIds.has(
+                      String(messageId)
+                    )}
+                    onToggleSelect={
+                      toggleMessageSelection
+                    }
+                    onEnterSelectionMode={
+                      enterSelectionMode
+                    }
+                  />
+                );
+              }
+            )}
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-600">
+                No messages yet
               </p>
+
+              <p className="mt-1 text-xs text-gray-400">
+                Send a message to start
+                the conversation.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* =================================================
+          REPLY PREVIEW
+      ================================================== */}
+
+      {!selectionMode &&
+        replyingTo && (
+          <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1 border-l-2 border-blue-500 pl-3">
+                <p className="text-xs font-semibold text-blue-600">
+                  Replying to{" "}
+                  {replyingTo.sender
+                    ?.name ||
+                    "message"}
+                </p>
+
+                <p className="mt-0.5 truncate text-xs text-gray-600">
+                  {replyingTo.text ||
+                    (replyingTo.attachments
+                      ?.length
+                      ? "Attachment"
+                      : "Message")}
+                </p>
+              </div>
 
               <button
                 type="button"
                 onClick={
-                  clearSelectedFiles
+                  handleCancelReply
                 }
-                className="text-xs text-gray-500 transition hover:text-gray-700"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                aria-label="Cancel reply"
               >
-                Clear all
+                <X size={16} />
               </button>
             </div>
+          </div>
+        )}
 
-            <div className="flex min-w-0 gap-2 overflow-x-auto overscroll-contain pb-1">
+      {/* =================================================
+          ATTACHMENT PREVIEW
+      ================================================== */}
+
+      {!selectionMode &&
+        filePreviews.length > 0 && (
+          <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {filePreviews.map(
                 (
                   preview,
@@ -817,14 +1242,14 @@ const ConversationWindow = ({
                     preview.file;
 
                   const isImage =
-                    file.type.startsWith(
+                    file?.type?.startsWith(
                       "image/"
                     );
 
                   return (
                     <div
-                      key={`${file.name}-${file.lastModified}-${index}`}
-                      className="relative flex w-36 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white"
+                      key={`${file.name}-${index}`}
+                      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white"
                     >
                       {isImage ? (
                         <img
@@ -834,28 +1259,22 @@ const ConversationWindow = ({
                           alt={
                             file.name
                           }
-                          className="h-24 w-full object-cover"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-24 items-center justify-center bg-gray-100">
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-1">
                           <FileText
-                            size={30}
+                            size={20}
                             className="text-gray-500"
                           />
+
+                          <span className="max-w-full truncate px-1 text-[9px] text-gray-500">
+                            {
+                              file.name
+                            }
+                          </span>
                         </div>
                       )}
-
-                      <div className="min-w-0 px-2 py-2">
-                        <p className="truncate text-xs font-medium text-gray-700">
-                          {file.name}
-                        </p>
-
-                        <p className="text-[11px] text-gray-400">
-                          {formatFileSize(
-                            file.size
-                          )}
-                        </p>
-                      </div>
 
                       <button
                         type="button"
@@ -864,10 +1283,12 @@ const ConversationWindow = ({
                             index
                           )
                         }
-                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
                         aria-label={`Remove ${file.name}`}
                       >
-                        <X size={14} />
+                        <X
+                          size={12}
+                        />
                       </button>
                     </div>
                   );
@@ -875,66 +1296,27 @@ const ConversationWindow = ({
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* =====================================================
-          FILE ERROR
-      ====================================================== */}
-
-      {fileError && (
-        <div className="shrink-0 px-4 py-2">
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-            {fileError}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
+      {/* =================================================
           COMPOSER
-      ====================================================== */}
+      ================================================== */}
 
-      <div className="shrink-0 border-t border-slate-200 bg-white">
-        <form
-          onSubmit={submit}
-          className="px-4 py-3"
-        >
+      {!selectionMode && (
+        <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-3">
+          <div className="flex items-end gap-2">
+            {/* FILE INPUT */}
 
-          {replyingTo && (
-            <div className="mb-2 flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <div className="w-1 shrink-0 self-stretch rounded-full bg-blue-500" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-blue-600">
-                  Replying to{" "}
-                  {replyingTo.sender?.name || replyingTo.sender?.fullName || "message"}
-                </p>
-                <p className="mt-0.5 truncate text-xs text-gray-500">
-                  {replyingTo.text || replyingTo.content || "Attachment"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={onCancelReply}
-                className="shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-700"
-                aria-label="Cancel reply"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          )}
-
-
-          <div className="flex min-w-0 items-end gap-2">
             <input
               ref={fileInputRef}
               type="file"
               multiple
-              className="hidden"
-              accept={ALLOWED_MIME_TYPES.join(
+              hidden
+              accept={ACCEPTED_FILE_TYPES.join(
                 ","
               )}
               onChange={
-                handleFileChange
+                handleFilesSelected
               }
             />
 
@@ -942,70 +1324,98 @@ const ConversationWindow = ({
 
             <button
               type="button"
-              onClick={
-                openFilePicker
+              onClick={() =>
+                fileInputRef.current?.click()
               }
               disabled={
                 sending ||
                 selectedFiles.length >=
-                  MAX_FILES
+                  MAX_ATTACHMENTS
               }
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Attach files"
               title="Attach files"
             >
-              <Paperclip size={18} />
+              <Paperclip
+                size={20}
+              />
             </button>
 
-            {/* TEXT */}
+            {/* TEXT AREA */}
 
-            <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 transition focus-within:border-blue-400 focus-within:bg-white">
+            <div className="min-w-0 flex-1">
               <textarea
-                value={text}
+                value={
+                  composerText
+                }
                 onChange={
-                  handleChange
+                  handleComposerChange
                 }
                 onKeyDown={
-                  handleKeyDown
-                }
-                onBlur={() =>
-                  onTypingStop?.()
+                  handleComposerKeyDown
                 }
                 rows={1}
-                disabled={sending}
                 placeholder="Type a message..."
-                className="max-h-32 min-h-[27px] min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm text-gray-900 outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
+                disabled={sending}
+                className="max-h-32 min-h-[40px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
 
             {/* SEND */}
 
             <button
-              type="submit"
+              type="button"
+              onClick={
+                handleSend
+              }
               disabled={
                 sending ||
-                (!text.trim() &&
+                (!composerText.trim() &&
                   selectedFiles.length ===
                     0)
               }
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
               aria-label="Send message"
+              title="Send"
             >
-              {sending ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Send size={17} />
-              )}
+              <Send size={18} />
             </button>
           </div>
 
-          <p className="mt-1.5 text-[11px] text-gray-400">
-            Enter to send · Shift + Enter
-            for a new line · Up to 5
-            files, 10 MB each
-          </p>
-        </form>
-      </div>
+          {/* ATTACHMENT LIMIT */}
+
+          {selectedFiles.length >
+            0 && (
+            <p className="mt-1 px-12 text-[10px] text-gray-400">
+              {selectedFiles.length}/
+              {MAX_ATTACHMENTS} files
+              attached
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* =================================================
+          FORWARD MODAL
+      ================================================== */}
+
+      <ForwardMessageModal
+        open={
+          showForwardModal
+        }
+        conversations={
+          conversations
+        }
+        onClose={
+          closeForwardModal
+        }
+        onForward={
+          handleForward
+        }
+        processing={
+          processingSelection
+        }
+      />
     </div>
   );
 };
