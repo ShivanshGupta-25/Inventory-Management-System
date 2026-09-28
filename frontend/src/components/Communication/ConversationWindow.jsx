@@ -26,7 +26,9 @@ import {
 ========================================================= */
 
 const MAX_ATTACHMENTS = 5;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const MAX_FILE_SIZE =
+  10 * 1024 * 1024;
 
 const ACCEPTED_FILE_TYPES = [
   "image/jpeg",
@@ -47,7 +49,9 @@ const ACCEPTED_FILE_TYPES = [
    HELPERS
 ========================================================= */
 
-const getMessageId = (message) =>
+const getMessageId = (
+  message
+) =>
   message?.id ||
   message?._id ||
   null;
@@ -81,7 +85,9 @@ const getFilePreviewUrl = (
     return null;
   }
 
-  return URL.createObjectURL(file);
+  return URL.createObjectURL(
+    file
+  );
 };
 
 /* =========================================================
@@ -109,35 +115,41 @@ const ConversationWindow = ({
   const {
     conversations,
 
-    // Bulk actions
+    /* Bulk */
     deleteMessagesForMe,
     deleteMessagesForEveryone,
     forwardMessages,
 
-    // Existing single-message actions
+    /* Single */
     toggleMessageReaction,
     deleteMessageForMe,
     deleteMessageForEveryone,
   } = useCommunication();
 
   /* =======================================================
-     COMPOSER STATE
+     COMPOSER
   ======================================================== */
 
-  const [composerText, setComposerText] =
-    useState("");
+  const [
+    composerText,
+    setComposerText,
+  ] = useState("");
 
-  const [selectedFiles, setSelectedFiles] =
-    useState([]);
+  const [
+    selectedFiles,
+    setSelectedFiles,
+  ] = useState([]);
 
-  const [filePreviews, setFilePreviews] =
-    useState([]);
+  const [
+    filePreviews,
+    setFilePreviews,
+  ] = useState([]);
 
   const [sending, setSending] =
     useState(false);
 
   /* =======================================================
-     SELECTION STATE
+     SELECTION
   ======================================================== */
 
   const [
@@ -156,7 +168,7 @@ const ConversationWindow = ({
   ] = useState(false);
 
   /* =======================================================
-     FORWARD MODAL STATE
+     FORWARD MODAL
   ======================================================== */
 
   const [
@@ -165,7 +177,7 @@ const ConversationWindow = ({
   ] = useState(false);
 
   /* =======================================================
-     SCROLL
+     REFS
   ======================================================== */
 
   const messagesContainerRef =
@@ -214,28 +226,29 @@ const ConversationWindow = ({
      SELECTED MESSAGES
   ======================================================== */
 
-  const selectedMessages = useMemo(
-    () =>
-      Array.from(
-        selectedMessageIds
-      )
-        .map((id) =>
-          messageById.get(
-            String(id)
-          )
+  const selectedMessages =
+    useMemo(
+      () =>
+        Array.from(
+          selectedMessageIds
         )
-        .filter(Boolean),
-    [
-      selectedMessageIds,
-      messageById,
-    ]
-  );
+          .map((id) =>
+            messageById.get(
+              String(id)
+            )
+          )
+          .filter(Boolean),
+      [
+        selectedMessageIds,
+        messageById,
+      ]
+    );
 
   const selectedCount =
     selectedMessageIds.size;
 
   /* =======================================================
-     SELECTION ELIGIBILITY
+     DELETE-FOR-EVERYONE ELIGIBILITY
   ======================================================== */
 
   const canDeleteForEveryone =
@@ -249,11 +262,17 @@ const ConversationWindow = ({
 
         return (
           String(senderId) ===
-            String(currentUserId) &&
+            String(
+              currentUserId
+            ) &&
           !message?.deletedForEveryone
         );
       }
     );
+
+  /* =======================================================
+     FORWARD ELIGIBILITY
+  ======================================================== */
 
   const canForward =
     selectedMessages.length > 0 &&
@@ -284,8 +303,11 @@ const ConversationWindow = ({
     messageOrId
   ) => {
     const messageId =
-      typeof messageOrId === "object"
-        ? getMessageId(messageOrId)
+      typeof messageOrId ===
+      "object"
+        ? getMessageId(
+            messageOrId
+          )
         : messageOrId;
 
     if (!messageId) {
@@ -304,28 +326,31 @@ const ConversationWindow = ({
   };
 
   /* =======================================================
-     TOGGLE MESSAGE SELECTION
+     TOGGLE SELECTION
   ======================================================== */
 
   const toggleMessageSelection = (
     messageOrId
   ) => {
     const messageId =
-      typeof messageOrId === "object"
-        ? getMessageId(messageOrId)
+      typeof messageOrId ===
+      "object"
+        ? getMessageId(
+            messageOrId
+          )
         : messageOrId;
 
     if (!messageId) {
       return;
     }
 
-    const id = String(messageId);
+    const id =
+      String(messageId);
 
     setSelectedMessageIds(
       (current) => {
-        const next = new Set(
-          current
-        );
+        const next =
+          new Set(current);
 
         if (next.has(id)) {
           next.delete(id);
@@ -407,40 +432,26 @@ const ConversationWindow = ({
   ]);
 
   /* =======================================================
-     DETECT USER SCROLL POSITION
+     MESSAGE SCROLL
   ======================================================== */
 
-  const handleMessagesScroll = () => {
-    const container =
-      messagesContainerRef.current;
+  const handleMessagesScroll =
+    () => {
+      const container =
+        messagesContainerRef.current;
 
-    if (!container) {
-      return;
-    }
+      if (!container) {
+        return;
+      }
 
-    const distanceFromBottom =
-      container.scrollHeight -
-      container.scrollTop -
-      container.clientHeight;
+      const distanceFromBottom =
+        container.scrollHeight -
+        container.scrollTop -
+        container.clientHeight;
 
-    shouldScrollToBottomRef.current =
-      distanceFromBottom < 120;
-  };
-
-  /* =======================================================
-     REPLY TARGET
-  ======================================================== */
-
-  useEffect(() => {
-    if (!replyingTo) {
-      return;
-    }
-
-    /*
-     * Do not modify scroll position merely
-     * because a reply was selected.
-     */
-  }, [replyingTo]);
+      shouldScrollToBottomRef.current =
+        distanceFromBottom < 120;
+    };
 
   /* =======================================================
      COMPOSER
@@ -451,6 +462,18 @@ const ConversationWindow = ({
   ) => {
     const value =
       event.target.value;
+
+    /*
+     * If the user starts composing while messages are
+     * selected, immediately exit selection mode.
+     *
+     * IMPORTANT:
+     * Only the selection is cleared. The typed value is
+     * preserved in composerText.
+     */
+    if (selectionMode) {
+      clearSelection();
+    }
 
     setComposerText(value);
 
@@ -472,12 +495,10 @@ const ConversationWindow = ({
   ======================================================== */
 
   const handleSend = async () => {
-    const text =
-      composerText.trim();
+    const text = composerText.trim();
 
     if (
-      (!text &&
-        selectedFiles.length === 0) ||
+      (!text && selectedFiles.length === 0) ||
       sending
     ) {
       return;
@@ -491,20 +512,18 @@ const ConversationWindow = ({
         selectedFiles
       );
 
+      // Clear reply state after successful send
+      onCancelReply?.();
+
       setComposerText("");
-
       setSelectedFiles([]);
-
       setFilePreviews([]);
 
       if (conversationId) {
-        onTypingStop?.(
-          conversationId
-        );
+        onTypingStop?.(conversationId);
       }
 
-      shouldScrollToBottomRef.current =
-        true;
+      shouldScrollToBottomRef.current = true;
 
       requestAnimationFrame(() => {
         scrollToBottom("smooth");
@@ -619,6 +638,7 @@ const ConversationWindow = ({
 
     if (!filesToAdd.length) {
       event.target.value = "";
+
       return;
     }
 
@@ -635,9 +655,10 @@ const ConversationWindow = ({
         ...filesToAdd.map(
           (file) => ({
             file,
-            url: getFilePreviewUrl(
-              file
-            ),
+            url:
+              getFilePreviewUrl(
+                file
+              ),
           })
         ),
       ]
@@ -716,34 +737,42 @@ const ConversationWindow = ({
      CANCEL REPLY
   ======================================================== */
 
-  const handleCancelReply = () => {
-    onCancelReply?.();
-  };
+  const handleCancelReply =
+    () => {
+      onCancelReply?.();
+    };
 
   /* =======================================================
-     SINGLE MESSAGE ACTIONS
+     SINGLE REACTION
   ======================================================== */
 
-  const handleMessageReaction = async (
-    messageId,
-    emoji
-  ) => {
-    if (!toggleMessageReaction) {
-      return;
-    }
+  const handleMessageReaction =
+    async (
+      messageId,
+      emoji
+    ) => {
+      if (
+        !toggleMessageReaction
+      ) {
+        return;
+      }
 
-    try {
-      await toggleMessageReaction(
-        messageId,
-        emoji
-      );
-    } catch (error) {
-      console.error(
-        "Failed to toggle message reaction:",
-        error
-      );
-    }
-  };
+      try {
+        await toggleMessageReaction(
+          messageId,
+          emoji
+        );
+      } catch (error) {
+        console.error(
+          "Failed to toggle message reaction:",
+          error
+        );
+      }
+    };
+
+  /* =======================================================
+     SINGLE DELETE FOR ME
+  ======================================================== */
 
   const handleSingleDeleteForMe =
     async (message) => {
@@ -768,6 +797,10 @@ const ConversationWindow = ({
         );
       }
     };
+
+  /* =======================================================
+     SINGLE DELETE FOR EVERYONE
+  ======================================================== */
 
   const handleSingleDeleteForEveryone =
     async (message) => {
@@ -794,108 +827,72 @@ const ConversationWindow = ({
     };
 
   /* =======================================================
-     DELETE SELECTION
+     BULK DELETE FOR ME
   ======================================================== */
 
-  const handleDeleteSelection =
-    async () => {
+  const handleBulkDeleteForMe = async () => {
+    if (
+      !selectedCount ||
+      processingSelection
+    ) {
+      return;
+    }
+
+    try {
+      setProcessingSelection(true);
+
+      await deleteMessagesForMe(
+        Array.from(selectedMessageIds)
+      );
+
+      clearSelection();
+    } catch (error) {
+      console.error(
+        "Failed to delete selected messages for me:",
+        error
+      );
+
+      window.alert(
+        "Some messages could not be deleted."
+      );
+    } finally {
+      setProcessingSelection(false);
+    }
+  };
+
+  /* =======================================================
+     BULK DELETE FOR EVERYONE
+  ======================================================== */
+
+  const handleBulkDeleteForEveryone =
+  async () => {
       if (
         !selectedCount ||
+        !canDeleteForEveryone ||
         processingSelection
       ) {
         return;
       }
 
-      const ids = Array.from(
-        selectedMessageIds
-      );
-
-      /*
-       * If every selected message belongs
-       * to the current user, it can be
-       * deleted for everyone.
-       */
-      if (canDeleteForEveryone) {
-        const deleteForEveryone =
-          window.confirm(
-            `Delete ${selectedCount} ${
-              selectedCount === 1
-                ? "message"
-                : "messages"
-            } for everyone?\n\nClick OK to delete for everyone.`
-          );
-
-        if (deleteForEveryone) {
-          try {
-            setProcessingSelection(
-              true
-            );
-
-            await deleteMessagesForEveryone(
-              ids
-            );
-
-            clearSelection();
-
-            return;
-          } catch (error) {
-            console.error(
-              "Failed to delete selected messages for everyone:",
-              error
-            );
-
-            window.alert(
-              "Some messages could not be deleted for everyone."
-            );
-
-            return;
-          } finally {
-            setProcessingSelection(
-              false
-            );
-          }
-        }
-      }
-
-      /*
-       * Delete for me.
-       */
-      const deleteForMe =
-        window.confirm(
-          `Delete ${selectedCount} ${
-            selectedCount === 1
-              ? "message"
-              : "messages"
-          } for you?`
-        );
-
-      if (!deleteForMe) {
-        return;
-      }
-
       try {
-        setProcessingSelection(
-          true
-        );
+        setProcessingSelection(true);
 
-        await deleteMessagesForMe(
-          ids
+        await deleteMessagesForEveryone(
+          Array.from(selectedMessageIds)
         );
 
         clearSelection();
       } catch (error) {
         console.error(
-          "Failed to delete selected messages:",
+          "Failed to delete selected messages for everyone:",
           error
         );
 
         window.alert(
-          "Some messages could not be deleted."
+          "Some messages could not be deleted for everyone."
         );
       } finally {
-        setProcessingSelection(
-          false
-        );
+        setProcessingSelection(false);
       }
     };
 
@@ -912,7 +909,9 @@ const ConversationWindow = ({
       return;
     }
 
-    setShowForwardModal(true);
+    setShowForwardModal(
+      true
+    );
   };
 
   /* =======================================================
@@ -924,7 +923,9 @@ const ConversationWindow = ({
       return;
     }
 
-    setShowForwardModal(false);
+    setShowForwardModal(
+      false
+    );
   };
 
   /* =======================================================
@@ -954,7 +955,9 @@ const ConversationWindow = ({
         destinationConversationIds
       );
 
-      setShowForwardModal(false);
+      setShowForwardModal(
+        false
+      );
 
       clearSelection();
     } catch (error) {
@@ -977,28 +980,29 @@ const ConversationWindow = ({
      TYPING LABEL
   ======================================================== */
 
-  const typingLabel = useMemo(() => {
-    const users =
-      Array.isArray(
-        typingUsers
-      )
-        ? typingUsers
-        : [];
+  const typingLabel =
+    useMemo(() => {
+      const users =
+        Array.isArray(
+          typingUsers
+        )
+          ? typingUsers
+          : [];
 
-    if (!users.length) {
-      return "";
-    }
+      if (!users.length) {
+        return "";
+      }
 
-    if (users.length === 1) {
-      return "typing...";
-    }
+      if (users.length === 1) {
+        return "typing...";
+      }
 
-    if (users.length === 2) {
-      return "2 people are typing...";
-    }
+      if (users.length === 2) {
+        return "2 people are typing...";
+      }
 
-    return `${users.length} people are typing...`;
-  }, [typingUsers]);
+      return `${users.length} people are typing...`;
+    }, [typingUsers]);
 
   /* =======================================================
      CONVERSATION TITLE
@@ -1015,15 +1019,37 @@ const ConversationWindow = ({
 
   if (!conversation) {
     return (
-      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-white">
+      <div
+        className="
+          flex
+          h-full
+          min-h-0
+          flex-1
+          items-center
+          justify-center
+          bg-white
+        "
+      >
         <div className="text-center">
-          <p className="text-sm font-medium text-gray-700">
+          <p
+            className="
+              text-sm
+              font-medium
+              text-slate-700
+            "
+          >
             Select a conversation
           </p>
 
-          <p className="mt-1 text-xs text-gray-400">
-            Choose a conversation to
-            start messaging.
+          <p
+            className="
+              mt-1
+              text-xs
+              text-slate-400
+            "
+          >
+            Choose a conversation
+            to start messaging.
           </p>
         </div>
       </div>
@@ -1035,7 +1061,16 @@ const ConversationWindow = ({
   ======================================================== */
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col bg-white">
+    <div
+      className="
+        flex
+        h-full
+        min-h-0
+        flex-1
+        flex-col
+        bg-slate-50
+      "
+    >
       {/* =================================================
           HEADER
       ================================================== */}
@@ -1051,49 +1086,123 @@ const ConversationWindow = ({
           onForward={
             openForwardModal
           }
-          onDelete={
-            handleDeleteSelection
+          onDeleteForMe={
+            handleBulkDeleteForMe
+          }
+          onDeleteForEveryone={
+            handleBulkDeleteForEveryone
+          }
+          canDeleteForEveryone={
+            canDeleteForEveryone
           }
           processing={
             processingSelection
           }
         />
       ) : (
-        <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-3 py-3">
+        <div
+          className="
+            flex
+            shrink-0
+            items-center
+            gap-3
+            border-b
+            border-slate-200
+            bg-white
+            px-3
+            py-3
+          "
+        >
           {/* BACK */}
 
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 md:hidden"
+              className="
+                flex
+                h-9
+                w-9
+                shrink-0
+                items-center
+                justify-center
+                rounded-full
+                text-slate-600
+                transition
+                hover:bg-slate-100
+                md:hidden
+              "
               aria-label="Back"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft
+                size={20}
+              />
             </button>
           )}
 
           {/* AVATAR */}
 
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+          <div
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-gradient-to-br
+              from-blue-500
+              to-indigo-600
+              text-sm
+              font-semibold
+              text-white
+              shadow-sm
+            "
+          >
             {conversationName
               .charAt(0)
               .toUpperCase()}
           </div>
 
-          {/* CONVERSATION INFO */}
+          {/* INFO */}
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-gray-900">
+          <div
+            className="
+              min-w-0
+              flex-1
+            "
+          >
+            <p
+              className="
+                truncate
+                text-sm
+                font-semibold
+                text-slate-900
+              "
+            >
               {conversationName}
             </p>
 
             {typingLabel ? (
-              <p className="truncate text-xs font-medium text-blue-600">
+              <p
+                className="
+                  truncate
+                  text-xs
+                  font-medium
+                  text-blue-600
+                "
+              >
                 {typingLabel}
               </p>
             ) : (
-              <p className="truncate text-xs text-gray-400">
+              <p
+                className="
+                  truncate
+                  text-xs
+                  text-slate-400
+                "
+              >
                 {conversation?.type ===
                 "group"
                   ? "Group conversation"
@@ -1115,16 +1224,53 @@ const ConversationWindow = ({
         onScroll={
           handleMessagesScroll
         }
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-5"
+        className="
+          min-h-0
+          flex-1
+          overflow-y-auto
+          overflow-x-hidden
+          bg-gradient-to-b
+          from-slate-50
+          via-white
+          to-slate-50
+          px-3
+          py-4
+          sm:px-5
+        "
       >
         {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-sm text-gray-400">
+          <div
+            className="
+              flex
+              h-full
+              items-center
+              justify-center
+            "
+          >
+            <div
+              className="
+                rounded-xl
+                border
+                border-slate-200
+                bg-white
+                px-4
+                py-3
+                text-sm
+                text-slate-400
+                shadow-sm
+              "
+            >
               Loading messages...
             </div>
           </div>
         ) : messages?.length ? (
-          <div className="flex flex-col gap-3">
+          <div
+            className="
+              flex
+              flex-col
+              gap-3
+            "
+          >
             {messages.map(
               (message) => {
                 const messageId =
@@ -1138,26 +1284,32 @@ const ConversationWindow = ({
                   message?.senderId;
 
                 const own =
-                  String(senderId) ===
+                  String(
+                    senderId
+                  ) ===
                   String(
                     currentUserId
                   );
 
                 return (
                   <MessageItem
-                    key={messageId}
-                    message={message}
-                    own={own}
-                    currentUserId={currentUserId}
-                    onReply={handleReply}
-                    onReaction={handleMessageReaction}
-                    onDeleteForMe={handleSingleDeleteForMe}
-                    onDeleteForEveryone={
-                      handleSingleDeleteForEveryone
+                    key={
+                      messageId
                     }
-                    selectionMode={selectionMode}
+                    message={
+                      message
+                    }
+                    own={own}
+                    onReply={
+                      handleReply
+                    }
+                    selectionMode={
+                      selectionMode
+                    }
                     selected={selectedMessageIds.has(
-                      String(messageId)
+                      String(
+                        messageId
+                      )
                     )}
                     onToggleSelect={
                       toggleMessageSelection
@@ -1165,21 +1317,54 @@ const ConversationWindow = ({
                     onEnterSelectionMode={
                       enterSelectionMode
                     }
+                    onClearSelection={
+                      clearSelection
+                    }
                   />
                 );
               }
             )}
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-600">
+          <div
+            className="
+              flex
+              h-full
+              items-center
+              justify-center
+            "
+          >
+            <div
+              className="
+                rounded-2xl
+                border
+                border-slate-200
+                bg-white
+                px-8
+                py-7
+                text-center
+                shadow-sm
+              "
+            >
+              <p
+                className="
+                  text-sm
+                  font-semibold
+                  text-slate-700
+                "
+              >
                 No messages yet
               </p>
 
-              <p className="mt-1 text-xs text-gray-400">
-                Send a message to start
-                the conversation.
+              <p
+                className="
+                  mt-1
+                  text-xs
+                  text-slate-400
+                "
+              >
+                Send a message to
+                start the conversation.
               </p>
             </div>
           </div>
@@ -1192,19 +1377,56 @@ const ConversationWindow = ({
 
       {!selectionMode &&
         replyingTo && (
-          <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1 border-l-2 border-blue-500 pl-3">
-                <p className="text-xs font-semibold text-blue-600">
+          <div
+            className="
+              shrink-0
+              border-t
+              border-slate-200
+              bg-white
+              px-3
+              py-2
+            "
+          >
+            <div
+              className="
+                flex
+                items-start
+                gap-3
+              "
+            >
+              <div
+                className="
+                  min-w-0
+                  flex-1
+                  border-l-2
+                  border-blue-500
+                  pl-3
+                "
+              >
+                <p
+                  className="
+                    text-xs
+                    font-semibold
+                    text-blue-600
+                  "
+                >
                   Replying to{" "}
                   {replyingTo.sender
                     ?.name ||
                     "message"}
                 </p>
 
-                <p className="mt-0.5 truncate text-xs text-gray-600">
+                <p
+                  className="
+                    mt-0.5
+                    truncate
+                    text-xs
+                    text-slate-600
+                  "
+                >
                   {replyingTo.text ||
-                    (replyingTo.attachments
+                    (replyingTo
+                      .attachments
                       ?.length
                       ? "Attachment"
                       : "Message")}
@@ -1216,7 +1438,19 @@ const ConversationWindow = ({
                 onClick={
                   handleCancelReply
                 }
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                className="
+                  flex
+                  h-7
+                  w-7
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-full
+                  text-slate-400
+                  transition
+                  hover:bg-slate-100
+                  hover:text-slate-700
+                "
                 aria-label="Cancel reply"
               >
                 <X size={16} />
@@ -1230,9 +1464,26 @@ const ConversationWindow = ({
       ================================================== */}
 
       {!selectionMode &&
-        filePreviews.length > 0 && (
-          <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-3 py-2">
-            <div className="flex gap-2 overflow-x-auto pb-1">
+        filePreviews.length >
+          0 && (
+          <div
+            className="
+              shrink-0
+              border-t
+              border-slate-200
+              bg-white
+              px-3
+              py-2
+            "
+          >
+            <div
+              className="
+                flex
+                gap-2
+                overflow-x-auto
+                pb-1
+              "
+            >
               {filePreviews.map(
                 (
                   preview,
@@ -1249,7 +1500,18 @@ const ConversationWindow = ({
                   return (
                     <div
                       key={`${file.name}-${index}`}
-                      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white"
+                      className="
+                        relative
+                        h-16
+                        w-16
+                        shrink-0
+                        overflow-hidden
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-white
+                        shadow-sm
+                      "
                     >
                       {isImage ? (
                         <img
@@ -1259,16 +1521,43 @@ const ConversationWindow = ({
                           alt={
                             file.name
                           }
-                          className="h-full w-full object-cover"
+                          className="
+                            h-full
+                            w-full
+                            object-cover
+                          "
                         />
                       ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-1">
+                        <div
+                          className="
+                            flex
+                            h-full
+                            w-full
+                            flex-col
+                            items-center
+                            justify-center
+                            gap-1
+                            p-1
+                          "
+                        >
                           <FileText
-                            size={20}
-                            className="text-gray-500"
+                            size={
+                              20
+                            }
+                            className="
+                              text-slate-500
+                            "
                           />
 
-                          <span className="max-w-full truncate px-1 text-[9px] text-gray-500">
+                          <span
+                            className="
+                              max-w-full
+                              truncate
+                              px-1
+                              text-[9px]
+                              text-slate-500
+                            "
+                          >
                             {
                               file.name
                             }
@@ -1283,7 +1572,21 @@ const ConversationWindow = ({
                             index
                           )
                         }
-                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                        className="
+                          absolute
+                          right-1
+                          top-1
+                          flex
+                          h-5
+                          w-5
+                          items-center
+                          justify-center
+                          rounded-full
+                          bg-slate-900/70
+                          text-white
+                          transition
+                          hover:bg-slate-900
+                        "
                         aria-label={`Remove ${file.name}`}
                       >
                         <X
@@ -1302,9 +1605,23 @@ const ConversationWindow = ({
           COMPOSER
       ================================================== */}
 
-      {!selectionMode && (
-        <div className="shrink-0 border-t border-gray-200 bg-white px-3 py-3">
-          <div className="flex items-end gap-2">
+      <div
+        className="
+          shrink-0
+          border-t
+          border-slate-200
+          bg-white
+          px-3
+          py-3
+        "
+        >
+          <div
+            className="
+              flex
+              items-end
+              gap-2
+            "
+          >
             {/* FILE INPUT */}
 
             <input
@@ -1332,7 +1649,21 @@ const ConversationWindow = ({
                 selectedFiles.length >=
                   MAX_ATTACHMENTS
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="
+                flex
+                h-10
+                w-10
+                shrink-0
+                items-center
+                justify-center
+                rounded-full
+                text-slate-500
+                transition
+                hover:bg-slate-100
+                hover:text-blue-600
+                disabled:cursor-not-allowed
+                disabled:opacity-40
+              "
               aria-label="Attach files"
               title="Attach files"
             >
@@ -1343,7 +1674,12 @@ const ConversationWindow = ({
 
             {/* TEXT AREA */}
 
-            <div className="min-w-0 flex-1">
+            <div
+              className="
+                min-w-0
+                flex-1
+              "
+            >
               <textarea
                 value={
                   composerText
@@ -1357,7 +1693,29 @@ const ConversationWindow = ({
                 rows={1}
                 placeholder="Type a message..."
                 disabled={sending}
-                className="max-h-32 min-h-[40px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="
+                  max-h-32
+                  min-h-[40px]
+                  w-full
+                  resize-none
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  px-4
+                  py-2.5
+                  text-sm
+                  text-slate-900
+                  outline-none
+                  transition
+                  placeholder:text-slate-400
+                  focus:border-blue-400
+                  focus:bg-white
+                  focus:ring-2
+                  focus:ring-blue-100
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                "
               />
             </div>
 
@@ -1374,7 +1732,28 @@ const ConversationWindow = ({
                   selectedFiles.length ===
                     0)
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="
+                flex
+                h-10
+                w-10
+                shrink-0
+                items-center
+                justify-center
+                rounded-full
+                bg-gradient-to-br
+                from-blue-600
+                to-indigo-600
+                text-white
+                shadow-sm
+                transition-all
+                hover:from-blue-700
+                hover:to-indigo-700
+                hover:shadow-md
+                active:scale-95
+                disabled:cursor-not-allowed
+                disabled:bg-slate-300
+                disabled:bg-none
+              "
               aria-label="Send message"
               title="Send"
             >
@@ -1386,14 +1765,20 @@ const ConversationWindow = ({
 
           {selectedFiles.length >
             0 && (
-            <p className="mt-1 px-12 text-[10px] text-gray-400">
+            <p
+              className="
+                mt-1
+                px-12
+                text-[10px]
+                text-slate-400
+              "
+            >
               {selectedFiles.length}/
-              {MAX_ATTACHMENTS} files
-              attached
+              {MAX_ATTACHMENTS}{" "}
+              files attached
             </p>
           )}
         </div>
-      )}
 
       {/* =================================================
           FORWARD MODAL
