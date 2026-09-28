@@ -6,6 +6,7 @@ import {
 
 import {
   Check,
+  MessageCircle,
   Reply,
 } from "lucide-react";
 
@@ -37,12 +38,14 @@ import MessagePreviewModals from "./MessagePreviewModals";
    - Reply previews
    - Message selection
    - Delayed hover actions
+   - Message threads
 ========================================================= */
 
 const MessageItem = ({
   message,
   own,
   onReply,
+  onOpenThread,
 
   selectionMode = false,
   selected = false,
@@ -1162,10 +1165,10 @@ const MessageItem = ({
               min-w-0
               select-none
               overflow-visible
-              rounded-2xl
+              rounded-xl
               border
-              px-4
-              py-3
+              px-3
+              py-2
               shadow-sm
               transition-all
               duration-200
@@ -1173,29 +1176,33 @@ const MessageItem = ({
               ${
                 selected
                   ? `
-                    border-blue-300
+                    border-blue-400
                     bg-gradient-to-br
                     from-blue-50
                     via-indigo-50
                     to-slate-50
-                    shadow-[0_4px_18px_rgba(59,130,246,0.12)]
+                    text-slate-900
+                    shadow-[0_4px_18px_rgba(59,130,246,0.16)]
                     ring-1
-                    ring-blue-200
+                    ring-blue-300
                   `
                   : own
                     ? `
-                      border-blue-100
+                      border-blue-500/80
                       bg-gradient-to-br
-                      from-blue-50
-                      via-indigo-50
-                      to-white
-                      text-slate-800
+                      from-blue-600
+                      to-indigo-600
+                      text-white
+                      shadow-[0_2px_10px_rgba(37,99,235,0.20)]
+                      hover:border-blue-500
+                      hover:shadow-[0_4px_14px_rgba(37,99,235,0.24)]
                     `
                     : `
-                      border-slate-200
+                      border-slate-300
                       bg-white
-                      text-slate-800
-                      hover:border-slate-300
+                      text-slate-900
+                      shadow-[0_2px_10px_rgba(15,23,42,0.08)]
+                      hover:border-slate-400
                       hover:shadow-md
                     `
               }
@@ -1205,10 +1212,10 @@ const MessageItem = ({
 
             <div
               className={`
-                mb-2
+                mb-1.5
                 flex
                 items-center
-                gap-3
+                gap-2
                 ${
                   own
                     ? "justify-end"
@@ -1221,8 +1228,8 @@ const MessageItem = ({
                   <div
                     className="
                       flex
-                      h-7
-                      w-7
+                      h-6
+                      w-6
                       shrink-0
                       items-center
                       justify-center
@@ -1230,7 +1237,7 @@ const MessageItem = ({
                       bg-gradient-to-br
                       from-blue-500
                       to-indigo-600
-                      text-[10px]
+                      text-[9px]
                       font-semibold
                       text-white
                     "
@@ -1240,9 +1247,9 @@ const MessageItem = ({
 
                   <span
                     className="
-                      max-w-[180px]
+                      max-w-[160px]
                       truncate
-                      text-xs
+                      text-[11px]
                       font-semibold
                       text-slate-700
                     "
@@ -1255,12 +1262,12 @@ const MessageItem = ({
               <span
                 className={`
                   shrink-0
-                  text-[10px]
+                  text-[9px]
                   font-medium
                   ${
                     own
-                      ? "text-blue-500/80"
-                      : "text-slate-400"
+                      ? "text-blue-100"
+                      : "text-slate-500"
                   }
                 `}
               >
@@ -1280,11 +1287,15 @@ const MessageItem = ({
                 "
               >
                 <span
-                  className="
+                  className={`
                     text-sm
                     italic
-                    text-slate-400
-                  "
+                    ${
+                      own
+                        ? "text-blue-100"
+                        : "text-slate-500"
+                    }
+                  `}
                 >
                   This message was deleted
                 </span>
@@ -1294,7 +1305,21 @@ const MessageItem = ({
                 {/* REPLY QUOTE */}
 
                 {repliedMessage && (
-                  <div className="mb-2">
+                  <div
+                    className={`
+                      mb-1.5
+                      overflow-hidden
+                      rounded-lg
+                      border
+                      border-l-2
+                      p-1.5
+                      ${
+                        own
+                          ? "border-blue-300/60 bg-blue-950/25"
+                          : "border-slate-200 bg-slate-100"
+                      }
+                    `}
+                  >
                     <MessageReplyQuote
                       repliedMessage={
                         repliedMessage
@@ -1311,12 +1336,17 @@ const MessageItem = ({
 
                 {hasText && (
                   <p
-                    className="
+                    className={`
                       whitespace-pre-wrap
                       break-words
-                      text-sm
-                      leading-6
-                    "
+                      text-[13px]
+                      leading-5
+                      ${
+                        own
+                          ? "font-medium text-white"
+                          : "font-medium text-slate-800"
+                      }
+                    `}
                   >
                     {text}
                   </p>
@@ -1357,11 +1387,15 @@ const MessageItem = ({
                 {!hasText &&
                   !hasAttachments && (
                     <p
-                      className="
-                        text-sm
+                      className={`
+                        text-[12px]
                         italic
-                        text-slate-400
-                      "
+                        ${
+                          own
+                            ? "text-blue-100"
+                            : "text-slate-500"
+                        }
+                      `}
                     >
                       Empty message
                     </p>
@@ -1459,14 +1493,16 @@ const MessageItem = ({
               </div>
             )}
 
-          {/* REPLY / THREAD */}
+          {/* =================================================
+              REPLY / THREAD
+          ================================================== */}
 
           {!selectionMode && (
             <div
               className={`
                 mt-1
                 flex
-                min-h-[28px]
+                min-h-[24px]
                 items-center
                 gap-3
                 px-1
@@ -1480,26 +1516,53 @@ const MessageItem = ({
               {Number(
                 message.replyCount || 0
               ) > 0 && (
-                <span
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      !deletedForEveryone &&
+                      !selectionMode
+                    ) {
+                      onOpenThread?.(
+                        message
+                      );
+                    }
+                  }}
+                  disabled={
+                    deletedForEveryone ||
+                    selectionMode
+                  }
                   className={`
+                    inline-flex
+                    items-center
+                    gap-1.5
+                    rounded-full
+                    px-2
+                    py-1
                     text-xs
                     font-medium
+                    transition
                     ${
-                      deletedForEveryone
-                        ? "text-slate-400"
-                        : "text-blue-600"
+                      deletedForEveryone ||
+                      selectionMode
+                        ? "cursor-default text-slate-400"
+                        : "cursor-pointer text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                     }
                   `}
                 >
-                  {message.replyCount}{" "}
-                  {
-                    Number(
+                  <MessageCircle
+                    size={14}
+                  />
+
+                  <span>
+                    {message.replyCount}{" "}
+                    {Number(
                       message.replyCount
                     ) === 1
                       ? "reply"
-                      : "replies"
-                  }
-                </span>
+                      : "replies"}
+                  </span>
+                </button>
               )}
             </div>
           )}

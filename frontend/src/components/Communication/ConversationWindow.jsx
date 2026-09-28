@@ -11,6 +11,8 @@ import {
   Paperclip,
   Send,
   X,
+  MessageCircle,
+  Loader2,
 } from "lucide-react";
 
 import MessageItem from "./MessageItem";
@@ -91,6 +93,148 @@ const getFilePreviewUrl = (
 };
 
 /* =========================================================
+   THREAD MESSAGE
+========================================================= */
+
+const ThreadMessage = ({
+  message,
+  currentUserId,
+}) => {
+  const senderId =
+    message?.sender?.id ||
+    message?.sender?._id ||
+    message?.senderId;
+
+  const own =
+    String(senderId) ===
+    String(currentUserId);
+
+  const senderName =
+    message?.sender?.name ||
+    message?.sender?.fullName ||
+    message?.senderName ||
+    "Unknown user";
+
+  const deleted =
+    Boolean(
+      message?.deletedForEveryone
+    );
+
+  const text =
+    message?.text ||
+    message?.content ||
+    "";
+
+  const hasAttachments =
+    Array.isArray(
+      message?.attachments
+    ) &&
+    message.attachments.length > 0;
+
+  return (
+    <div
+      className={`
+        rounded-xl
+        border
+        px-3
+        py-2.5
+        ${
+          own
+            ? "border-blue-100 bg-blue-50"
+            : "border-slate-200 bg-white"
+        }
+      `}
+    >
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          gap-3
+        "
+      >
+        <p
+          className={`
+            truncate
+            text-xs
+            font-semibold
+            ${
+              own
+                ? "text-blue-700"
+                : "text-slate-700"
+            }
+          `}
+        >
+          {senderName}
+        </p>
+
+        {message?.createdAt && (
+          <span
+            className="
+              shrink-0
+              text-[10px]
+              text-slate-400
+            "
+          >
+            {new Date(
+              message.createdAt
+            ).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        )}
+      </div>
+
+      {deleted ? (
+        <p
+          className="
+            mt-1.5
+            text-sm
+            italic
+            text-slate-400
+          "
+        >
+          This message was deleted
+        </p>
+      ) : (
+        <>
+          {text && (
+            <p
+              className="
+                mt-1.5
+                whitespace-pre-wrap
+                break-words
+                text-sm
+                leading-6
+                text-slate-700
+              "
+            >
+              {text}
+            </p>
+          )}
+
+          {hasAttachments && (
+            <p
+              className="
+                mt-1.5
+                text-xs
+                text-slate-400
+              "
+            >
+              {message.attachments.length}{" "}
+              {message.attachments.length === 1
+                ? "attachment"
+                : "attachments"}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+/* =========================================================
    MAIN COMPONENT
 ========================================================= */
 
@@ -124,6 +268,9 @@ const ConversationWindow = ({
     toggleMessageReaction,
     deleteMessageForMe,
     deleteMessageForEveryone,
+
+    /* Thread */
+    getMessageThread,
   } = useCommunication();
 
   /* =======================================================
@@ -175,6 +322,25 @@ const ConversationWindow = ({
     showForwardModal,
     setShowForwardModal,
   ] = useState(false);
+
+  /* =======================================================
+     MESSAGE THREAD
+  ======================================================= */
+
+  const [
+    activeThread,
+    setActiveThread,
+  ] = useState(null);
+
+  const [
+    threadLoading,
+    setThreadLoading,
+  ] = useState(false);
+
+  const [
+    threadError,
+    setThreadError,
+  ] = useState("");
 
   /* =======================================================
      REFS
@@ -392,6 +558,9 @@ const ConversationWindow = ({
     );
 
     setShowForwardModal(false);
+
+    setActiveThread(null);
+    setThreadError("");
   }, [conversationId]);
 
   /* =======================================================
@@ -504,15 +673,43 @@ const ConversationWindow = ({
       return;
     }
 
+    /*
+     * Capture the reply target BEFORE sending.
+     *
+     * This is important because the reply state is cleared
+     * after a successful send.
+     */
+    const replyToId =
+      replyingTo?.id ||
+      replyingTo?._id ||
+      null;
+
     try {
       setSending(true);
 
+      /*
+       * IMPORTANT:
+       *
+       * The third argument is the original message ID.
+       *
+       * ConversationContext.sendMessage()
+       * already accepts:
+       *
+       *   (text, files, replyTo)
+       *
+       * and communicationService.sendMessage()
+       * already sends replyTo to the backend.
+       */
       await onSend?.(
         text,
-        selectedFiles
+        selectedFiles,
+        replyToId
       );
 
-      // Clear reply state after successful send
+      /*
+       * Clear reply state only after the message
+       * has been successfully sent.
+       */
       onCancelReply?.();
 
       setComposerText("");
@@ -734,6 +931,56 @@ const ConversationWindow = ({
   };
 
   /* =======================================================
+     OPEN MESSAGE THREAD
+  ======================================================== */
+
+  const handleOpenThread = async (
+    message
+  ) => {
+    const messageId =
+      getMessageId(message);
+
+    if (!conversationId || !messageId) {
+      return;
+    }
+
+    try {
+      setThreadLoading(true);
+      setThreadError("");
+
+      const thread =
+        await getMessageThread(
+          conversationId,
+          messageId
+        );
+
+      if (!thread) {
+        setThreadError(
+          "Unable to load this thread."
+        );
+        return;
+      }
+
+      setActiveThread({
+        ...thread,
+        messageId,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to open message thread:",
+        error
+      );
+
+      setThreadError(
+        error?.message ||
+          "Unable to load this thread."
+      );
+    } finally {
+      setThreadLoading(false);
+    }
+  };
+
+  /* =======================================================
      CANCEL REPLY
   ======================================================== */
 
@@ -865,7 +1112,7 @@ const ConversationWindow = ({
   ======================================================== */
 
   const handleBulkDeleteForEveryone =
-  async () => {
+    async () => {
       if (
         !selectedCount ||
         !canDeleteForEveryone ||
@@ -1063,6 +1310,7 @@ const ConversationWindow = ({
   return (
     <div
       className="
+        relative
         flex
         h-full
         min-h-0
@@ -1302,6 +1550,9 @@ const ConversationWindow = ({
                     own={own}
                     onReply={
                       handleReply
+                    }
+                    onOpenThread={
+                      handleOpenThread
                     }
                     selectionMode={
                       selectionMode
@@ -1614,171 +1865,459 @@ const ConversationWindow = ({
           px-3
           py-3
         "
+      >
+        <div
+          className="
+            flex
+            items-end
+            gap-2
+          "
         >
+          {/* FILE INPUT */}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            accept={ACCEPTED_FILE_TYPES.join(
+              ","
+            )}
+            onChange={
+              handleFilesSelected
+            }
+          />
+
+          {/* ATTACH */}
+
+          <button
+            type="button"
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
+            disabled={
+              sending ||
+              selectedFiles.length >=
+                MAX_ATTACHMENTS
+            }
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              text-slate-500
+              transition
+              hover:bg-slate-100
+              hover:text-blue-600
+              disabled:cursor-not-allowed
+              disabled:opacity-40
+            "
+            aria-label="Attach files"
+            title="Attach files"
+          >
+            <Paperclip
+              size={20}
+            />
+          </button>
+
+          {/* TEXT AREA */}
+
+          <div
+            className="
+              min-w-0
+              flex-1
+            "
+          >
+            <textarea
+              value={
+                composerText
+              }
+              onChange={
+                handleComposerChange
+              }
+              onKeyDown={
+                handleComposerKeyDown
+              }
+              rows={1}
+              placeholder="Type a message..."
+              disabled={sending}
+              className="
+                max-h-32
+                min-h-[40px]
+                w-full
+                resize-none
+                rounded-2xl
+                border
+                border-slate-200
+                bg-slate-50
+                px-4
+                py-2.5
+                text-sm
+                text-slate-900
+                outline-none
+                transition
+                placeholder:text-slate-400
+                focus:border-blue-400
+                focus:bg-white
+                focus:ring-2
+                focus:ring-blue-100
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+              "
+            />
+          </div>
+
+          {/* SEND */}
+
+          <button
+            type="button"
+            onClick={
+              handleSend
+            }
+            disabled={
+              sending ||
+              (!composerText.trim() &&
+                selectedFiles.length ===
+                  0)
+            }
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-gradient-to-br
+              from-blue-600
+              to-indigo-600
+              text-white
+              shadow-sm
+              transition-all
+              hover:from-blue-700
+              hover:to-indigo-700
+              hover:shadow-md
+              active:scale-95
+              disabled:cursor-not-allowed
+              disabled:bg-slate-300
+              disabled:bg-none
+            "
+            aria-label="Send message"
+            title="Send"
+          >
+            <Send size={18} />
+          </button>
+        </div>
+
+        {/* ATTACHMENT LIMIT */}
+
+        {selectedFiles.length >
+          0 && (
+          <p
+            className="
+              mt-1
+              px-12
+              text-[10px]
+              text-slate-400
+            "
+          >
+            {selectedFiles.length}/
+            {MAX_ATTACHMENTS}{" "}
+            files attached
+          </p>
+        )}
+      </div>
+
+      {/* =================================================
+          MESSAGE THREAD
+      ================================================== */}
+
+      {activeThread && (
+        <div
+          className="
+            absolute
+            inset-y-0
+            right-0
+            z-30
+            flex
+            w-full
+            max-w-[420px]
+            flex-col
+            border-l
+            border-slate-200
+            bg-white
+            shadow-2xl
+          "
+        >
+          {/* THREAD HEADER */}
+
           <div
             className="
               flex
-              items-end
-              gap-2
+              shrink-0
+              items-center
+              gap-3
+              border-b
+              border-slate-200
+              bg-white
+              px-4
+              py-3
             "
           >
-            {/* FILE INPUT */}
+            <div
+              className="
+                flex
+                h-9
+                w-9
+                shrink-0
+                items-center
+                justify-center
+                rounded-full
+                bg-blue-50
+                text-blue-600
+              "
+            >
+              <MessageCircle
+                size={18}
+              />
+            </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              hidden
-              accept={ACCEPTED_FILE_TYPES.join(
-                ","
-              )}
-              onChange={
-                handleFilesSelected
-              }
-            />
+            <div className="min-w-0 flex-1">
+              <p
+                className="
+                  text-sm
+                  font-semibold
+                  text-slate-900
+                "
+              >
+                Thread
+              </p>
 
-            {/* ATTACH */}
+              <p
+                className="
+                  truncate
+                  text-xs
+                  text-slate-400
+                "
+              >
+                {Array.isArray(
+                  activeThread.replies
+                )
+                  ? activeThread.replies.length
+                  : 0}{" "}
+                {Array.isArray(
+                  activeThread.replies
+                ) &&
+                activeThread.replies.length === 1
+                  ? "reply"
+                  : "replies"}
+              </p>
+            </div>
 
             <button
               type="button"
               onClick={() =>
-                fileInputRef.current?.click()
-              }
-              disabled={
-                sending ||
-                selectedFiles.length >=
-                  MAX_ATTACHMENTS
+                setActiveThread(null)
               }
               className="
                 flex
-                h-10
-                w-10
+                h-8
+                w-8
                 shrink-0
                 items-center
                 justify-center
                 rounded-full
-                text-slate-500
+                text-slate-400
                 transition
                 hover:bg-slate-100
-                hover:text-blue-600
-                disabled:cursor-not-allowed
-                disabled:opacity-40
+                hover:text-slate-700
               "
-              aria-label="Attach files"
-              title="Attach files"
+              aria-label="Close thread"
             >
-              <Paperclip
-                size={20}
-              />
-            </button>
-
-            {/* TEXT AREA */}
-
-            <div
-              className="
-                min-w-0
-                flex-1
-              "
-            >
-              <textarea
-                value={
-                  composerText
-                }
-                onChange={
-                  handleComposerChange
-                }
-                onKeyDown={
-                  handleComposerKeyDown
-                }
-                rows={1}
-                placeholder="Type a message..."
-                disabled={sending}
-                className="
-                  max-h-32
-                  min-h-[40px]
-                  w-full
-                  resize-none
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  bg-slate-50
-                  px-4
-                  py-2.5
-                  text-sm
-                  text-slate-900
-                  outline-none
-                  transition
-                  placeholder:text-slate-400
-                  focus:border-blue-400
-                  focus:bg-white
-                  focus:ring-2
-                  focus:ring-blue-100
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                "
-              />
-            </div>
-
-            {/* SEND */}
-
-            <button
-              type="button"
-              onClick={
-                handleSend
-              }
-              disabled={
-                sending ||
-                (!composerText.trim() &&
-                  selectedFiles.length ===
-                    0)
-              }
-              className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-gradient-to-br
-                from-blue-600
-                to-indigo-600
-                text-white
-                shadow-sm
-                transition-all
-                hover:from-blue-700
-                hover:to-indigo-700
-                hover:shadow-md
-                active:scale-95
-                disabled:cursor-not-allowed
-                disabled:bg-slate-300
-                disabled:bg-none
-              "
-              aria-label="Send message"
-              title="Send"
-            >
-              <Send size={18} />
+              <X size={18} />
             </button>
           </div>
 
-          {/* ATTACHMENT LIMIT */}
+          {/* THREAD CONTENT */}
 
-          {selectedFiles.length >
-            0 && (
-            <p
-              className="
-                mt-1
-                px-12
-                text-[10px]
-                text-slate-400
-              "
-            >
-              {selectedFiles.length}/
-              {MAX_ATTACHMENTS}{" "}
-              files attached
-            </p>
-          )}
+          <div
+            className="
+              min-h-0
+              flex-1
+              overflow-y-auto
+              bg-slate-50
+              px-3
+              py-4
+            "
+          >
+            {threadLoading ? (
+              <div
+                className="
+                  flex
+                  h-full
+                  items-center
+                  justify-center
+                "
+              >
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                    text-sm
+                    text-slate-400
+                  "
+                >
+                  <Loader2
+                    size={18}
+                    className="animate-spin"
+                  />
+
+                  Loading thread...
+                </div>
+              </div>
+            ) : threadError ? (
+              <div
+                className="
+                  flex
+                  h-full
+                  items-center
+                  justify-center
+                  px-6
+                  text-center
+                "
+              >
+                <div>
+                  <p
+                    className="
+                      text-sm
+                      font-medium
+                      text-red-500
+                    "
+                  >
+                    {threadError}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      activeThread?.messageId &&
+                      handleOpenThread({
+                        id: activeThread.messageId,
+                      })
+                    }
+                    className="
+                      mt-3
+                      rounded-lg
+                      bg-blue-600
+                      px-3
+                      py-2
+                      text-xs
+                      font-medium
+                      text-white
+                      hover:bg-blue-700
+                    "
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* ORIGINAL MESSAGE */}
+
+                {activeThread.parent && (
+                  <div>
+                    <p
+                      className="
+                        mb-2
+                        px-1
+                        text-[11px]
+                        font-semibold
+                        uppercase
+                        tracking-wide
+                        text-slate-400
+                      "
+                    >
+                      Original message
+                    </p>
+
+                    <ThreadMessage
+                      message={
+                        activeThread.parent
+                      }
+                      currentUserId={
+                        currentUserId
+                      }
+                    />
+                  </div>
+                )}
+
+                {/* REPLIES */}
+
+                <div>
+                  <p
+                    className="
+                      mb-2
+                      px-1
+                      text-[11px]
+                      font-semibold
+                      uppercase
+                      tracking-wide
+                      text-slate-400
+                    "
+                  >
+                    Replies
+                  </p>
+
+                  {activeThread.replies?.length ? (
+                    <div className="space-y-2">
+                      {activeThread.replies.map(
+                        (reply) => (
+                          <ThreadMessage
+                            key={getMessageId(
+                              reply
+                            )}
+                            message={reply}
+                            currentUserId={
+                              currentUserId
+                            }
+                          />
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className="
+                        rounded-xl
+                        border
+                        border-dashed
+                        border-slate-200
+                        bg-white
+                        px-4
+                        py-6
+                        text-center
+                      "
+                    >
+                      <p
+                        className="
+                          text-sm
+                          text-slate-400
+                        "
+                      >
+                        No replies yet.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
       {/* =================================================
           FORWARD MODAL

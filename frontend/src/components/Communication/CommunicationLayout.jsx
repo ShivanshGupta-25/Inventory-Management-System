@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  ArrowLeft,
   MessageSquare,
   RefreshCw,
   Wifi,
@@ -162,6 +163,25 @@ const CommunicationLayout = () => {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  /* =========================================================
+     BACK TO CONVERSATIONS
+  ========================================================= */
+
+  const handleBackToConversations = () => {
+    /*
+     * Clear any active reply state before
+     * leaving the current conversation.
+     */
+    setReplyingTo(null);
+
+    /*
+     * Close the current conversation.
+     * CommunicationLayout will automatically
+     * reveal the conversation list.
+     */
+    selectConversation(null);
   };
 
   /* =========================================================
@@ -356,30 +376,73 @@ const CommunicationLayout = () => {
             gap-4
           "
         >
-          <div className="min-w-0">
-            <h1
-              className="
-                truncate
-                text-xl
-                font-semibold
-                text-slate-900
-              "
-            >
-              Communication
-            </h1>
+          {/* =================================================
+              HEADER TITLE + BACK BUTTON
+          ================================================== */}
 
-            <p
-              className="
-                mt-1
-                hidden
-                text-sm
-                text-slate-500
-                sm:block
-              "
-            >
-              Manage conversations and messages
-            </p>
+          <div className="flex min-w-0 items-center gap-3">
+            {activeConversation && (
+              <button
+                type="button"
+                onClick={
+                  handleBackToConversations
+                }
+                aria-label="Back to conversations"
+                title="Back to conversations"
+                className="
+                  flex
+                  h-9
+                  w-9
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-lg
+                  border
+                  border-slate-200
+                  bg-white
+                  text-slate-600
+                  shadow-sm
+                  transition
+                  hover:bg-slate-50
+                  hover:text-slate-900
+                  active:scale-95
+                "
+              >
+                <ArrowLeft
+                  size={18}
+                />
+              </button>
+            )}
+
+            <div className="min-w-0">
+              <h1
+                className="
+                  truncate
+                  text-xl
+                  font-semibold
+                  text-slate-900
+                "
+              >
+                Communication
+              </h1>
+
+              <p
+                className="
+                  mt-1
+                  hidden
+                  text-sm
+                  text-slate-500
+                  sm:block
+                "
+              >
+                Manage conversations and messages
+              </p>
+            </div>
           </div>
+
+          {/* =================================================
+              HEADER ACTIONS
+          ================================================== */}
 
           <div
             className="
@@ -654,12 +717,24 @@ const CommunicationLayout = () => {
             }}
           >
             <ConversationList
-              conversations={conversations}
-              currentUserId={currentUserId}
-              activeConversationId={activeConversationId}
-              onSelect={selectConversation}
-              onNewConversation={openNewConversation}
-              loading={loadingConversations}
+              conversations={
+                conversations
+              }
+              currentUserId={
+                currentUserId
+              }
+              activeConversationId={
+                activeConversationId
+              }
+              onSelect={
+                selectConversation
+              }
+              onNewConversation={
+                openNewConversation
+              }
+              loading={
+                loadingConversations
+              }
             />
           </aside>
 
@@ -804,7 +879,9 @@ const CommunicationLayout = () => {
                 conversation={
                   activeConversation
                 }
-                messages={messages}
+                messages={
+                  messages
+                }
                 currentUserId={
                   currentUserId
                 }
@@ -834,10 +911,8 @@ const CommunicationLayout = () => {
                     null
                   )
                 }
-                onBack={() =>
-                  selectConversation(
-                    null
-                  )
+                onBack={
+                  handleBackToConversations
                 }
               />
             ) : (

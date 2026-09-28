@@ -15,7 +15,7 @@ const CommunicationContext = createContext(null);
 
 /* =====================================================
    HELPERS
-====================================================== */
+===================================================== */
 
 const getMessageId = (message) =>
   message?.id ||
@@ -54,7 +54,7 @@ const createDeletedForMeReply = (
 
 /* =====================================================
    PROVIDER
-====================================================== */
+===================================================== */
 
 export const CommunicationProvider = ({
   children,
@@ -295,6 +295,36 @@ export const CommunicationProvider = ({
       activeConversationId,
       sendMessage,
     ]
+  );
+
+  /* =====================================================
+     MESSAGE THREAD
+  ====================================================== */
+
+  const getMessageThread = useCallback(
+    async (conversationId, messageId) => {
+      if (!conversationId || !messageId) {
+        return null;
+      }
+
+      try {
+        const response =
+          await communicationService.getMessageThread(
+            conversationId,
+            messageId
+          );
+
+        return response.data || null;
+      } catch (error) {
+        console.error(
+          "Failed to load message thread:",
+          error
+        );
+
+        throw error;
+      }
+    },
+    []
   );
 
   /* =====================================================
@@ -563,7 +593,9 @@ export const CommunicationProvider = ({
         current.map((conversation) => {
           if (
             String(
-              getConversationId(conversation)
+              getConversationId(
+                conversation
+              )
             ) !==
             String(
               deletionData.conversationId
@@ -1452,6 +1484,8 @@ export const CommunicationProvider = ({
       sendMessage,
       sendReply,
 
+      getMessageThread,
+
       toggleMessageReaction,
 
       deleteMessageForMe,
@@ -1496,6 +1530,8 @@ export const CommunicationProvider = ({
       sendMessage,
       sendReply,
 
+      getMessageThread,
+
       toggleMessageReaction,
 
       deleteMessageForMe,
@@ -1521,7 +1557,7 @@ export const CommunicationProvider = ({
 
 /* =====================================================
    HOOK
-====================================================== */
+===================================================== */
 
 export const useCommunication =
   () => {
