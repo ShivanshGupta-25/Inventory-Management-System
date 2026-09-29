@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
      "seed:inventory": "node seed/seedInventory.js",
      "seed:purchase-orders": "node seed/purchaseOrderSeed.js",
-     "seed:sales": "node seed/salesSeed.js"
+     "seed:sales": "node seed/salesSeed.js",
+     "seed:communication": "node seed/communicationSeed.js"
   },
   "keywords": [],
   "author": "",

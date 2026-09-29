@@ -31,9 +31,6 @@ const conversationParticipantSchema =
         default: null,
       },
 
-      /*
-       * Conversation management
-       */
 
       isPinned: {
         type: Boolean,
@@ -45,12 +42,7 @@ const conversationParticipantSchema =
         default: false,
       },
 
-      /*
-       * User-specific conversation deletion.
-       *
-       * The conversation itself is NOT deleted.
-       * Only this user's participation is hidden.
-       */
+      
       deletedAt: {
         type: Date,
         default: null,
@@ -61,10 +53,6 @@ const conversationParticipantSchema =
     }
   );
 
-/*
- * A user can only appear once
- * in a conversation.
- */
 conversationParticipantSchema.index(
   {
     conversationId: 1,
@@ -75,18 +63,11 @@ conversationParticipantSchema.index(
   }
 );
 
-/*
- * Useful when loading a user's conversations.
- */
 conversationParticipantSchema.index({
   userId: 1,
   updatedAt: -1,
 });
 
-/*
- * Useful when loading only active
- * conversations for a user.
- */
 conversationParticipantSchema.index({
   userId: 1,
   deletedAt: 1,
