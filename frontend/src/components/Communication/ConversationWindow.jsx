@@ -7,6 +7,9 @@ import {
 
 import {
   ArrowLeft,
+  Search,
+  ChevronUp,
+  ChevronDown,
   FileText,
   Paperclip,
   Send,
@@ -271,6 +274,11 @@ const ConversationWindow = ({
 
     /* Thread */
     getMessageThread,
+    messageSearchResults,
+    messageSearchLoading,
+    messageSearchError,
+    searchMessages,
+    loadMessageFromSearchResult,
   } = useCommunication();
 
   /* =======================================================
@@ -343,6 +351,35 @@ const ConversationWindow = ({
   ] = useState("");
 
   /* =======================================================
+     MESSAGE SEARCH
+  ======================================================== */
+
+  const [
+    messageSearchOpen,
+    setMessageSearchOpen,
+  ] = useState(false);
+
+  const [
+    messageSearchText,
+    setMessageSearchText,
+  ] = useState("");
+
+  const [
+    messageSearchFocused,
+    setMessageSearchFocused,
+  ] = useState(false);
+
+  const [
+    activeSearchResultIndex,
+    setActiveSearchResultIndex,
+  ] = useState(-1);
+
+  const [
+    searchNavigationLoading,
+    setSearchNavigationLoading,
+  ] = useState(false);
+
+  /* =======================================================
      REFS
   ======================================================== */
 
@@ -350,6 +387,12 @@ const ConversationWindow = ({
     useRef(null);
 
   const fileInputRef =
+    useRef(null);
+
+  const messageSearchInputRef =
+    useRef(null);
+
+  const searchDebounceRef =
     useRef(null);
 
   const shouldScrollToBottomRef =
@@ -561,7 +604,289 @@ const ConversationWindow = ({
 
     setActiveThread(null);
     setThreadError("");
+
+    setMessageSearchOpen(false);
+    setMessageSearchText("");
+    setMessageSearchFocused(false);
+    setActiveSearchResultIndex(-1);
+    setSearchNavigationLoading(false);
   }, [conversationId]);
+
+  /* =======================================================
+     MESSAGE SEARCH
+  ======================================================== */
+
+  useEffect(() => {
+    clearTimeout(searchDebounceRef.current);
+
+    const query = messageSearchText.trim();
+
+    if (
+      !messageSearchOpen ||
+      !conversationId
+    ) {
+      return undefined;
+    }
+
+    if (!query) {
+      setActiveSearchResultIndex(-1);
+      searchMessages?.(
+        conversationId,
+        ""
+      );
+
+      return undefined;
+    }
+
+    setActiveSearchResultIndex(-1);
+
+    searchDebounceRef.current =
+      setTimeout(() => {
+        searchMessages?.(
+          conversationId,
+          query
+        );
+      }, 350);
+
+    return () => {
+      clearTimeout(
+        searchDebounceRef.current
+      );
+    };
+  }, [
+    messageSearchText,
+    messageSearchOpen,
+    conversationId,
+    searchMessages,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(
+        searchDebounceRef.current
+      );
+    };
+  }, []);
+
+  const handleOpenMessageSearch = () => {
+    if (selectionMode) {
+      return;
+    }
+
+    setMessageSearchOpen(true);
+
+    requestAnimationFrame(() => {
+      messageSearchInputRef.current?.focus();
+    });
+  };
+
+  const handleCloseMessageSearch = () => {
+    clearTimeout(
+      searchDebounceRef.current
+    );
+
+    setMessageSearchOpen(false);
+    setMessageSearchText("");
+    setMessageSearchFocused(false);
+    setActiveSearchResultIndex(-1);
+    setSearchNavigationLoading(false);
+
+    searchMessages?.(
+      conversationId,
+      ""
+    );
+  };
+
+  const handleMessageSearchChange = (
+    event
+  ) => {
+    const value =
+      event.target.value;
+
+    setMessageSearchText(value);
+    setActiveSearchResultIndex(-1);
+    setSearchNavigationLoading(false);
+
+    /*
+     * Clear results from the previous query
+     * immediately so an old match is never
+     * selected while the new query is waiting
+     * for its debounced response.
+     */
+    if (conversationId) {
+      searchMessages?.(
+        conversationId,
+        ""
+      );
+    }
+  };
+
+  const highlightSearchResult = (
+    resultId
+  ) => {
+    if (!resultId) {
+      return false;
+    }
+
+    const target =
+      document.getElementById(
+        `message-${resultId}`
+      );
+
+    if (!target) {
+      return false;
+    }
+
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    target.classList.add(
+      "ring-2",
+      "ring-blue-400",
+      "ring-offset-2"
+    );
+
+    setTimeout(() => {
+      target.classList.remove(
+        "ring-2",
+        "ring-blue-400",
+        "ring-offset-2"
+      );
+    }, 1400);
+
+    return true;
+  };
+
+  const handleSearchResultClick = async (
+    result,
+    resultIndex = -1
+  ) => {
+    const resultId =
+      getMessageId(result);
+
+    if (!resultId) {
+      return;
+    }
+
+    if (resultIndex >= 0) {
+      setActiveSearchResultIndex(
+        resultIndex
+      );
+    }
+
+    const existingElement =
+      document.getElementById(
+        `message-${resultId}`
+      );
+
+    if (existingElement) {
+      requestAnimationFrame(() => {
+        highlightSearchResult(resultId);
+      });
+
+      return;
+    }
+
+    if (!loadMessageFromSearchResult) {
+      return;
+    }
+
+    try {
+      setSearchNavigationLoading(true);
+      shouldScrollToBottomRef.current =
+        false;
+
+      await loadMessageFromSearchResult(
+        result
+      );
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          highlightSearchResult(
+            resultId
+          );
+        });
+      });
+    } catch (error) {
+      console.error(
+        "Failed to navigate to search result:",
+        error
+      );
+    } finally {
+      setSearchNavigationLoading(false);
+    }
+  };
+
+  const navigateSearchResult = async (
+    direction
+  ) => {
+    const results =
+      messageSearchResults || [];
+
+    if (
+      !results.length ||
+      searchNavigationLoading
+    ) {
+      return;
+    }
+
+    let nextIndex;
+
+    if (activeSearchResultIndex < 0) {
+      nextIndex =
+        direction > 0
+          ? 0
+          : results.length - 1;
+    } else {
+      nextIndex =
+        (activeSearchResultIndex +
+          direction +
+          results.length) %
+        results.length;
+    }
+
+    setActiveSearchResultIndex(
+      nextIndex
+    );
+
+    await handleSearchResultClick(
+      results[nextIndex],
+      nextIndex
+    );
+  };
+
+  /*
+   * WhatsApp-style behavior:
+   * once the search response arrives, automatically
+   * focus the first matching message.
+   */
+  useEffect(() => {
+    const results =
+      messageSearchResults || [];
+
+    if (
+      !messageSearchOpen ||
+      !messageSearchText.trim() ||
+      !results.length ||
+      activeSearchResultIndex >= 0 ||
+      searchNavigationLoading
+    ) {
+      return;
+    }
+
+    handleSearchResultClick(
+      results[0],
+      0
+    );
+  }, [
+    messageSearchResults,
+    messageSearchOpen,
+    messageSearchText,
+    activeSearchResultIndex,
+    searchNavigationLoading,
+  ]);
 
   /* =======================================================
      SCROLL TO BOTTOM
@@ -1458,6 +1783,226 @@ const ConversationWindow = ({
               </p>
             )}
           </div>
+
+          {/* MESSAGE SEARCH */}
+          <div className="relative shrink-0">
+            {messageSearchOpen ? (
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 shadow-sm">
+                <Search
+                  size={17}
+                  className="shrink-0 text-slate-400"
+                />
+
+                <input
+                  ref={messageSearchInputRef}
+                  type="text"
+                  value={messageSearchText}
+                  onChange={handleMessageSearchChange}
+                  onFocus={() =>
+                    setMessageSearchFocused(true)
+                  }
+                  onBlur={() =>
+                    setTimeout(() => {
+                      setMessageSearchFocused(false);
+                    }, 150)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      handleCloseMessageSearch();
+                      return;
+                    }
+
+                    if (
+                      event.key === "ArrowDown" ||
+                      (event.key === "Enter" &&
+                        !event.shiftKey)
+                    ) {
+                      if (
+                        messageSearchResults?.length
+                      ) {
+                        event.preventDefault();
+                        navigateSearchResult(1);
+                      }
+                      return;
+                    }
+
+                    if (
+                      event.key === "ArrowUp" ||
+                      (event.key === "Enter" &&
+                        event.shiftKey)
+                    ) {
+                      if (
+                        messageSearchResults?.length
+                      ) {
+                        event.preventDefault();
+                        navigateSearchResult(-1);
+                      }
+                    }
+                  }}
+                  placeholder="Search messages..."
+                  className="w-28 bg-transparent px-1 text-xs text-slate-800 outline-none placeholder:text-slate-400 sm:w-40"
+                  aria-label="Search messages"
+                />
+
+                {messageSearchText.trim() &&
+                  messageSearchResults?.length > 0 && (
+                      <>
+                        <span className="shrink-0 px-1 text-[10px] font-medium tabular-nums text-slate-400">
+                          {activeSearchResultIndex >= 0
+                            ? activeSearchResultIndex + 1
+                            : 0}
+                          /
+                          {messageSearchResults.length}
+                        </span>
+
+                        <button
+                          type="button"
+                          onMouseDown={(event) =>
+                            event.preventDefault()
+                          }
+                          onClick={() =>
+                            navigateSearchResult(-1)
+                          }
+                          disabled={
+                            searchNavigationLoading
+                          }
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label="Previous search match"
+                          title="Previous match"
+                        >
+                          <ChevronUp size={15} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onMouseDown={(event) =>
+                            event.preventDefault()
+                          }
+                          onClick={() =>
+                            navigateSearchResult(1)
+                          }
+                          disabled={
+                            searchNavigationLoading
+                          }
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label="Next search match"
+                          title="Next match"
+                        >
+                          <ChevronDown size={15} />
+                        </button>
+                      </>
+                    )}
+
+                <button
+                  type="button"
+                  onMouseDown={(event) =>
+                    event.preventDefault()
+                  }
+                  onClick={handleCloseMessageSearch}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                  aria-label="Close message search"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenMessageSearch}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-blue-600"
+                aria-label="Search messages"
+                title="Search messages"
+              >
+                <Search size={19} />
+              </button>
+            )}
+
+            {messageSearchOpen &&
+              messageSearchFocused &&
+              messageSearchText.trim() && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {messageSearchLoading ? (
+                    <div className="flex items-center gap-2 px-4 py-4 text-xs text-slate-500">
+                      <Loader2
+                        size={15}
+                        className="animate-spin"
+                      />
+                      Searching messages...
+                    </div>
+                  ) : messageSearchError ? (
+                    <div className="px-4 py-4 text-xs text-red-500">
+                      {messageSearchError}
+                    </div>
+                  ) : messageSearchResults?.length ? (
+                    <div className="max-h-[360px] overflow-y-auto py-1">
+                      {messageSearchResults.map(
+                        (result, resultIndex) => {
+                          const resultId =
+                            getMessageId(result);
+
+                        const senderName =
+                          result?.sender?.name ||
+                          result?.sender?.fullName ||
+                          result?.senderName ||
+                          "Unknown user";
+
+                        const resultText =
+                          result?.text?.trim() ||
+                          (result?.attachments?.length
+                            ? "Attachment"
+                            : "Message");
+
+                        return (
+                          <button
+                            key={resultId}
+                            type="button"
+                            onMouseDown={(event) =>
+                              event.preventDefault()
+                            }
+                            onClick={() =>
+                              handleSearchResultClick(
+                                result,
+                                resultIndex
+                              )
+                            }
+                            className={`block w-full border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-slate-50 ${
+                              activeSearchResultIndex ===
+                              resultIndex
+                                ? "bg-blue-50"
+                                : ""
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="truncate text-xs font-semibold text-slate-700">
+                                {senderName}
+                              </span>
+                              {result?.createdAt && (
+                                <span className="shrink-0 text-[10px] text-slate-400">
+                                  {new Date(
+                                    result.createdAt
+                                  ).toLocaleDateString([], {
+                                    day: "2-digit",
+                                    month: "short",
+                                  })}
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-500">
+                              {resultText}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-5 text-center text-xs text-slate-400">
+                      No messages found
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
         </div>
       )}
 
@@ -2337,11 +2882,11 @@ const ConversationWindow = ({
           handleForward
         }
         processing={
-          processingSelection
-        }
-      />
-    </div>
-  );
-};
+            processingSelection
+          }
+        />
+      </div>
+    );
+  };
 
-export default ConversationWindow;
+  export default ConversationWindow;

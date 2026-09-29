@@ -488,6 +488,10 @@ const getConversation = async (
    GET MESSAGES
 ===================================================== */
 
+/* =====================================================
+   GET MESSAGES
+===================================================== */
+
 const getMessages = async (
   conversationId,
   userId,
@@ -503,6 +507,11 @@ const getMessages = async (
     100
   );
 
+  const search =
+    typeof options.search === "string"
+      ? options.search.trim()
+      : "";
+
   const query = {
     conversationId,
 
@@ -511,6 +520,36 @@ const getMessages = async (
     },
   };
 
+  /*
+   * MESSAGE SEARCH
+   *
+   * Search only visible message text.
+   *
+   * deletedForEveryone messages are explicitly
+   * excluded so their original text can never
+   * appear in search results.
+   */
+  if (search) {
+    const escapedSearch = search.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
+
+    query.deletedForEveryone = {
+      $ne: true,
+    };
+
+    query.text = {
+      $regex: escapedSearch,
+      $options: "i",
+    };
+  }
+
+  /*
+   * PAGINATION
+   *
+   * Existing behavior is preserved.
+   */
   if (
     options.before &&
     isValidObjectId(options.before)
@@ -538,7 +577,6 @@ const getMessages = async (
       )
       .populate({
         path: "replyTo",
-
         populate: {
           path: "senderId",
           select:
@@ -548,7 +586,6 @@ const getMessages = async (
       .populate({
         path:
           "forwardedFrom.senderId",
-
         select:
           "_id name email role",
       })
@@ -558,6 +595,9 @@ const getMessages = async (
       .limit(limit)
       .lean();
 
+  /*
+   * REPLY COUNTS
+   */
   const messageIds =
     messages.map(
       (message) => message._id
@@ -603,6 +643,10 @@ const getMessages = async (
       );
   }
 
+  /*
+   * Existing API returns messages
+   * oldest → newest.
+   */
   return messages
     .reverse()
     .map((message) => ({

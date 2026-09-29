@@ -97,12 +97,24 @@ const communicationService = {
       );
     }
 
+    if (
+      typeof options.search === "string" &&
+      options.search.trim()
+    ) {
+      params.set(
+        "search",
+        options.search.trim()
+      );
+    }
+
     const query =
       params.toString();
 
     return apiRequest(
       `/communication/conversations/${conversationId}/messages${
-        query ? `?${query}` : ""
+        query
+          ? `?${query}`
+          : ""
       }`,
       {
         method: "GET",

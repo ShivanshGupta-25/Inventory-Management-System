@@ -75,6 +75,21 @@ export const CommunicationProvider = ({
   const [messages, setMessages] =
     useState([]);
 
+  const [
+    messageSearchResults,
+    setMessageSearchResults,
+  ] = useState([]);
+
+  const [
+    messageSearchLoading,
+    setMessageSearchLoading,
+  ] = useState(false);
+
+  const [
+    messageSearchError,
+    setMessageSearchError,
+  ] = useState("");
+
   const [users, setUsers] = useState([]);
 
   const [
@@ -184,6 +199,115 @@ export const CommunicationProvider = ({
   );
 
   /* =====================================================
+     LOAD MESSAGE FROM SEARCH RESULT
+  ====================================================== */
+
+  const loadMessageFromSearchResult =
+    useCallback(
+      async (message) => {
+        if (!message) {
+          return null;
+        }
+
+        const messageConversationId =
+          message?.conversationId;
+
+        if (
+          messageConversationId &&
+          String(messageConversationId) !==
+            String(activeConversationId)
+        ) {
+          return null;
+        }
+
+        const messageId =
+          getMessageId(message);
+
+        if (!messageId) {
+          return null;
+        }
+
+        setMessages((current) => {
+          const exists = current.some(
+            (item) =>
+              String(getMessageId(item)) ===
+              String(messageId)
+          );
+
+          if (exists) {
+            return current;
+          }
+
+          return [...current, message].sort(
+            (a, b) =>
+              new Date(a.createdAt || 0) -
+              new Date(b.createdAt || 0)
+          );
+        });
+
+        return message;
+      },
+      [activeConversationId]
+    );
+
+  /* =====================================================
+     SEARCH MESSAGES
+  ====================================================== */
+
+  const searchMessages = useCallback(
+    async (conversationId, search = "") => {
+      const trimmedSearch =
+        typeof search === "string"
+          ? search.trim()
+          : "";
+
+      if (!conversationId || !trimmedSearch) {
+        setMessageSearchResults([]);
+        setMessageSearchError("");
+        setMessageSearchLoading(false);
+        return [];
+      }
+
+      try {
+        setMessageSearchLoading(true);
+        setMessageSearchError("");
+
+        const response =
+          await communicationService.getMessages(
+            conversationId,
+            {
+              search: trimmedSearch,
+              limit: 50,
+            }
+          );
+
+        const results =
+          response.data || [];
+
+        setMessageSearchResults(results);
+
+        return results;
+      } catch (error) {
+        console.error(
+          "Failed to search messages:",
+          error
+        );
+
+        setMessageSearchResults([]);
+        setMessageSearchError(
+          error?.message ||
+            "Failed to search messages"
+        );
+
+        return [];
+      } finally {
+        setMessageSearchLoading(false);
+      }
+    },
+    []
+  );
+
+  /* =====================================================
      SELECT CONVERSATION
   ====================================================== */
 
@@ -192,6 +316,10 @@ export const CommunicationProvider = ({
       async (conversationId) => {
         setTypingUsers([]);
         setReplyingTo(null);
+
+        setMessageSearchResults([]);
+        setMessageSearchError("");
+        setMessageSearchLoading(false);
 
         setConversations((current) =>
           current.map((conversation) =>
@@ -1459,6 +1587,11 @@ export const CommunicationProvider = ({
       activeConversation,
       activeConversationId,
       messages,
+
+      messageSearchResults,
+      messageSearchLoading,
+      messageSearchError,
+
       users,
       typingUsers,
       loadingConversations,
@@ -1477,6 +1610,8 @@ export const CommunicationProvider = ({
 
       selectConversation,
       searchUsers,
+      searchMessages,
+      loadMessageFromSearchResult,
 
       createDirectConversation,
       createGroupConversation,
@@ -1510,6 +1645,11 @@ export const CommunicationProvider = ({
       activeConversation,
       activeConversationId,
       messages,
+
+      messageSearchResults,
+      messageSearchLoading,
+      messageSearchError,
+
       users,
       typingUsers,
       loadingConversations,
@@ -1523,6 +1663,8 @@ export const CommunicationProvider = ({
 
       selectConversation,
       searchUsers,
+      searchMessages,
+      loadMessageFromSearchResult,
 
       createDirectConversation,
       createGroupConversation,

@@ -102,15 +102,28 @@ const getConversation = async (req, res) => {
    GET MESSAGES
 ===================================================== */
 
-const getMessages = async (req, res) => {
+/* =====================================================
+   GET MESSAGES
+===================================================== */
+
+const getMessages = async (
+  req,
+  res
+) => {
   try {
     const messages =
       await communicationService.getMessages(
         req.params.id,
         req.user.userId,
         {
-          limit: req.query.limit,
-          before: req.query.before,
+          limit:
+            req.query.limit,
+
+          before:
+            req.query.before,
+
+          search:
+            req.query.search,
         }
       );
 
