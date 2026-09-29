@@ -68,6 +68,15 @@ const CommunicationLayout = () => {
     user?.userId ||
     null;
 
+  /*
+   * Current authenticated user's role.
+   *
+   * Used by NewConversation to determine whether
+   * the Group conversation option should be available.
+   */
+  const currentUserRole =
+    String(user?.role || "").toLowerCase();
+
   /* =========================================================
      NEW CONVERSATION
   ========================================================= */
@@ -936,6 +945,12 @@ const CommunicationLayout = () => {
           loadingUsers={
             loadingUsers
           }
+
+          /* NEW: authenticated user's role */
+          currentUserRole={
+            currentUserRole
+          }
+
           onClose={() =>
             setShowNewConversation(
               false

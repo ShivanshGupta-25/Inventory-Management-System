@@ -665,129 +665,152 @@ const getMessages = async (
    FIND OR CREATE DIRECT CONVERSATION
 ===================================================== */
 
-const createDirectConversation =
-  async (
-    currentUserId,
-    targetUserId
-  ) => {
-    if (
-      !isValidObjectId(
-        targetUserId
-      )
-    ) {
-      throw createServiceError(
-        "Invalid target user ID"
-      );
-    }
+const createDirectConversation = async (
+  currentUserId,
+  targetUserId
+) => {
+  if (
+    !isValidObjectId(targetUserId)
+  ) {
+    throw createServiceError(
+      "Invalid target user ID"
+    );
+  }
 
-    if (
-      String(currentUserId) ===
-      String(targetUserId)
-    ) {
-      throw createServiceError(
-        "You cannot create a conversation with yourself"
-      );
-    }
+  if (
+    String(currentUserId) ===
+    String(targetUserId)
+  ) {
+    throw createServiceError(
+      "You cannot create a conversation with yourself"
+    );
+  }
 
-    const targetUser =
-      await findUserById(
-        targetUserId
-      );
+  const targetUser =
+    await findUserById(
+      targetUserId
+    );
 
-    const currentParticipations =
-      await ConversationParticipant.find({
-        userId: currentUserId,
-      }).select("conversationId");
+  /*
+   * Find ALL conversations where the
+   * current user is a participant.
+   */
+  const currentParticipations =
+    await ConversationParticipant.find({
+      userId: currentUserId,
+    }).select("conversationId");
 
-    const conversationIds =
-      currentParticipations.map(
-        (item) =>
-          item.conversationId
-      );
+  const conversationIds =
+    currentParticipations.map(
+      (item) =>
+        item.conversationId
+    );
 
-    let conversation = null;
+  let conversation = null;
 
-    if (conversationIds.length) {
+  /*
+   * Look specifically for an existing
+   * DIRECT conversation containing
+   * both users.
+   *
+   * We do NOT simply pick one shared
+   * participation because the two users
+   * may also belong to groups together.
+   */
+  if (conversationIds.length) {
+    const directConversations =
+      await Conversation.find({
+        _id: {
+          $in: conversationIds,
+        },
+        type: "direct",
+      })
+        .select("_id")
+        .lean();
+
+    if (directConversations.length) {
+      const directConversationIds =
+        directConversations.map(
+          (item) => item._id
+        );
+
+      /*
+       * Find a conversation where the
+       * target user is also a participant.
+       */
       const targetParticipation =
-        await ConversationParticipant.findOne(
-          {
-            userId:
-              targetUserId,
-
-            conversationId: {
-              $in:
-                conversationIds,
-            },
-          }
-        ).lean();
+        await ConversationParticipant.findOne({
+          userId: targetUserId,
+          conversationId: {
+            $in: directConversationIds,
+          },
+        }).lean();
 
       if (targetParticipation) {
-        const possibleConversation =
-          await Conversation.findOne({
-            _id:
+        /*
+         * Extra safety:
+         *
+         * A valid direct conversation must
+         * contain exactly two participants.
+         */
+        const participantCount =
+          await ConversationParticipant.countDocuments({
+            conversationId:
               targetParticipation.conversationId,
+          });
 
-            type: "direct",
-          }).lean();
-
-        if (possibleConversation) {
-          const participantCount =
-            await ConversationParticipant.countDocuments(
-              {
-                conversationId:
-                  possibleConversation._id,
-              }
-            );
-
-          if (
-            participantCount === 2
-          ) {
-            conversation =
-              possibleConversation;
-          }
+        if (participantCount === 2) {
+          conversation =
+            await Conversation.findById(
+              targetParticipation.conversationId
+            ).lean();
         }
       }
     }
+  }
 
-    if (!conversation) {
-      conversation =
-        await Conversation.create({
-          type: "direct",
-          name: "",
-          createdBy:
-            currentUserId,
-        });
+  /*
+   * No existing direct conversation found.
+   *
+   * Create a new one.
+   */
+  if (!conversation) {
+    conversation =
+      await Conversation.create({
+        type: "direct",
+        name: "",
+        createdBy:
+          currentUserId,
+      });
 
-      await ConversationParticipant.insertMany(
-        [
-          {
-            conversationId:
-              conversation._id,
+    await ConversationParticipant.insertMany([
+      {
+        conversationId:
+          conversation._id,
+        userId:
+          currentUserId,
+        role: "member",
+      },
+      {
+        conversationId:
+          conversation._id,
+        userId:
+          targetUser._id,
+        role: "member",
+      },
+    ]);
+  }
 
-            userId:
-              currentUserId,
-
-            role: "member",
-          },
-
-          {
-            conversationId:
-              conversation._id,
-
-            userId:
-              targetUser._id,
-
-            role: "member",
-          },
-        ]
-      );
-    }
-
-    return getConversation(
-      conversation._id,
-      currentUserId
-    );
-  };
+  /*
+   * Return the complete normalized
+   * conversation exactly like the
+   * existing flow.
+   */
+  return getConversation(
+    conversation._id,
+    currentUserId
+  );
+};
 
 /* =====================================================
    CREATE GROUP
@@ -801,9 +824,38 @@ const createGroupConversation =
       participantIds = [],
     }
   ) => {
+    // Only admin and manager can create groups
+    const currentUser =
+      await User.findById(currentUserId)
+        .select("_id role")
+        .lean();
+
+    if (!currentUser) {
+      throw createServiceError(
+        "Current user not found",
+        404
+      );
+    }
+
+    const currentUserRole =
+      String(
+        currentUser.role || ""
+      ).toLowerCase();
+
+    if (
+      currentUserRole !== "admin" &&
+      currentUserRole !== "manager"
+    ) {
+      throw createServiceError(
+        "Staff members cannot create group conversations",
+        403
+      );
+    }
+
     const trimmedName =
       name?.trim();
 
+    // ...existing code continues...
     if (!trimmedName) {
       throw createServiceError(
         "Group name is required"
