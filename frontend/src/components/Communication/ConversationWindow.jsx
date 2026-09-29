@@ -11,6 +11,8 @@ import {
   ChevronUp,
   ChevronDown,
   FileText,
+  Image as ImageIcon,
+  FolderOpen,
   Paperclip,
   Send,
   X,
@@ -35,19 +37,81 @@ const MAX_ATTACHMENTS = 5;
 const MAX_FILE_SIZE =
   10 * 1024 * 1024;
 
+const IMAGE_VIDEO_ACCEPT =
+  "image/*,video/*";
+
+const DOCUMENT_ACCEPT = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".txt",
+  ".csv",
+  ".rtf",
+].join(",");
+
 const ACCEPTED_FILE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
+  "image/svg+xml",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
   "application/pdf",
   "text/plain",
+  "text/csv",
+  "application/rtf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
+
+const ATTACHMENT_OPTIONS = [
+  {
+    id: "image",
+    label: "Photos & Videos",
+    description: "Images and videos",
+    accept: IMAGE_VIDEO_ACCEPT,
+    icon: ImageIcon,
+    iconClass: "bg-blue-50 text-blue-600",
+  },
+  {
+    id: "document",
+    label: "Documents",
+    description: "PDF, Word, Excel, PowerPoint, text",
+    accept: DOCUMENT_ACCEPT,
+    icon: FileText,
+    iconClass: "bg-emerald-50 text-emerald-600",
+  },
+  {
+    id: "other",
+    label: "Other files",
+    description: "Any file up to 10 MB",
+    accept: "*/*",
+    icon: FolderOpen,
+    iconClass: "bg-violet-50 text-violet-600",
+  },
+];
+
+const DOCUMENT_EXTENSIONS = [
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "txt",
+  "csv",
+  "rtf",
 ];
 
 /* =========================================================
@@ -303,6 +367,15 @@ const ConversationWindow = ({
   const [sending, setSending] =
     useState(false);
 
+  const [showAttachmentMenu, setShowAttachmentMenu] =
+    useState(false);
+
+  const [fileAccept, setFileAccept] =
+    useState(IMAGE_VIDEO_ACCEPT);
+
+  const [fileSelectionCategory, setFileSelectionCategory] =
+    useState("other");
+
   /* =======================================================
      SELECTION
   ======================================================== */
@@ -351,6 +424,53 @@ const ConversationWindow = ({
   ] = useState("");
 
   /* =======================================================
+     ATTACHMENT MENU
+  ======================================================== */
+
+  useEffect(() => {
+    if (!showAttachmentMenu) {
+      return undefined;
+    }
+
+    const handleOutsideClick = (event) => {
+      if (
+        attachmentMenuRef.current &&
+        !attachmentMenuRef.current.contains(event.target)
+      ) {
+        setShowAttachmentMenu(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setShowAttachmentMenu(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleEscape
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleEscape
+      );
+    };
+  }, [showAttachmentMenu]);
+
+  /* =======================================================
      MESSAGE SEARCH
   ======================================================== */
 
@@ -388,6 +508,15 @@ const ConversationWindow = ({
 
   const fileInputRef =
     useRef(null);
+
+  const attachmentMenuRef =
+    useRef(null);
+
+  const filePreviewsRef =
+    useRef([]);
+
+  filePreviewsRef.current =
+    filePreviews;
 
   const messageSearchInputRef =
     useRef(null);
@@ -610,6 +739,16 @@ const ConversationWindow = ({
     setMessageSearchFocused(false);
     setActiveSearchResultIndex(-1);
     setSearchNavigationLoading(false);
+    setShowAttachmentMenu(false);
+
+    filePreviewsRef.current.forEach((preview) => {
+      if (preview?.url) {
+        URL.revokeObjectURL(preview.url);
+      }
+    });
+
+    setSelectedFiles([]);
+    setFilePreviews([]);
   }, [conversationId]);
 
   /* =======================================================
@@ -1011,6 +1150,7 @@ const ConversationWindow = ({
 
     try {
       setSending(true);
+      setShowAttachmentMenu(false);
 
       /*
        * IMPORTANT:
@@ -1036,6 +1176,16 @@ const ConversationWindow = ({
        * has been successfully sent.
        */
       onCancelReply?.();
+
+      filePreviewsRef.current.forEach(
+        (preview) => {
+          if (preview?.url) {
+            URL.revokeObjectURL(
+              preview.url
+            );
+          }
+        }
+      );
 
       setComposerText("");
       setSelectedFiles([]);
@@ -1082,16 +1232,14 @@ const ConversationWindow = ({
   ======================================================== */
 
   const validateFile = (
-    file
+    file,
+    category = fileSelectionCategory
   ) => {
     if (!file) {
       return false;
     }
 
-    if (
-      file.size >
-      MAX_FILE_SIZE
-    ) {
+    if (file.size > MAX_FILE_SIZE) {
       window.alert(
         `${file.name} is larger than 10 MB.`
       );
@@ -1099,60 +1247,131 @@ const ConversationWindow = ({
       return false;
     }
 
-    if (
-      file.type &&
-      !ACCEPTED_FILE_TYPES.includes(
-        file.type
-      )
-    ) {
-      window.alert(
-        `${file.name} is not a supported file type.`
-      );
+    if (category === "image") {
+      if (
+        !file.type.startsWith("image/") &&
+        !file.type.startsWith("video/")
+      ) {
+        window.alert(
+          `${file.name} is not an image or video.`
+        );
 
-      return false;
+        return false;
+      }
+
+      return true;
     }
 
+    if (category === "document") {
+      const extension =
+        file.name.split(".").pop()?.toLowerCase() || "";
+
+      const isDocument =
+        DOCUMENT_EXTENSIONS.includes(extension) ||
+        ACCEPTED_FILE_TYPES.includes(file.type);
+
+      if (!isDocument) {
+        window.alert(
+          `${file.name} is not a supported document type.`
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    // "Other files" intentionally accepts any file type;
+    // the size limit is still enforced above.
     return true;
+  };
+
+  /* =======================================================
+     OPEN ATTACHMENT PICKER
+  ======================================================== */
+
+  const openFilePicker = (category) => {
+    if (
+      sending ||
+      selectedFiles.length >= MAX_ATTACHMENTS
+    ) {
+      setShowAttachmentMenu(false);
+      return;
+    }
+
+    const option = ATTACHMENT_OPTIONS.find(
+      (item) => item.id === category
+    );
+
+    if (!option || !fileInputRef.current) {
+      return;
+    }
+
+    setFileSelectionCategory(category);
+    setFileAccept(option.accept);
+    setShowAttachmentMenu(false);
+
+    // Reset the native input so selecting the same file again
+    // still triggers onChange.
+    fileInputRef.current.value = "";
+
+    // Let React apply the latest accept value before opening
+    // the native picker.
+    requestAnimationFrame(() => {
+      fileInputRef.current?.click();
+    });
   };
 
   /* =======================================================
      ADD FILES
   ======================================================== */
 
-  const handleFilesSelected = (
-    event
-  ) => {
-    const incomingFiles =
-      Array.from(
-        event.target.files || []
-      );
+  const handleFilesSelected = (event) => {
+    const incomingFiles = Array.from(
+      event.target.files || []
+    );
 
     if (!incomingFiles.length) {
       return;
     }
 
-    const validFiles =
-      incomingFiles.filter(
-        validateFile
-      );
-
     const remainingSlots =
-      MAX_ATTACHMENTS -
-      selectedFiles.length;
+      MAX_ATTACHMENTS - selectedFiles.length;
 
-    const filesToAdd =
-      validFiles.slice(
-        0,
-        Math.max(
-          0,
-          remainingSlots
-        )
-      );
+    if (remainingSlots <= 0) {
+      event.target.value = "";
+      return;
+    }
 
-    if (
-      validFiles.length >
-      filesToAdd.length
-    ) {
+    const existingFiles = new Set(
+      selectedFiles.map(
+        (file) =>
+          `${file.name}-${file.size}-${file.lastModified}`
+      )
+    );
+
+    const validFiles = incomingFiles.filter(
+      (file) => {
+        const fileKey =
+          `${file.name}-${file.size}-${file.lastModified}`;
+
+        if (existingFiles.has(fileKey)) {
+          return false;
+        }
+
+        return validateFile(
+          file,
+          fileSelectionCategory
+        );
+      }
+    );
+
+    const filesToAdd = validFiles.slice(
+      0,
+      remainingSlots
+    );
+
+    if (validFiles.length > filesToAdd.length) {
       window.alert(
         `You can attach up to ${MAX_ATTACHMENTS} files.`
       );
@@ -1160,31 +1379,21 @@ const ConversationWindow = ({
 
     if (!filesToAdd.length) {
       event.target.value = "";
-
       return;
     }
 
-    setSelectedFiles(
-      (current) => [
-        ...current,
-        ...filesToAdd,
-      ]
-    );
+    setSelectedFiles((current) => [
+      ...current,
+      ...filesToAdd,
+    ]);
 
-    setFilePreviews(
-      (current) => [
-        ...current,
-        ...filesToAdd.map(
-          (file) => ({
-            file,
-            url:
-              getFilePreviewUrl(
-                file
-              ),
-          })
-        ),
-      ]
-    );
+    setFilePreviews((current) => [
+      ...current,
+      ...filesToAdd.map((file) => ({
+        file,
+        url: getFilePreviewUrl(file),
+      })),
+    ]);
 
     event.target.value = "";
   };
@@ -1229,7 +1438,7 @@ const ConversationWindow = ({
 
   useEffect(() => {
     return () => {
-      filePreviews.forEach(
+      filePreviewsRef.current.forEach(
         (preview) => {
           if (preview?.url) {
             URL.revokeObjectURL(
@@ -1239,7 +1448,7 @@ const ConversationWindow = ({
         }
       );
     };
-  }, [filePreviews]);
+  }, []);
 
   /* =======================================================
      REPLY
@@ -2293,6 +2502,11 @@ const ConversationWindow = ({
                       "image/"
                     );
 
+                  const isVideo =
+                    file?.type?.startsWith(
+                      "video/"
+                    );
+
                   return (
                     <div
                       key={`${file.name}-${index}`}
@@ -2317,6 +2531,17 @@ const ConversationWindow = ({
                           alt={
                             file.name
                           }
+                          className="
+                            h-full
+                            w-full
+                            object-cover
+                          "
+                        />
+                      ) : isVideo ? (
+                        <video
+                          src={preview.url}
+                          muted
+                          playsInline
                           className="
                             h-full
                             w-full
@@ -2401,99 +2626,201 @@ const ConversationWindow = ({
           COMPOSER
       ================================================== */}
 
-      <div
-        className="
-          shrink-0
-          border-t
-          border-slate-200
-          bg-white
-          px-3
-          py-3
-        "
-      >
-        <div
-          className="
-            flex
-            items-end
-            gap-2
-          "
-        >
-          {/* FILE INPUT */}
+      <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          hidden
+          accept={fileAccept}
+          onChange={handleFilesSelected}
+        />
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            hidden
-            accept={ACCEPTED_FILE_TYPES.join(
-              ","
-            )}
-            onChange={
-              handleFilesSelected
-            }
-          />
-
-          {/* ATTACH */}
-
-          <button
-            type="button"
-            onClick={() =>
-              fileInputRef.current?.click()
-            }
-            disabled={
-              sending ||
-              selectedFiles.length >=
-                MAX_ATTACHMENTS
-            }
-            className="
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-full
-              text-slate-500
-              transition
-              hover:bg-slate-100
-              hover:text-blue-600
-              disabled:cursor-not-allowed
-              disabled:opacity-40
-            "
-            aria-label="Attach files"
-            title="Attach files"
-          >
-            <Paperclip
-              size={20}
-            />
-          </button>
-
-          {/* TEXT AREA */}
-
+        {/* Composer row */}
+        <div className="flex w-full items-end gap-2">
+          {/* Attachment button + floating menu */}
           <div
-            className="
-              min-w-0
-              flex-1
-            "
+            ref={attachmentMenuRef}
+            className="relative shrink-0"
           >
+            <button
+              type="button"
+              onClick={() =>
+                setShowAttachmentMenu(
+                  (current) => !current
+                )
+              }
+              disabled={
+                sending ||
+                selectedFiles.length >= MAX_ATTACHMENTS
+              }
+              className={`
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-full
+                transition-all
+                duration-200
+                disabled:cursor-not-allowed
+                disabled:opacity-40
+                ${
+                  showAttachmentMenu
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                }
+              `}
+              aria-label="Attach files"
+              aria-haspopup="menu"
+              aria-expanded={showAttachmentMenu}
+              title="Attach files"
+            >
+              <Paperclip
+                size={20}
+                className={`
+                  transition-transform
+                  duration-200
+                  ${
+                    showAttachmentMenu
+                      ? "rotate-45"
+                      : ""
+                  }
+                `}
+              />
+            </button>
+
+            {showAttachmentMenu && (
+              <div
+                className="
+                  absolute
+                  bottom-12
+                  left-0
+                  z-50
+                  w-72
+                  overflow-hidden
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-white
+                  shadow-xl
+                  shadow-slate-300/30
+                "
+                role="menu"
+              >
+                <div
+                  className="
+                    border-b
+                    border-slate-100
+                    px-4
+                    py-3
+                  "
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        Attach file
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Choose what you want to send
+                      </p>
+                    </div>
+
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-500">
+                      {selectedFiles.length}/{MAX_ATTACHMENTS}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-2">
+                  {ATTACHMENT_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() =>
+                          openFilePicker(option.id)
+                        }
+                        className="
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-3
+                          text-left
+                          transition-colors
+                          hover:bg-slate-50
+                          focus:bg-slate-50
+                          focus:outline-none
+                        "
+                      >
+                        <span
+                          className={`
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
+                            ${option.iconClass}
+                          `}
+                        >
+                          <Icon size={20} />
+                        </span>
+
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-slate-800">
+                            {option.label}
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-slate-400">
+                            {option.description}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div
+                  className="
+                    border-t
+                    border-slate-100
+                    bg-slate-50
+                    px-4
+                    py-2
+                  "
+                >
+                  <p className="text-[10px] text-slate-400">
+                    Maximum file size: 10 MB each
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Message input area */}
+          <div className="min-w-0 flex-1">
             <textarea
-              value={
-                composerText
-              }
-              onChange={
-                handleComposerChange
-              }
-              onKeyDown={
-                handleComposerKeyDown
-              }
+              value={composerText}
+              onChange={handleComposerChange}
+              onKeyDown={handleComposerKeyDown}
               rows={1}
               placeholder="Type a message..."
               disabled={sending}
               className="
+                block
                 max-h-32
                 min-h-[40px]
                 w-full
                 resize-none
+                overflow-y-auto
                 rounded-2xl
                 border
                 border-slate-200
@@ -2501,9 +2828,10 @@ const ConversationWindow = ({
                 px-4
                 py-2.5
                 text-sm
+                leading-5
                 text-slate-900
                 outline-none
-                transition
+                transition-all
                 placeholder:text-slate-400
                 focus:border-blue-400
                 focus:bg-white
@@ -2515,18 +2843,14 @@ const ConversationWindow = ({
             />
           </div>
 
-          {/* SEND */}
-
+          {/* Send button */}
           <button
             type="button"
-            onClick={
-              handleSend
-            }
+            onClick={handleSend}
             disabled={
               sending ||
               (!composerText.trim() &&
-                selectedFiles.length ===
-                  0)
+                selectedFiles.length === 0)
             }
             className="
               flex
@@ -2549,30 +2873,48 @@ const ConversationWindow = ({
               disabled:cursor-not-allowed
               disabled:bg-slate-300
               disabled:bg-none
+              disabled:shadow-none
             "
             aria-label="Send message"
-            title="Send"
+            title="Send message"
           >
             <Send size={18} />
           </button>
         </div>
 
-        {/* ATTACHMENT LIMIT */}
+        {/* Attachment information */}
+        {selectedFiles.length > 0 && (
+          <div className="mt-1 flex items-center justify-between gap-3 px-12">
+            <span className="truncate text-[10px] text-slate-400">
+              {selectedFiles.length}/{MAX_ATTACHMENTS} files attached
+            </span>
 
-        {selectedFiles.length >
-          0 && (
-          <p
-            className="
-              mt-1
-              px-12
-              text-[10px]
-              text-slate-400
-            "
-          >
-            {selectedFiles.length}/
-            {MAX_ATTACHMENTS}{" "}
-            files attached
-          </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {selectedFiles.length >= MAX_ATTACHMENTS && (
+                <span className="text-[10px] text-amber-500">
+                  Limit reached
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  filePreviewsRef.current.forEach((preview) => {
+                    if (preview?.url) {
+                      URL.revokeObjectURL(preview.url);
+                    }
+                  });
+
+                  setSelectedFiles([]);
+                  setFilePreviews([]);
+                }}
+                disabled={sending}
+                className="text-[10px] font-medium text-slate-400 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
