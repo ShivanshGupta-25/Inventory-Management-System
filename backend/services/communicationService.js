@@ -265,6 +265,7 @@ const getConversations = async (userId) => {
   const participants =
     await ConversationParticipant.find({
       userId,
+      deletedAt: null,
     })
       .populate({
         path: "conversationId",
@@ -485,8 +486,43 @@ const getConversation = async (
 };
 
 /* =====================================================
-   GET MESSAGES
+   DELETE CONVERSATION FOR ME
 ===================================================== */
+
+const deleteConversationForMe = async (
+  conversationId,
+  userId
+) => {
+  if (!isValidObjectId(conversationId)) {
+    throw createServiceError(
+      "Invalid conversation ID"
+    );
+  }
+
+  const participant =
+    await ConversationParticipant.findOne({
+      conversationId,
+      userId,
+    });
+
+  if (!participant) {
+    throw createServiceError(
+      "You are not a participant in this conversation",
+      403
+    );
+  }
+
+  participant.deletedAt =
+    new Date();
+
+  await participant.save();
+
+  return {
+    conversationId,
+    deletedAt:
+      participant.deletedAt,
+  };
+};
 
 /* =====================================================
    GET MESSAGES
@@ -764,6 +800,26 @@ const createDirectConversation = async (
             await Conversation.findById(
               targetParticipation.conversationId
             ).lean();
+
+          if (conversation) {
+            await ConversationParticipant.updateMany(
+              {
+                conversationId:
+                  conversation._id,
+                userId: {
+                  $in: [
+                    currentUserId,
+                    targetUserId,
+                  ],
+                },
+              },
+              {
+                $set: {
+                  deletedAt: null,
+                },
+              }
+            );
+          }
         }
       }
     }
@@ -2172,6 +2228,7 @@ module.exports = {
   getCommunicationUsers,
   getConversations,
   getConversation,
+  deleteConversationForMe,
   getMessages,
   getMessageThread,
   createDirectConversation,

@@ -1,4 +1,9 @@
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   MessageSquarePlus,
@@ -7,6 +12,8 @@ import {
   Paperclip,
   Image as ImageIcon,
 } from "lucide-react";
+
+import ConversationActionMenu from "./ConversationActionMenu";
 
 /* =========================================================
    HELPERS
@@ -60,7 +67,10 @@ const getConversationName = (
   }
 
   if (conversation.type === "group") {
-    return conversation.name || "Unnamed group";
+    return (
+      conversation.name ||
+      "Unnamed group"
+    );
   }
 
   const participants =
@@ -83,13 +93,16 @@ const getConversationName = (
 
       return (
         participantId &&
-        String(participantId) !== currentId
+        String(participantId) !==
+          currentId
       );
     });
 
   if (otherParticipant) {
     const user =
-      getParticipantUser(otherParticipant);
+      getParticipantUser(
+        otherParticipant
+      );
 
     return (
       user?.name ||
@@ -128,7 +141,9 @@ const getInitials = (name = "") => {
    LAST MESSAGE PREVIEW
 ========================================================= */
 
-const getLastMessagePreview = (lastMessage) => {
+const getLastMessagePreview = (
+  lastMessage
+) => {
   if (!lastMessage) {
     return "No messages yet";
   }
@@ -181,7 +196,9 @@ const getLastMessagePreview = (lastMessage) => {
    LAST MESSAGE TYPE
 ========================================================= */
 
-const getLastMessageType = (lastMessage) => {
+const getLastMessageType = (
+  lastMessage
+) => {
   if (!lastMessage) {
     return null;
   }
@@ -250,9 +267,50 @@ const ConversationList = ({
   onSelect,
   onNewConversation,
   loading,
+
+  /*
+   * Conversation actions.
+   *
+   * These are intentionally optional for now.
+   * We will connect them to the backend
+   * conversation-management APIs next.
+   */
+  onMarkUnread,
+  onTogglePin,
+  onToggleMute,
+  onDeleteConversation,
 }) => {
   const [search, setSearch] =
     useState("");
+
+  /*
+   * Desktop context menu.
+   */
+  const [contextMenu, setContextMenu] =
+    useState(null);
+
+  /*
+   * Mobile action sheet.
+   */
+  const [mobileActionConversation, setMobileActionConversation] =
+    useState(null);
+
+  /*
+   * Long-press timer.
+   */
+  const longPressTimer =
+    useRef(null);
+
+  /*
+   * Used to distinguish a long press
+   * from a normal click.
+   */
+  const longPressTriggered =
+    useRef(false);
+
+  /* =====================================================
+     SEARCH
+  ====================================================== */
 
   const filteredConversations =
     useMemo(() => {
@@ -294,6 +352,164 @@ const ConversationList = ({
       search,
     ]);
 
+  /* =====================================================
+     CLOSE CONTEXT MENU
+  ====================================================== */
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const closeMobileActionMenu = () => {
+    setMobileActionConversation(
+      null
+    );
+  };
+
+  /* =====================================================
+     ESCAPE
+  ====================================================== */
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeContextMenu();
+        closeMobileActionMenu();
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, []);
+
+  /* =====================================================
+     OUTSIDE CLICK
+  ====================================================== */
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return undefined;
+    }
+
+    const handleMouseDown = () => {
+      closeContextMenu();
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleMouseDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleMouseDown
+      );
+    };
+  }, [contextMenu]);
+
+  /* =====================================================
+     LONG PRESS CLEANUP
+  ====================================================== */
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      window.clearTimeout(
+        longPressTimer.current
+      );
+
+      longPressTimer.current = null;
+    }
+  };
+
+  /* =====================================================
+     LONG PRESS START
+  ====================================================== */
+
+  const startLongPress = (
+    conversation
+  ) => {
+    clearLongPress();
+
+    longPressTriggered.current = false;
+
+    longPressTimer.current =
+      window.setTimeout(() => {
+        longPressTriggered.current = true;
+
+        setMobileActionConversation(
+          conversation
+        );
+      }, 550);
+  };
+
+  /* =====================================================
+     LONG PRESS CANCEL
+  ====================================================== */
+
+  const cancelLongPress = () => {
+    clearLongPress();
+  };
+
+  /* =====================================================
+     RIGHT CLICK
+  ====================================================== */
+
+  const handleContextMenu = (
+    event,
+    conversation
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    clearLongPress();
+
+    setMobileActionConversation(
+      null
+    );
+
+    setContextMenu({
+      conversation,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  /* =====================================================
+     NORMAL CLICK
+  ====================================================== */
+
+  const handleConversationClick = (
+    conversationId
+  ) => {
+    /*
+     * If the interaction was a mobile
+     * long press, don't also open the chat.
+     */
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
+
+    closeContextMenu();
+    closeMobileActionMenu();
+
+    onSelect(conversationId);
+  };
+
+  /* =====================================================
+     RENDER
+  ====================================================== */
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
       {/* =====================================================
@@ -330,7 +546,7 @@ const ConversationList = ({
         </div>
 
         {/* =================================================
-            SEARCH / FILTERS
+            SEARCH
         ================================================= */}
 
         <div className="relative mt-4">
@@ -354,9 +570,6 @@ const ConversationList = ({
 
       {/* =====================================================
           CONVERSATION SCROLL AREA
-
-          This is the ONLY scrollable area in the
-          conversation list pane.
       ====================================================== */}
 
       <div
@@ -394,7 +607,8 @@ const ConversationList = ({
               </div>
             ))}
           </div>
-        ) : filteredConversations.length === 0 ? (
+        ) : filteredConversations.length ===
+          0 ? (
           <div className="flex min-h-full flex-col items-center justify-center px-6 py-10 text-center">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100">
               <MessageSquarePlus
@@ -460,11 +674,31 @@ const ConversationList = ({
                     type="button"
                     key={conversationId}
                     onClick={() =>
-                      onSelect(
+                      handleConversationClick(
                         conversationId
                       )
                     }
-                    className={`mb-1 flex w-full min-w-0 items-center gap-3 rounded-xl p-3 text-left transition ${
+                    onContextMenu={(event) =>
+                      handleContextMenu(
+                        event,
+                        conversation
+                      )
+                    }
+                    onTouchStart={() =>
+                      startLongPress(
+                        conversation
+                      )
+                    }
+                    onTouchEnd={
+                      cancelLongPress
+                    }
+                    onTouchMove={
+                      cancelLongPress
+                    }
+                    onTouchCancel={
+                      cancelLongPress
+                    }
+                    className={`mb-1 flex w-full min-w-0 touch-pan-y items-center gap-3 rounded-xl p-3 text-left transition ${
                       active
                         ? "bg-blue-50"
                         : "hover:bg-slate-50"
@@ -541,6 +775,63 @@ const ConversationList = ({
           </div>
         )}
       </div>
+
+      {/* =====================================================
+          DESKTOP ACTION MENU
+      ====================================================== */}
+
+      {contextMenu && (
+        <ConversationActionMenu
+          conversation={
+            contextMenu.conversation
+          }
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onMarkUnread={
+            onMarkUnread
+          }
+          onTogglePin={
+            onTogglePin
+          }
+          onToggleMute={
+            onToggleMute
+          }
+          onDelete={
+            onDeleteConversation
+          }
+          onClose={
+            closeContextMenu
+          }
+        />
+      )}
+
+      {/* =====================================================
+          MOBILE ACTION SHEET
+      ====================================================== */}
+
+      {mobileActionConversation && (
+        <ConversationActionMenu
+          conversation={
+            mobileActionConversation
+          }
+          mobile
+          onMarkUnread={
+            onMarkUnread
+          }
+          onTogglePin={
+            onTogglePin
+          }
+          onToggleMute={
+            onToggleMute
+          }
+          onDelete={
+            onDeleteConversation
+          }
+          onClose={
+            closeMobileActionMenu
+          }
+        />
+      )}
     </div>
   );
 };

@@ -13,7 +13,12 @@ const NewConversation = ({
   onClose,
   onCreateDirect,
   onCreateGroup,
+  currentUserRole,
 }) => {
+  const isStaff =
+    String(currentUserRole || "").toLowerCase() ===
+    "staff";
+
   const [mode, setMode] =
     useState("direct");
 
@@ -29,6 +34,10 @@ const NewConversation = ({
   const [error, setError] =
     useState("");
 
+  /* =========================================================
+     USER SELECTION
+  ========================================================= */
+
   const toggleUser = (userId) => {
     setSelectedUsers((current) => {
       const exists = current.some(
@@ -37,6 +46,30 @@ const NewConversation = ({
           String(userId)
       );
 
+      /*
+       * DIRECT CONVERSATION
+       *
+       * Only one user can be selected.
+       *
+       * Clicking the currently selected user
+       * will unselect them.
+       *
+       * Clicking another user replaces the
+       * previous selection.
+       */
+      if (mode === "direct") {
+        if (exists) {
+          return [];
+        }
+
+        return [userId];
+      }
+
+      /*
+       * GROUP CONVERSATION
+       *
+       * Multiple users can be selected.
+       */
       if (exists) {
         return current.filter(
           (id) =>
@@ -47,16 +80,81 @@ const NewConversation = ({
 
       return [...current, userId];
     });
+
+    /*
+     * Clear any previous validation error
+     * once the user changes the selection.
+     */
+    setError("");
   };
 
+  /* =========================================================
+     CHANGE MODE
+  ========================================================= */
+
   const changeMode = (nextMode) => {
+    /*
+     * Staff cannot switch to group mode.
+     */
+    if (
+      isStaff &&
+      nextMode === "group"
+    ) {
+      return;
+    }
+
     setMode(nextMode);
     setError("");
+
+    /*
+     * When switching to direct mode,
+     * only keep one selected user.
+     */
+    if (
+      nextMode === "direct"
+    ) {
+      setSelectedUsers((current) =>
+        current.length > 0
+          ? [current[0]]
+          : []
+      );
+
+      setGroupName("");
+
+      return;
+    }
+
+    /*
+     * When switching to group mode,
+     * start with no selected users.
+     */
     setSelectedUsers([]);
   };
 
+  /* =========================================================
+     SUBMIT
+  ========================================================= */
+
   const submit = async () => {
     setError("");
+
+    /*
+     * Extra frontend protection.
+     */
+    if (
+      isStaff &&
+      mode === "group"
+    ) {
+      setError(
+        "Staff members cannot create group conversations."
+      );
+
+      return;
+    }
+
+    /* =====================================================
+       DIRECT VALIDATION
+    ===================================================== */
 
     if (
       mode === "direct" &&
@@ -68,6 +166,10 @@ const NewConversation = ({
 
       return;
     }
+
+    /* =====================================================
+       GROUP VALIDATION
+    ===================================================== */
 
     if (
       mode === "group" &&
@@ -91,10 +193,16 @@ const NewConversation = ({
       return;
     }
 
+    /* =====================================================
+       CREATE
+    ===================================================== */
+
     try {
       setCreating(true);
 
-      if (mode === "direct") {
+      if (
+        mode === "direct"
+      ) {
         await onCreateDirect(
           selectedUsers[0]
         );
@@ -118,12 +226,18 @@ const NewConversation = ({
     }
   };
 
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[1px]">
 
       <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
 
-        {/* Header */}
+        {/* =================================================
+            HEADER
+        ================================================== */}
 
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
 
@@ -145,6 +259,7 @@ const NewConversation = ({
                 Start a conversation with your team
               </p>
             </div>
+
           </div>
 
           <button
@@ -155,15 +270,28 @@ const NewConversation = ({
           >
             <X size={17} />
           </button>
+
         </div>
 
-        {/* Body */}
+        {/* =================================================
+            BODY
+        ================================================== */}
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
 
-          {/* Mode */}
+          {/* =================================================
+              MODE
+          ================================================== */}
 
-          <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+          <div
+            className={`mb-5 grid gap-1 rounded-xl bg-slate-100 p-1 ${
+              isStaff
+                ? "grid-cols-1"
+                : "grid-cols-2"
+            }`}
+          >
+
+            {/* DIRECT */}
 
             <button
               type="button"
@@ -176,70 +304,97 @@ const NewConversation = ({
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              <MessageSquare size={15} />
+              <MessageSquare
+                size={15}
+              />
 
               Direct
             </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                changeMode("group")
-              }
-              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                mode === "group"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <Users size={15} />
+            {/* GROUP */}
 
-              Group
-            </button>
+            {!isStaff && (
+              <button
+                type="button"
+                onClick={() =>
+                  changeMode("group")
+                }
+                className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  mode === "group"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <Users
+                  size={15}
+                />
+
+                Group
+              </button>
+            )}
+
           </div>
 
-          {/* Group name */}
+          {/* =================================================
+              GROUP NAME
+          ================================================== */}
 
-          {mode === "group" && (
-            <div className="mb-4">
+          {mode === "group" &&
+            !isStaff && (
+              <div className="mb-4">
 
-              <label className="mb-1.5 block text-xs font-medium text-slate-600">
-                Group name
-              </label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Group name
+                </label>
 
-              <input
-                value={groupName}
-                onChange={(event) =>
-                  setGroupName(
-                    event.target.value
-                  )
-                }
-                maxLength={100}
-                placeholder="e.g. Management Team"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-          )}
+                <input
+                  value={groupName}
+                  onChange={(event) =>
+                    setGroupName(
+                      event.target.value
+                    )
+                  }
+                  maxLength={100}
+                  placeholder="e.g. Management Team"
+                  disabled={creating}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+
+              </div>
+            )}
+
+          {/* =================================================
+              USER SELECTOR
+          ================================================== */}
 
           <UserSelector
             users={users}
             selectedUsers={
               selectedUsers
             }
-            onToggle={toggleUser}
-            loading={loadingUsers}
+            onToggle={
+              toggleUser
+            }
+            loading={
+              loadingUsers
+            }
           />
 
-          {/* Error */}
+          {/* =================================================
+              ERROR
+          ================================================== */}
 
           {error && (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600">
               {error}
             </div>
           )}
+
         </div>
 
-        {/* Footer */}
+        {/* =================================================
+            FOOTER
+        ================================================== */}
 
         <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50/50 px-5 py-4">
 
@@ -262,8 +417,11 @@ const NewConversation = ({
               ? "Creating..."
               : "Create conversation"}
           </button>
+
         </div>
+
       </div>
+
     </div>
   );
 };

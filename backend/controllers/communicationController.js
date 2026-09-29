@@ -314,6 +314,58 @@ const createGroupConversation = async (
   }
 };
 
+
+/* =====================================================
+   DELETE CONVERSATION FOR ME
+===================================================== */
+
+const deleteConversationForMe =
+  async (req, res) => {
+    try {
+      const result =
+        await communicationService.deleteConversationForMe(
+          req.params.id,
+          req.user.userId
+        );
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+        io.to(
+          `user:${req.user.userId}`
+        ).emit(
+          "conversation:deletedForMe",
+          {
+            conversationId:
+              result.conversationId,
+          }
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Conversation deleted for you",
+        data: result,
+      });
+    } catch (error) {
+      console.error(
+        "Delete conversation for me error:",
+        error
+      );
+
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to delete conversation",
+      });
+    }
+  };
+
 /* =====================================================
    SEND MESSAGE
 ===================================================== */
@@ -829,6 +881,7 @@ module.exports = {
   getUsers,
   getConversations,
   getConversation,
+  deleteConversationForMe,
   getMessages,
   getMessageThreadController,
   createDirectConversation,

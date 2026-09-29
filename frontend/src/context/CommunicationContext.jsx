@@ -161,6 +161,82 @@ export const CommunicationProvider = ({
   );
 
   /* =====================================================
+    DELETE CONVERSATION FOR ME
+  ===================================================== */
+
+  const deleteConversationForMe =
+    useCallback(
+      async (conversationId) => {
+        if (!conversationId) {
+          return null;
+        }
+
+        try {
+          const response =
+            await communicationService.deleteConversationForMe(
+              conversationId
+            );
+
+          const result =
+            response.data;
+
+          const deletedConversationId =
+            String(
+              result?.conversationId ||
+                conversationId
+            );
+
+          /*
+          * Remove the conversation immediately
+          * from the local conversation list.
+          */
+          setConversations((current) =>
+            current.filter(
+              (conversation) =>
+                String(
+                  getConversationId(
+                    conversation
+                  )
+                ) !==
+                deletedConversationId
+            )
+          );
+
+          /*
+          * If the deleted conversation is currently
+          * open, close it completely.
+          */
+          if (
+            String(
+              activeConversationId
+            ) === deletedConversationId
+          ) {
+            setActiveConversationId(null);
+            setMessages([]);
+            setReplyingTo(null);
+            setTypingUsers([]);
+            setMessageSearchResults([]);
+            setMessageSearchError("");
+            setMessageSearchLoading(false);
+          }
+
+          return result;
+        } catch (error) {
+          console.error(
+            "Failed to delete conversation:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      [
+        activeConversationId,
+      ]
+    );
+
+    
+  /* =====================================================
      LOAD MESSAGES
   ====================================================== */
 
@@ -1584,6 +1660,7 @@ export const CommunicationProvider = ({
   const value = useMemo(
     () => ({
       conversations,
+      deleteConversationForMe,
       activeConversation,
       activeConversationId,
       messages,
@@ -1642,6 +1719,7 @@ export const CommunicationProvider = ({
     }),
     [
       conversations,
+      deleteConversationForMe,
       activeConversation,
       activeConversationId,
       messages,

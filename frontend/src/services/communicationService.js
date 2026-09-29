@@ -42,6 +42,17 @@ const communicationService = {
     );
   },
 
+  deleteConversationForMe: async (
+    conversationId
+  ) => {
+    return apiRequest(
+      `/communication/conversations/${conversationId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
+
   createDirectConversation: async (
     userId
   ) => {

@@ -36,6 +36,7 @@ const CommunicationLayout = () => {
 
   const {
     conversations,
+    deleteConversationForMe,
     activeConversation,
     connectionStatus,
     activeConversationId,
@@ -743,6 +744,9 @@ const CommunicationLayout = () => {
               }
               loading={
                 loadingConversations
+              }
+              onDeleteConversation={
+                deleteConversationForMe
               }
             />
           </aside>

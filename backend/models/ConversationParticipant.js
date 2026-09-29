@@ -30,6 +30,31 @@ const conversationParticipantSchema =
         type: Date,
         default: null,
       },
+
+      /*
+       * Conversation management
+       */
+
+      isPinned: {
+        type: Boolean,
+        default: false,
+      },
+
+      isMuted: {
+        type: Boolean,
+        default: false,
+      },
+
+      /*
+       * User-specific conversation deletion.
+       *
+       * The conversation itself is NOT deleted.
+       * Only this user's participation is hidden.
+       */
+      deletedAt: {
+        type: Date,
+        default: null,
+      },
     },
     {
       timestamps: true,
@@ -37,7 +62,8 @@ const conversationParticipantSchema =
   );
 
 /*
- * A user can only appear once in a conversation.
+ * A user can only appear once
+ * in a conversation.
  */
 conversationParticipantSchema.index(
   {
@@ -54,6 +80,16 @@ conversationParticipantSchema.index(
  */
 conversationParticipantSchema.index({
   userId: 1,
+  updatedAt: -1,
+});
+
+/*
+ * Useful when loading only active
+ * conversations for a user.
+ */
+conversationParticipantSchema.index({
+  userId: 1,
+  deletedAt: 1,
   updatedAt: -1,
 });
 

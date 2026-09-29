@@ -6,6 +6,7 @@ const {
   getUsers,
   getConversations,
   getConversation,
+  deleteConversationForMe,
   getMessages,
   getMessageThreadController,
   createDirectConversation,
@@ -59,6 +60,11 @@ router.post(
 router.get(
   "/conversations/:id",
   getConversation
+);
+
+router.delete(
+  "/conversations/:id",
+  deleteConversationForMe
 );
 
 /* =====================================================
