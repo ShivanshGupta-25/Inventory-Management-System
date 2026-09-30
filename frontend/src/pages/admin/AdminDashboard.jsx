@@ -37,8 +37,8 @@ import { useNavigate } from "react-router-dom";
 const dashboardStats = [
   {
     title: "Total Users",
-    value: "1,248",
-    change: "+8.4%",
+    value: "--",
+    change: "--",
     description: "vs. last month",
     icon: Users,
     trend: "up",
@@ -46,8 +46,8 @@ const dashboardStats = [
   },
   {
     title: "Total Products",
-    value: "2,486",
-    change: "+4.2%",
+    value: "--",
+    change: "--",
     description: "vs. last month",
     icon: Boxes,
     trend: "up",
@@ -55,8 +55,8 @@ const dashboardStats = [
   },
   {
     title: "Warehouses",
-    value: "12",
-    change: "+2",
+    value: "--",
+    change: "--",
     description: "this month",
     icon: Warehouse,
     trend: "up",
@@ -64,8 +64,8 @@ const dashboardStats = [
   },
   {
     title: "Inventory Value",
-    value: "₹48.6L",
-    change: "+6.8%",
+    value: "--",
+    change: "--",
     description: "vs. last month",
     icon: TrendingUp,
     trend: "up",
@@ -73,8 +73,8 @@ const dashboardStats = [
   },
   {
     title: "Low Stock Items",
-    value: "38",
-    change: "-12%",
+    value: "--",
+    change: "--",
     description: "vs. last month",
     icon: AlertTriangle,
     trend: "down",
@@ -82,8 +82,8 @@ const dashboardStats = [
   },
   {
     title: "Active Alerts",
-    value: "17",
-    change: "5 critical",
+    value: "--",
+    change: "--",
     description: "need attention",
     icon: Activity,
     trend: "warning",
@@ -92,38 +92,38 @@ const dashboardStats = [
 ];
 
 const inventoryMovementData = [
-  { day: "Mon", stockIn: 420, stockOut: 280 },
-  { day: "Tue", stockIn: 580, stockOut: 340 },
-  { day: "Wed", stockIn: 460, stockOut: 390 },
-  { day: "Thu", stockIn: 720, stockOut: 440 },
-  { day: "Fri", stockIn: 640, stockOut: 510 },
-  { day: "Sat", stockIn: 810, stockOut: 570 },
-  { day: "Sun", stockIn: 690, stockOut: 460 },
+  { day: "Mon", stockIn: 10, stockOut: 15 },
+  { day: "Tue", stockIn: 18, stockOut: 15 },
+  { day: "Wed", stockIn: 10, stockOut: 18 },
+  { day: "Thu", stockIn: 18, stockOut: 15 },
+  { day: "Fri", stockIn: 10, stockOut: 18 },
+  { day: "Sat", stockIn: 18, stockOut: 15 },
+  { day: "Sun", stockIn: 10, stockOut: 18 },
 ];
 
 const stockHealth = [
   {
     label: "Healthy Stock",
-    value: 64,
-    count: "1,591 products",
+    value: 0,
+    count: "--",
     className: "bg-emerald-500",
   },
   {
     label: "Low Stock",
-    value: 21,
-    count: "522 products",
+    value: 0,
+    count: "--",
     className: "bg-amber-500",
   },
   {
     label: "Out of Stock",
-    value: 9,
-    count: "224 products",
+    value: 0,
+    count: "--",
     className: "bg-red-500",
   },
   {
     label: "Overstock",
-    value: 6,
-    count: "149 products",
+    value: 0,
+    count: "--",
     className: "bg-violet-500",
   },
 ];
@@ -132,7 +132,7 @@ const recentActivity = [
   {
     id: 1,
     title: "New manager account created",
-    description: "Rahul Sharma was added as a manager.",
+    description: "- - -",
     time: "5 min ago",
     icon: UserPlus,
     iconClass: "bg-blue-50 text-blue-600",
@@ -164,7 +164,7 @@ const recentActivity = [
   {
     id: 5,
     title: "Warehouse configuration updated",
-    description: "Indore warehouse settings were updated.",
+    description: "- -",
     time: "2 hours ago",
     icon: Warehouse,
     iconClass: "bg-slate-100 text-slate-600",
@@ -607,7 +607,7 @@ const AdminDashboard = () => {
                   >
                     <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full bg-white">
                       <span className="text-2xl font-bold text-slate-900">
-                        2,486
+                        --
                       </span>
 
                       <span className="text-xs text-slate-400">

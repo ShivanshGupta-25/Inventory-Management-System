@@ -76,6 +76,10 @@ const AdminSidebar = ({
               path: "/admin/users",
             },
             {
+              label: "Admins",
+              path: "/admin/admins",
+            },
+            {
               label: "Managers",
               path: "/admin/users/managers",
             },
@@ -90,32 +94,32 @@ const AdminSidebar = ({
           ],
         },
 
-        {
-          label: "Organization",
-          icon: Warehouse,
-          children: [
-            {
-              label: "Warehouses",
-              path: "/admin/organization/warehouses",
-            },
-            {
-              label: "Categories",
-              path: "/admin/organization/categories",
-            },
-            {
-              label: "Brands",
-              path: "/admin/organization/brands",
-            },
-            {
-              label: "Units",
-              path: "/admin/organization/units",
-            },
-            {
-              label: "Suppliers",
-              path: "/admin/organization/suppliers",
-            },
-          ],
-        },
+        // {
+        //   label: "Organization",
+        //   icon: Warehouse,
+        //   children: [
+        //     {
+        //       label: "Warehouses",
+        //       path: "/admin/organization/warehouses",
+        //     },
+        //     {
+        //       label: "Categories",
+        //       path: "/admin/organization/categories",
+        //     },
+        //     {
+        //       label: "Brands",
+        //       path: "/admin/organization/brands",
+        //     },
+        //     {
+        //       label: "Units",
+        //       path: "/admin/organization/units",
+        //     },
+        //     {
+        //       label: "Suppliers",
+        //       path: "/admin/organization/suppliers",
+        //     },
+        //   ],
+        // },
       ],
     },
 
@@ -130,44 +134,44 @@ const AdminSidebar = ({
               label: "All Inventory",
               path: "/admin/inventory",
             },
-            {
-              label: "Stock Overview",
-              path: "/admin/inventory/stock-overview",
-            },
-            {
-              label: "Stock Adjustments",
-              path: "/admin/inventory/adjustments",
-            },
+            // {
+            //   label: "Stock Overview",
+            //   path: "/admin/inventory/stock-overview",
+            // },
+            // {
+            //   label: "Stock Adjustments",
+            //   path: "/admin/inventory/adjustments",
+            // },
           ],
         },
       ],
     },
 
-    {
-      section: "OPERATIONS",
-      items: [
-        {
-          label: "Sales",
-          icon: ShoppingCart,
-          path: "/admin/sales",
-        },
-        {
-          label: "Purchases",
-          icon: ClipboardList,
-          path: "/admin/purchases",
-        },
-        {
-          label: "Stock Movements",
-          icon: SlidersHorizontal,
-          path: "/admin/stock-movements",
-        },
-        {
-          label: "Returns",
-          icon: Package,
-          path: "/admin/returns",
-        },
-      ],
-    },
+    // {
+    //   section: "OPERATIONS",
+    //   items: [
+    //     {
+    //       label: "Sales",
+    //       icon: ShoppingCart,
+    //       path: "/admin/sales",
+    //     },
+    //     {
+    //       label: "Purchases",
+    //       icon: ClipboardList,
+    //       path: "/admin/purchases",
+    //     },
+    //     {
+    //       label: "Stock Movements",
+    //       icon: SlidersHorizontal,
+    //       path: "/admin/stock-movements",
+    //     },
+    //     {
+    //       label: "Returns",
+    //       icon: Package,
+    //       path: "/admin/returns",
+    //     },
+    //   ],
+    // },
 
     {
       section: "MONITORING",
@@ -182,16 +186,16 @@ const AdminSidebar = ({
           icon: Activity,
           path: "/admin/activity",
         },
-        {
-          label: "Audit Logs",
-          icon: FileClock,
-          path: "/admin/audit-logs",
-        },
-        {
-          label: "System Health",
-          icon: Database,
-          path: "/admin/system-health",
-        },
+        // {
+        //   label: "Audit Logs",
+        //   icon: FileClock,
+        //   path: "/admin/audit-logs",
+        // },
+        // {
+        //   label: "System Health",
+        //   icon: Database,
+        //   path: "/admin/system-health",
+        // },
       ],
     },
 

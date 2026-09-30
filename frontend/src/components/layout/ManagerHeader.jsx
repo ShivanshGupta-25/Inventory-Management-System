@@ -146,7 +146,7 @@ const ManagerHeader = ({ onMenuClick }) => {
               </div>
 
               <button
-                onClick={() => navigate("/manager/alerts")}
+                onClick={() => navigate("/manager/inventory")}
                 className="w-full border-t border-slate-100 px-4 py-3 text-center text-xs font-semibold text-blue-600 hover:bg-slate-50"
               >
                 View all notifications
