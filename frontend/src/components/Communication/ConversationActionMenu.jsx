@@ -223,7 +223,7 @@ const ConversationActionMenu = ({
         event.stopPropagation()
       }
     >
-      <button
+      {/* <button
         type="button"
         onClick={() => {
           onMarkUnread?.(conversation);
@@ -286,7 +286,7 @@ const ConversationActionMenu = ({
             ? "Unmute notifications"
             : "Mute notifications"}
         </span>
-      </button>
+      </button> */}
 
       <div className="my-1 border-t border-slate-100" />
 

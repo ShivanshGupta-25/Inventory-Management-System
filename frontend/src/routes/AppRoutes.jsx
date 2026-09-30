@@ -74,6 +74,10 @@ import EditSale from "../pages/Manager/Sales/EditSale";
 // Analytics
 import Analytics from "../pages/Manager/Analytics/Analytics";
 
+// Admin
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import AdminLayout from "../components/admin/AdminLayout";
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -107,6 +111,32 @@ const AppRoutes = () => {
         element={<SignupPage />}
       />
 
+      {/* =====================================================
+          ADMIN
+      ====================================================== */}
+
+      {/* <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={["admin"]}
+          />
+        }
+      > */}
+        <Route
+          path="/admin"
+          element={<AdminLayout />}
+        >
+          <Route
+            index
+            element={<AdminDashboard />}
+          />
+
+          <Route
+            path="dashboard"
+            element={<AdminDashboard />}
+          />
+        </Route>
+      {/* </Route> */}
 
       {/* =====================================================
           MANAGER

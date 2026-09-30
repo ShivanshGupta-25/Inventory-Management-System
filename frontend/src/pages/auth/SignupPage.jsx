@@ -19,12 +19,11 @@ import {
 } from "lucide-react";
 
 import AuthLayout from "../../components/auth/AuthLayout";
-import { registerUser } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
 const SignupPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState("staff");
   const [showPassword, setShowPassword] = useState(false);
@@ -77,19 +76,16 @@ const SignupPage = () => {
     setLoading(true);
 
     try {
-      const response = await registerUser({
+      const response = await register({
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         role: selectedRole,
       });
 
-      // Store authentication through AuthContext
-      login(response.token, response.user);
-
       setSuccess("Account created successfully.");
 
-      // Redirect based on actual backend role
+      // Redirect according to actual backend role
       if (response.user.role === "manager") {
         navigate("/manager/dashboard");
       } else if (response.user.role === "staff") {
