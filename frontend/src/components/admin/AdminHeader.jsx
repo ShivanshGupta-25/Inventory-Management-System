@@ -1,219 +1,222 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+
 import {
   Bell,
   ChevronDown,
   Menu,
-  Search,
+  User,
+  Settings,
+  LogOut,
   ShieldCheck,
+  Users,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Search,
 } from "lucide-react";
+
+import {
+  useLocation,
+  useNavigate,
+  Link,
+} from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext";
 
 const AdminHeader = ({ onMenuClick }) => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
 
-  const notificationRef = useRef(null);
+  const { user, logout } = useAuth();
 
-  const [searchValue, setSearchValue] = useState("");
-  const [isNotificationsOpen, setIsNotificationsOpen] =
+  const profileRef = useRef(null);
+  const notificationsRef = useRef(null);
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] =
     useState(false);
 
-  /*
-   * ============================================================
-   * ADMIN IDENTITY
-   * ============================================================
-   */
-
-  const adminName = user?.name || "Administrator";
-  const adminEmail = user?.email || "admin@inventoryflow.com";
-
-  const getInitials = (name) => {
-    if (!name) return "AD";
-
-    return name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join("");
-  };
-
-  const adminInitials = getInitials(adminName);
-
-  /*
-   * ============================================================
-   * PAGE CONTEXT
-   * ============================================================
-   *
-   * The header identifies where the administrator currently is.
-   * Navigation itself remains completely inside the sidebar.
-   */
+  // --------------------------------------------------
+  // Current page information
+  // --------------------------------------------------
 
   const pageTitles = {
-    "/admin": {
-      title: "Dashboard",
-      section: "Overview",
-    },
-
     "/admin/dashboard": {
       title: "Dashboard",
-      section: "Overview",
+      subtitle: "System overview and administration",
     },
 
-    // User Management
     "/admin/users": {
       title: "Users",
-      section: "User Management",
+      subtitle: "Manage system users and accounts",
     },
 
     "/admin/users/managers": {
       title: "Managers",
-      section: "User Management",
+      subtitle: "Manage manager accounts",
     },
 
     "/admin/users/staff": {
       title: "Staff",
-      section: "User Management",
+      subtitle: "Manage staff accounts",
     },
 
     "/admin/users/roles": {
       title: "Roles & Permissions",
-      section: "User Management",
+      subtitle: "Manage access control and permissions",
     },
 
-    "/admin/users/create": {
-      title: "Create User",
-      section: "User Management",
-    },
-
-    // Monitoring
     "/admin/alerts": {
       title: "Alerts",
-      section: "Monitoring",
+      subtitle: "Review system alerts and notifications",
     },
 
     "/admin/activity": {
       title: "Activity Logs",
-      section: "Monitoring",
+      subtitle: "Monitor recent system activity",
     },
 
     "/admin/audit-logs": {
       title: "Audit Logs",
-      section: "Monitoring",
+      subtitle: "Review administrative actions",
     },
 
-    // Reports
     "/admin/reports": {
       title: "Reports",
-      section: "Reports",
+      subtitle: "Review administrative reports",
     },
 
-    // System
     "/admin/system-health": {
       title: "System Health",
-      section: "System",
+      subtitle: "Monitor system status and services",
     },
 
-    // Account
     "/admin/profile": {
       title: "Profile",
-      section: "Account",
+      subtitle: "Manage your administrator profile",
     },
 
     "/admin/settings": {
       title: "Settings",
-      section: "Account",
+      subtitle: "Manage account and system preferences",
     },
   };
 
   const getPageContext = () => {
-    if (pageTitles[location.pathname]) {
-      return pageTitles[location.pathname];
-    }
+    const currentPath = location.pathname;
 
-    /*
-     * Supports nested routes such as:
-     *
-     * /admin/users/:id
-     * /admin/users/:id/edit
-     */
+    if (pageTitles[currentPath]) {
+      return pageTitles[currentPath];
+    }
 
     const matchingPath = Object.keys(pageTitles)
       .filter((path) =>
-        location.pathname.startsWith(`${path}/`)
+        currentPath.startsWith(`${path}/`)
       )
       .sort((a, b) => b.length - a.length)[0];
 
     return (
       pageTitles[matchingPath] || {
         title: "Admin Panel",
-        section: "Administration",
+        subtitle: "InventoryFlow administration",
       }
     );
   };
 
-  const { title, section } = getPageContext();
+  const { title, subtitle } = getPageContext();
 
-  /*
-   * ============================================================
-   * ADMIN NOTIFICATIONS
-   * ============================================================
-   *
-   * These are administrative/system notifications only.
-   *
-   * Operational inventory notifications do NOT belong here.
-   */
+  // --------------------------------------------------
+  // Current administrator
+  // --------------------------------------------------
 
-  const notifications = [
+  const adminName =
+    user?.name ||
+    user?.fullName ||
+    user?.username ||
+    "Administrator";
+
+  const adminEmail = user?.email || "";
+
+  const adminRole = user?.role
+    ? user.role === "admin"
+      ? "System Administrator"
+      : user.role.charAt(0).toUpperCase() +
+        user.role.slice(1)
+    : "Administrator";
+
+  const initials = adminName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "AD";
+
+  // --------------------------------------------------
+  // Notifications
+  // Replace sample notifications with backend data
+  // when the notification API is integrated.
+  // --------------------------------------------------
+
+  const [notifications, setNotifications] = useState([
     {
       id: 1,
-      title: "New user registered",
-      message:
-        "A new staff account has been created.",
-      time: "18 min ago",
-      type: "info",
+      icon: Users,
+      title: "User management",
+      description:
+        "Review recently created user accounts.",
+      time: "Recent",
       unread: true,
+      type: "info",
+      link: "/admin/users",
     },
+
     {
       id: 2,
-      title: "Account status changed",
-      message:
-        "A user account was recently disabled.",
-      time: "32 min ago",
-      type: "warning",
+      icon: AlertTriangle,
+      title: "System alerts",
+      description:
+        "Review system alerts and warnings.",
+      time: "Recent",
       unread: true,
+      type: "warning",
+      link: "/admin/alerts",
     },
+
     {
       id: 3,
-      title: "Administrative activity",
-      message:
-        "A system administration event was recorded.",
-      time: "1 hr ago",
-      type: "system",
+      icon: Activity,
+      title: "Activity monitoring",
+      description:
+        "Review recent administrative activity.",
+      time: "Recent",
       unread: false,
+      type: "success",
+      link: "/admin/activity",
     },
-  ];
+  ]);
 
   const unreadCount = notifications.filter(
     (notification) => notification.unread
   ).length;
 
-  /*
-   * ============================================================
-   * OUTSIDE CLICK
-   * ============================================================
-   */
+  // --------------------------------------------------
+  // Close dropdowns when clicking outside
+  // --------------------------------------------------
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target)
+        profileRef.current &&
+        !profileRef.current.contains(event.target)
       ) {
-        setIsNotificationsOpen(false);
+        setProfileOpen(false);
+      }
+
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target)
+      ) {
+        setNotificationsOpen(false);
       }
     };
 
@@ -230,140 +233,99 @@ const AdminHeader = ({ onMenuClick }) => {
     };
   }, []);
 
-  /*
-   * Close notification dropdown when route changes.
-   */
-
+  // Close dropdowns when navigating to another page.
   useEffect(() => {
-    setIsNotificationsOpen(false);
+    setProfileOpen(false);
+    setNotificationsOpen(false);
   }, [location.pathname]);
 
-  /*
-   * ============================================================
-   * SEARCH
-   * ============================================================
-   *
-   * Search remains in the header because it is a global utility,
-   * not navigation.
-   */
+  // --------------------------------------------------
+  // Notification actions
+  // --------------------------------------------------
 
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-
-    const query = searchValue.trim();
-
-    if (!query) return;
-
-    navigate(
-      `/admin/users?search=${encodeURIComponent(query)}`
+  const handleMarkAllRead = () => {
+    setNotifications((current) =>
+      current.map((notification) => ({
+        ...notification,
+        unread: false,
+      }))
     );
   };
 
-  /*
-   * ============================================================
-   * RENDER
-   * ============================================================
-   */
+  const handleNotificationClick = (notification) => {
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === notification.id
+          ? { ...item, unread: false }
+          : item
+      )
+    );
+
+    setNotificationsOpen(false);
+
+    navigate(notification.link);
+  };
+
+  // --------------------------------------------------
+  // Logout
+  // --------------------------------------------------
+
+  const handleLogout = async () => {
+    setProfileOpen(false);
+    setNotificationsOpen(false);
+
+    try {
+      if (typeof logout === "function") {
+        await logout();
+      } else {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("accessToken");
+      }
+
+      navigate("/auth/login", { replace: true });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  // --------------------------------------------------
+  // Render
+  // --------------------------------------------------
 
   return (
-    <header
-      className="
-        sticky top-0 z-30
-        flex h-[72px] items-center
-        border-b border-slate-200
-        bg-white/95
-        px-4 backdrop-blur
-        md:px-6
-      "
-    >
-      <div className="flex w-full items-center gap-4">
-        {/* ====================================================
-            LEFT
-        ==================================================== */}
+    <header className="sticky top-0 z-30 flex h-[72px] min-h-[72px] w-full items-center border-b border-slate-200 bg-white px-4 sm:px-6">
+      <div className="flex h-full w-full min-w-0 items-center justify-between gap-3">
 
-        <div className="flex min-w-0 items-center gap-3">
-          {/* Mobile Sidebar Trigger */}
+        {/* ==========================================
+            LEFT SECTION
+        ========================================== */}
+
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+
+          {/* Mobile Sidebar Toggle */}
 
           <button
             type="button"
             onClick={onMenuClick}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 lg:hidden"
             aria-label="Open admin navigation"
-            className="
-              flex h-10 w-10 shrink-0
-              items-center justify-center
-              rounded-xl
-              text-slate-600
-              transition-colors
-              hover:bg-slate-100
-              hover:text-slate-900
-              lg:hidden
-            "
           >
-            <Menu size={21} />
+            <Menu size={20} />
           </button>
 
-          {/* Page Context */}
+          {/* ========================================
+              DESKTOP SEARCH - TEMPORARILY DISABLED
 
-          <div className="min-w-0">
-            {/* Breadcrumb */}
-
-            <div
-              className="
-                hidden items-center gap-1.5
-                text-[11px]
-                font-medium
-                text-slate-400
-                sm:flex
-              "
-            >
-              <span>Admin</span>
-
-              <span className="text-slate-300">
-                /
-              </span>
-
-              <span>{section}</span>
-            </div>
-
-            {/* Page Title */}
-
-            <h1
-              className="
-                truncate
-                text-lg
-                font-bold
-                tracking-tight
-                text-slate-900
-              "
-            >
-              {title}
-            </h1>
-          </div>
-        </div>
-
-        {/* ====================================================
-            CENTER — GLOBAL SEARCH
-        ==================================================== */}
-
-        <form
-          onSubmit={handleSearchSubmit}
-          className="
-            hidden
-            flex-1
-            md:block
-          "
-        >
-          <div className="mx-auto w-full max-w-md">
-            <div className="relative">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="hidden max-w-xl flex-1 md:block"
+          >
+            <div className="relative mx-auto w-full max-w-md">
               <Search
-                size={17}
-                className="
-                  pointer-events-none
-                  absolute left-3.5
-                  top-1/2
-                  -translate-y-1/2
-                  text-slate-400
-                "
+                size={18}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
               />
 
               <input
@@ -372,461 +334,307 @@ const AdminHeader = ({ onMenuClick }) => {
                 onChange={(event) =>
                   setSearchValue(event.target.value)
                 }
-                placeholder="Search users..."
-                aria-label="Search users"
-                className="
-                  h-10 w-full
-                  rounded-xl
-                  border border-slate-200
-                  bg-slate-50
-                  pl-10 pr-14
-                  text-sm
-                  text-slate-800
-                  outline-none
-                  transition-all
-
-                  placeholder:text-slate-400
-
-                  focus:border-amber-400
-                  focus:bg-white
-                  focus:ring-4
-                  focus:ring-amber-100
-                "
+                placeholder="Search users, roles, activity..."
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none"
               />
-
-              <div
-                className="
-                  pointer-events-none
-                  absolute right-3
-                  top-1/2
-                  hidden
-                  -translate-y-1/2
-                  items-center gap-1
-                  rounded-md
-                  border border-slate-200
-                  bg-white
-                  px-1.5 py-0.5
-                  text-[10px]
-                  font-medium
-                  text-slate-400
-                  lg:flex
-                "
-              >
-                <span>Ctrl</span>
-                <span>K</span>
-              </div>
             </div>
-          </div>
-        </form>
+          </form>
 
-        {/* ====================================================
-            RIGHT
-        ==================================================== */}
+          ======================================== */}
 
-        <div
-          className="
-            ml-auto
-            flex shrink-0
-            items-center
-            gap-2
-          "
-        >
-          {/* ==================================================
-              MOBILE SEARCH
-          ================================================== */}
+          {/* ========================================
+              MOBILE SEARCH - TEMPORARILY DISABLED
 
           <button
             type="button"
-            onClick={() => {
-              /*
-               * Mobile search modal can be added later.
-               * No duplicate navigation is introduced here.
-               */
-            }}
-            aria-label="Search users"
-            className="
-              flex h-10 w-10
-              items-center justify-center
-              rounded-xl
-              text-slate-500
-              transition-colors
-              hover:bg-slate-100
-              hover:text-slate-900
-              md:hidden
-            "
+            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 md:hidden"
+            aria-label="Search"
           >
             <Search size={19} />
           </button>
 
-          {/* ==================================================
-              NOTIFICATIONS
-          ================================================== */}
+          ======================================== */}
+
+          {/* Current Page Context */}
+
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-600 sm:text-[11px]">
+              InventoryFlow
+              <span className="mx-1.5 text-slate-300">
+                /
+              </span>
+              Administration
+            </p>
+
+            <div className="mt-0.5 flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
+                {title}
+              </h1>
+
+              <span className="hidden text-slate-300 sm:inline">
+                /
+              </span>
+
+              <p className="hidden truncate text-xs text-slate-500 sm:block">
+                {subtitle}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ==========================================
+            RIGHT SECTION
+        ========================================== */}
+
+        <div className="flex h-full shrink-0 items-center gap-2 sm:gap-3">
+
+          {/* Notifications */}
 
           <div
-            ref={notificationRef}
+            ref={notificationsRef}
             className="relative"
           >
             <button
               type="button"
               onClick={() => {
-                setIsNotificationsOpen(
-                  (previous) => !previous
-                );
+                setNotificationsOpen((previous) => !previous);
+                setProfileOpen(false);
               }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
               aria-label="Notifications"
-              aria-expanded={isNotificationsOpen}
-              className="
-                relative
-                flex h-10 w-10
-                items-center justify-center
-                rounded-xl
-                text-slate-500
-                transition-colors
-                hover:bg-slate-100
-                hover:text-slate-900
-              "
+              aria-expanded={notificationsOpen}
             >
               <Bell size={19} />
 
               {unreadCount > 0 && (
-                <span
-                  className="
-                    absolute
-                    right-1.5
-                    top-1.5
-                    flex
-                    h-4
-                    min-w-4
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-amber-500
-                    px-1
-                    text-[9px]
-                    font-bold
-                    text-white
-                    ring-2
-                    ring-white
-                  "
-                >
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
                   {unreadCount}
                 </span>
               )}
             </button>
 
-            {/* Notification Panel */}
+            {notificationsOpen && (
+              <div className="absolute right-0 top-12 z-50 w-[min(90vw,340px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
 
-            {isNotificationsOpen && (
-              <div
-                className="
-                  absolute
-                  right-0
-                  top-12
-                  z-50
-                  w-[340px]
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  bg-white
-                  shadow-xl
-                  shadow-slate-900/10
-                "
-              >
-                {/* Header */}
+                {/* Notification Header */}
 
-                <div
-                  className="
-                    flex
-                    items-center
-                    justify-between
-                    border-b
-                    border-slate-100
-                    px-4
-                    py-3.5
-                  "
-                >
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                   <div>
-                    <h3
-                      className="
-                        text-sm
-                        font-bold
-                        text-slate-900
-                      "
-                    >
+                    <h3 className="text-sm font-semibold text-slate-900">
                       Notifications
                     </h3>
 
-                    <p
-                      className="
-                        text-xs
-                        text-slate-500
-                      "
-                    >
-                      {unreadCount} unread
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      {unreadCount} unread notification
+                      {unreadCount !== 1 ? "s" : ""}
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    className="
-                      text-xs
-                      font-semibold
-                      text-amber-600
-                      transition-colors
-                      hover:text-amber-700
-                    "
-                  >
-                    Mark all read
-                  </button>
-                </div>
-
-                {/* List */}
-
-                <div
-                  className="
-                    max-h-[360px]
-                    overflow-y-auto
-                  "
-                >
-                  {notifications.map(
-                    (notification) => (
-                      <button
-                        key={notification.id}
-                        type="button"
-                        className={`
-                          flex
-                          w-full
-                          gap-3
-                          border-b
-                          border-slate-100
-                          px-4
-                          py-3.5
-                          text-left
-                          transition-colors
-                          hover:bg-slate-50
-
-                          ${
-                            notification.unread
-                              ? "bg-amber-50/30"
-                              : ""
-                          }
-                        `}
-                      >
-                        {/* Notification Icon */}
-
-                        <div
-                          className={`
-                            mt-0.5
-                            flex
-                            h-8
-                            w-8
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-lg
-
-                            ${
-                              notification.type ===
-                              "warning"
-                                ? "bg-amber-100 text-amber-600"
-                                : notification.type ===
-                                  "system"
-                                ? "bg-slate-100 text-slate-600"
-                                : "bg-blue-100 text-blue-600"
-                            }
-                          `}
-                        >
-                          <Bell size={14} />
-                        </div>
-
-                        {/* Content */}
-
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className="
-                              flex
-                              items-start
-                              justify-between
-                              gap-2
-                            "
-                          >
-                            <p
-                              className="
-                                text-xs
-                                font-semibold
-                                text-slate-800
-                              "
-                            >
-                              {notification.title}
-                            </p>
-
-                            {notification.unread && (
-                              <span
-                                className="
-                                  mt-1
-                                  h-1.5
-                                  w-1.5
-                                  shrink-0
-                                  rounded-full
-                                  bg-amber-500
-                                "
-                              />
-                            )}
-                          </div>
-
-                          <p
-                            className="
-                              mt-0.5
-                              line-clamp-2
-                              text-xs
-                              leading-5
-                              text-slate-500
-                            "
-                          >
-                            {notification.message}
-                          </p>
-
-                          <p
-                            className="
-                              mt-1.5
-                              text-[10px]
-                              text-slate-400
-                            "
-                          >
-                            {notification.time}
-                          </p>
-                        </div>
-                      </button>
-                    )
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllRead}
+                      className="shrink-0 text-[11px] font-semibold text-amber-600 transition hover:text-amber-700"
+                    >
+                      Mark all read
+                    </button>
                   )}
                 </div>
 
-                {/* Footer */}
+                {/* Notification List */}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsNotificationsOpen(false);
-                    navigate("/admin/alerts");
-                  }}
-                  className="
-                    flex
-                    w-full
-                    items-center
-                    justify-center
-                    border-t
-                    border-slate-100
-                    px-4
-                    py-3
-                    text-xs
-                    font-semibold
-                    text-amber-600
-                    transition-colors
-                    hover:bg-amber-50
-                    hover:text-amber-700
-                  "
+                <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((notification) => {
+                      const Icon = notification.icon;
+
+                      const iconStyle =
+                        notification.type === "warning"
+                          ? "bg-amber-50 text-amber-600"
+                          : notification.type === "success"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-blue-50 text-blue-600";
+
+                      return (
+                        <button
+                          type="button"
+                          key={notification.id}
+                          onClick={() =>
+                            handleNotificationClick(
+                              notification
+                            )
+                          }
+                          className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 ${
+                            notification.unread
+                              ? "bg-amber-50/30"
+                              : ""
+                          }`}
+                        >
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStyle}`}
+                          >
+                            <Icon size={16} />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-semibold text-slate-800">
+                                {notification.title}
+                              </p>
+
+                              {notification.unread && (
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                              )}
+                            </div>
+
+                            <p className="mt-0.5 text-[11px] leading-5 text-slate-500">
+                              {notification.description}
+                            </p>
+
+                            <p className="mt-1 text-[10px] text-slate-400">
+                              {notification.time}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-8 text-center">
+                      <CheckCircle2
+                        size={24}
+                        className="mx-auto text-slate-300"
+                      />
+
+                      <p className="mt-2 text-sm font-medium text-slate-600">
+                        You're all caught up
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        No notifications to display.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notification Footer */}
+
+                <Link
+                  to="/admin/alerts"
+                  onClick={() => setNotificationsOpen(false)}
+                  className="block border-t border-slate-100 px-4 py-3 text-center text-xs font-semibold text-amber-600 transition hover:bg-amber-50"
                 >
-                  View all alerts
-                </button>
+                  View all notifications
+                </Link>
               </div>
             )}
           </div>
 
-          {/* ==================================================
-              DIVIDER
-          ================================================== */}
+          {/* Divider */}
+
+          <div className="hidden h-7 w-px bg-slate-200 sm:block" />
+
+          {/* Profile */}
 
           <div
-            className="
-              hidden
-              h-8
-              w-px
-              bg-slate-200
-              sm:block
-            "
-          />
-
-          {/* ==================================================
-              ADMIN IDENTITY
-          ==================================================
-          
-          Intentionally NOT a dropdown.
-
-          Profile / Settings / Logout already belong to
-          the sidebar Account section.
-          ================================================== */}
-
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              px-1.5
-              py-1
-            "
+            ref={profileRef}
+            className="relative"
           >
-            {/* Avatar */}
-
-            <div
-              className="
-                flex
-                h-9
-                w-9
-                shrink-0
-                items-center
-                justify-center
-                rounded-lg
-                bg-slate-900
-                text-xs
-                font-bold
-                text-white
-              "
-              title={adminName}
+            <button
+              type="button"
+              onClick={() => {
+                setProfileOpen((previous) => !previous);
+                setNotificationsOpen(false);
+              }}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-50"
+              aria-label="Open administrator profile menu"
+              aria-expanded={profileOpen}
             >
-              {adminInitials}
-            </div>
-
-            {/* Identity */}
-
-            <div
-              className="
-                hidden
-                min-w-0
-                text-left
-                lg:block
-              "
-            >
-              <p
-                className="
-                  max-w-[130px]
-                  truncate
-                  text-xs
-                  font-bold
-                  text-slate-800
-                "
-              >
-                {adminName}
-              </p>
-
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-1
-                  text-[10px]
-                  text-slate-400
-                "
-              >
-                <ShieldCheck
-                  size={11}
-                  className="text-amber-500"
-                />
-
-                <span>Administrator</span>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
+                {initials}
               </div>
-            </div>
+
+              <div className="hidden min-w-0 text-left sm:block">
+                <p className="max-w-32 truncate text-xs font-semibold text-slate-800">
+                  {adminName}
+                </p>
+
+                <p className="max-w-32 truncate text-[10px] text-slate-400">
+                  Administrator
+                </p>
+              </div>
+
+              <ChevronDown
+                size={15}
+                className={`hidden shrink-0 text-slate-400 transition-transform sm:block ${
+                  profileOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+
+                {/* Profile Summary */}
+
+                <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-800">
+                      {initials}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {adminName}
+                      </p>
+
+                      <p className="truncate text-xs text-slate-400">
+                        {adminEmail || "Administrator account"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-amber-700">
+                    <ShieldCheck size={13} />
+                    <span>{adminRole}</span>
+                  </div>
+                </div>
+
+                {/* Account Links */}
+
+                <div className="p-2">
+                  <Link
+                    to="/admin/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    <User size={16} />
+                    Profile
+                  </Link>
+
+                  <Link
+                    to="/admin/settings"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    <Settings size={16} />
+                    Settings
+                  </Link>
+                </div>
+
+                {/* Logout */}
+
+                <div className="border-t border-slate-100 p-2">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-600 transition hover:bg-red-50"
+                  >
+                    <LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
