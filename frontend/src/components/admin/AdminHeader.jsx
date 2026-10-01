@@ -431,7 +431,7 @@ const AdminHeader = ({ onMenuClick }) => {
                 setIsProfileOpen(
                   (previous) => !previous
                 );
-                setIsNotificationsOpen(false);
+                setIsNotificationsACOpen(false);
               }}
               className="flex items-center gap-2 rounded-xl p-1.5 pr-2 transition-colors hover:bg-slate-50"
             >

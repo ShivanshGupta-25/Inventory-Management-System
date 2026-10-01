@@ -2,11 +2,14 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+// --------------------------------------------------
+// GENERATE JWT
+// --------------------------------------------------
+
 const generateToken = (user) => {
   return jwt.sign(
     {
       userId: user._id,
-      
       role: user.role,
     },
     process.env.JWT_SECRET,
@@ -16,79 +19,149 @@ const generateToken = (user) => {
   );
 };
 
+// --------------------------------------------------
+// REGISTER USER
+// --------------------------------------------------
+//
+// Public registration always creates a STAFF account.
+// Manager/Admin accounts must be created through
+// protected administration workflows.
+//
+
 const registerUser = async ({
   name,
   email,
   password,
-  role,
 }) => {
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedName = name.trim();
+  const normalizedEmail = email
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedName) {
+    throw new Error("Name cannot be empty");
+  }
+
+  if (!normalizedEmail) {
+    throw new Error("Email cannot be empty");
+  }
+
+  if (!password) {
+    throw new Error("Password is required");
+  }
+
+  if (password.length < 6) {
+    throw new Error(
+      "Password must be at least 6 characters"
+    );
+  }
 
   const existingUser = await User.findOne({
     email: normalizedEmail,
   });
 
   if (existingUser) {
-    throw new Error("User with this email already exists");
+    throw new Error(
+      "User with this email already exists"
+    );
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(
+    password,
+    10
+  );
 
   const user = await User.create({
-    name: name.trim(),
+    name: normalizedName,
     email: normalizedEmail,
     password: hashedPassword,
-    role: role || "staff",
+    role: "staff",
+    status: "active",
   });
 
   const token = generateToken(user);
 
   return {
     token,
+
     user: {
       id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
+      status: user.status,
     },
   };
 };
 
-const loginUser = async ({ email, password }) => {
-  const normalizedEmail = email.trim().toLowerCase();
+// --------------------------------------------------
+// LOGIN USER
+// --------------------------------------------------
+
+const loginUser = async ({
+  email,
+  password,
+}) => {
+  const normalizedEmail = email
+    .trim()
+    .toLowerCase();
 
   const user = await User.findOne({
     email: normalizedEmail,
   });
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new Error(
+      "Invalid email or password"
+    );
   }
 
-  const isPasswordValid = await bcrypt.compare(
-    password,
-    user.password
-  );
+  // Existing users created before the status field
+  // was introduced are treated as active.
+  const userStatus =
+    user.status || "active";
+
+  if (userStatus === "disabled") {
+    throw new Error(
+      "Your account has been disabled. Please contact an administrator."
+    );
+  }
+
+  const isPasswordValid =
+    await bcrypt.compare(
+      password,
+      user.password
+    );
 
   if (!isPasswordValid) {
-    throw new Error("Invalid email or password");
+    throw new Error(
+      "Invalid email or password"
+    );
   }
 
   const token = generateToken(user);
 
   return {
     token,
+
     user: {
       id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
+      status: userStatus,
     },
   };
 };
 
+// --------------------------------------------------
+// GET CURRENT USER
+// --------------------------------------------------
+
 const getCurrentUser = async (userId) => {
-  const user = await User.findById(userId).select("-password");
+  const user = await User.findById(
+    userId
+  ).select("-password");
 
   if (!user) {
     throw new Error("User not found");
@@ -105,33 +178,52 @@ const updateUserProfile = async (
   userId,
   { name, email }
 ) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(
+    userId
+  );
 
   if (!user) {
     throw new Error("User not found");
   }
 
+  // ----------------------------------------------
+  // NAME
+  // ----------------------------------------------
+
   if (name !== undefined) {
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      throw new Error("Name cannot be empty");
+      throw new Error(
+        "Name cannot be empty"
+      );
     }
 
     user.name = trimmedName;
   }
 
+  // ----------------------------------------------
+  // EMAIL
+  // ----------------------------------------------
+
   if (email !== undefined) {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email
+      .trim()
+      .toLowerCase();
 
     if (!normalizedEmail) {
-      throw new Error("Email cannot be empty");
+      throw new Error(
+        "Email cannot be empty"
+      );
     }
 
-    const existingUser = await User.findOne({
-      email: normalizedEmail,
-      _id: { $ne: userId },
-    });
+    const existingUser =
+      await User.findOne({
+        email: normalizedEmail,
+        _id: {
+          $ne: userId,
+        },
+      });
 
     if (existingUser) {
       throw new Error(
@@ -149,6 +241,8 @@ const updateUserProfile = async (
     name: user.name,
     email: user.email,
     role: user.role,
+    status:
+      user.status || "active",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -163,7 +257,9 @@ const changeUserPassword = async (
   currentPassword,
   newPassword
 ) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(
+    userId
+  );
 
   if (!user) {
     throw new Error("User not found");
@@ -176,7 +272,9 @@ const changeUserPassword = async (
     );
 
   if (!isCurrentPasswordValid) {
-    throw new Error("Current password is incorrect");
+    throw new Error(
+      "Current password is incorrect"
+    );
   }
 
   if (newPassword.length < 6) {
@@ -185,10 +283,11 @@ const changeUserPassword = async (
     );
   }
 
-  const isSamePassword = await bcrypt.compare(
-    newPassword,
-    user.password
-  );
+  const isSamePassword =
+    await bcrypt.compare(
+      newPassword,
+      user.password
+    );
 
   if (isSamePassword) {
     throw new Error(
@@ -196,13 +295,18 @@ const changeUserPassword = async (
     );
   }
 
-  user.password = await bcrypt.hash(
-    newPassword,
-    10
-  );
+  user.password =
+    await bcrypt.hash(
+      newPassword,
+      10
+    );
 
   await user.save();
 };
+
+// --------------------------------------------------
+// EXPORTS
+// --------------------------------------------------
 
 module.exports = {
   registerUser,

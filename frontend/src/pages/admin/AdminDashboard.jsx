@@ -1,27 +1,33 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
   Activity,
-  AlertTriangle,
-  ArrowDownRight,
+  AlertCircle,
   ArrowUpRight,
-  Boxes,
   CheckCircle2,
-  ClipboardList,
   Clock3,
-  Package,
-  Plus,
   RefreshCw,
-  ShoppingCart,
-  TrendingUp,
+  ShieldCheck,
   UserPlus,
   Users,
-  Warehouse,
+  UserRoundCog,
+  UserRoundX,
+  UserCheck,
+  UserCog,
+  BarChart3,
+  Settings2,
+  ChevronRight,
 } from "lucide-react";
 
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,256 +36,155 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-/* ==========================================================================
-   MOCK DATA
-   ========================================================================== */
-
-const dashboardStats = [
-  {
-    title: "Total Users",
-    value: "--",
-    change: "--",
-    description: "vs. last month",
-    icon: Users,
-    trend: "up",
-    iconClass: "bg-blue-50 text-blue-600",
-  },
-  {
-    title: "Total Products",
-    value: "--",
-    change: "--",
-    description: "vs. last month",
-    icon: Boxes,
-    trend: "up",
-    iconClass: "bg-violet-50 text-violet-600",
-  },
-  {
-    title: "Warehouses",
-    value: "--",
-    change: "--",
-    description: "this month",
-    icon: Warehouse,
-    trend: "up",
-    iconClass: "bg-emerald-50 text-emerald-600",
-  },
-  {
-    title: "Inventory Value",
-    value: "--",
-    change: "--",
-    description: "vs. last month",
-    icon: TrendingUp,
-    trend: "up",
-    iconClass: "bg-amber-50 text-amber-600",
-  },
-  {
-    title: "Low Stock Items",
-    value: "--",
-    change: "--",
-    description: "vs. last month",
-    icon: AlertTriangle,
-    trend: "down",
-    iconClass: "bg-orange-50 text-orange-600",
-  },
-  {
-    title: "Active Alerts",
-    value: "--",
-    change: "--",
-    description: "need attention",
-    icon: Activity,
-    trend: "warning",
-    iconClass: "bg-red-50 text-red-600",
-  },
-];
-
-const inventoryMovementData = [
-  { day: "Mon", stockIn: 10, stockOut: 15 },
-  { day: "Tue", stockIn: 18, stockOut: 15 },
-  { day: "Wed", stockIn: 10, stockOut: 18 },
-  { day: "Thu", stockIn: 18, stockOut: 15 },
-  { day: "Fri", stockIn: 10, stockOut: 18 },
-  { day: "Sat", stockIn: 18, stockOut: 15 },
-  { day: "Sun", stockIn: 10, stockOut: 18 },
-];
-
-const stockHealth = [
-  {
-    label: "Healthy Stock",
-    value: 0,
-    count: "--",
-    className: "bg-emerald-500",
-  },
-  {
-    label: "Low Stock",
-    value: 0,
-    count: "--",
-    className: "bg-amber-500",
-  },
-  {
-    label: "Out of Stock",
-    value: 0,
-    count: "--",
-    className: "bg-red-500",
-  },
-  {
-    label: "Overstock",
-    value: 0,
-    count: "--",
-    className: "bg-violet-500",
-  },
-];
-
-const recentActivity = [
-  {
-    id: 1,
-    title: "New manager account created",
-    description: "- - -",
-    time: "5 min ago",
-    icon: UserPlus,
-    iconClass: "bg-blue-50 text-blue-600",
-  },
-  {
-    id: 2,
-    title: "Purchase order received",
-    description: "PO-1048 was marked as received.",
-    time: "18 min ago",
-    icon: ClipboardList,
-    iconClass: "bg-emerald-50 text-emerald-600",
-  },
-  {
-    id: 3,
-    title: "Stock adjustment recorded",
-    description: "SKU-2048 inventory was adjusted by 25 units.",
-    time: "34 min ago",
-    icon: RefreshCw,
-    iconClass: "bg-violet-50 text-violet-600",
-  },
-  {
-    id: 4,
-    title: "New staff account created",
-    description: "A new staff member joined the system.",
-    time: "1 hour ago",
-    icon: Users,
-    iconClass: "bg-amber-50 text-amber-600",
-  },
-  {
-    id: 5,
-    title: "Warehouse configuration updated",
-    description: "- -",
-    time: "2 hours ago",
-    icon: Warehouse,
-    iconClass: "bg-slate-100 text-slate-600",
-  },
-];
-
-const alerts = [
-  {
-    id: 1,
-    title: "Critical stock shortage",
-    description: "12 products have reached critical stock levels.",
-    time: "5 min ago",
-    severity: "critical",
-  },
-  {
-    id: 2,
-    title: "Purchase approval pending",
-    description: "4 purchase orders are awaiting manager approval.",
-    time: "22 min ago",
-    severity: "warning",
-  },
-  {
-    id: 3,
-    title: "Warehouse capacity warning",
-    description: "Indore warehouse has reached 87% capacity.",
-    time: "1 hour ago",
-    severity: "warning",
-  },
-];
-
-const quickActions = [
-  {
-    label: "Add User",
-    description: "Create a new system user",
-    icon: UserPlus,
-    path: "/admin/users",
-  },
-  {
-    label: "View Inventory",
-    description: "Inspect global inventory",
-    icon: Package,
-    path: "/admin/inventory",
-  },
-  {
-    label: "View Purchases",
-    description: "Review purchase activity",
-    icon: ShoppingCart,
-    path: "/admin/purchases",
-  },
-  {
-    label: "View Reports",
-    description: "Open system reports",
-    icon: TrendingUp,
-    path: "/admin/reports",
-  },
-];
+import { getAdminDashboard } from "../../services/adminService";
 
 /* ==========================================================================
-   HELPER COMPONENTS
+   HELPERS
    ========================================================================== */
 
-const StatCard = ({ stat }) => {
-  const Icon = stat.icon;
+const formatNumber = (value) => {
+  if (value === null || value === undefined) {
+    return "0";
+  }
 
-  const trendClasses =
-    stat.trend === "down"
-      ? "bg-emerald-50 text-emerald-600"
-      : "bg-emerald-50 text-emerald-600";
+  return Number(value).toLocaleString("en-IN");
+};
+
+const formatDateTime = (value) => {
+  if (!value) {
+    return "--";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "--";
+  }
+
+  return date.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
+const formatRelativeTime = (value) => {
+  if (!value) {
+    return "--";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "--";
+  }
+
+  const now = new Date();
+  const difference = Math.floor(
+    (now.getTime() - date.getTime()) / 1000
+  );
+
+  if (difference < 60) {
+    return "Just now";
+  }
+
+  const minutes = Math.floor(difference / 60);
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+};
+
+const getRoleLabel = (role) => {
+  if (!role) {
+    return "Unknown";
+  }
 
   return (
-    <div className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    role.charAt(0).toUpperCase() +
+    role.slice(1)
+  );
+};
+
+const getActionLabel = (action) => {
+  const labels = {
+    USER_CREATED: "User created",
+    USER_UPDATED: "User updated",
+    ROLE_CHANGED: "Role changed",
+    STATUS_CHANGED: "Account status changed",
+    USER_DELETED: "User deleted",
+  };
+
+  return labels[action] || "Administrative activity";
+};
+
+/* ==========================================================================
+   STAT CARD
+   ========================================================================== */
+
+const StatCard = ({
+  title,
+  value,
+  description,
+  icon: Icon,
+  iconClass,
+  onClick,
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+    >
       <div className="flex items-start justify-between gap-4">
         <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconClass}`}
+          className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconClass}`}
         >
-          <Icon size={21} strokeWidth={2} />
+          <Icon size={20} strokeWidth={2} />
         </div>
 
-        {stat.trend === "warning" ? (
-          <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-red-600">
-            Attention
-          </span>
-        ) : (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${trendClasses}`}
-          >
-            {stat.trend === "up" ? (
-              <ArrowUpRight size={13} />
-            ) : (
-              <ArrowDownRight size={13} />
-            )}
-
-            {stat.change}
-          </span>
-        )}
+        <ArrowUpRight
+          size={16}
+          className="text-slate-300 transition-colors group-hover:text-slate-600"
+        />
       </div>
 
       <div className="mt-5">
-        <p className="text-sm font-medium text-slate-500">
-          {stat.title}
+        <p className="text-xs font-medium text-slate-500">
+          {title}
         </p>
 
-        <div className="mt-1 flex items-end justify-between gap-3">
-          <h3 className="text-2xl font-bold tracking-tight text-slate-900">
-            {stat.value}
-          </h3>
+        <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+          {value}
+        </p>
 
-          <span className="pb-0.5 text-[11px] text-slate-400">
-            {stat.description}
-          </span>
-        </div>
+        <p className="mt-1 text-[11px] text-slate-400">
+          {description}
+        </p>
       </div>
-    </div>
+    </button>
   );
 };
+
+/* ==========================================================================
+   SECTION HEADER
+   ========================================================================== */
 
 const SectionHeader = ({
   title,
@@ -288,7 +193,7 @@ const SectionHeader = ({
   onAction,
 }) => {
   return (
-    <div className="mb-5 flex items-center justify-between gap-4">
+    <div className="mb-5 flex items-start justify-between gap-4">
       <div>
         <h2 className="text-base font-bold text-slate-900">
           {title}
@@ -305,13 +210,50 @@ const SectionHeader = ({
         <button
           type="button"
           onClick={onAction}
-          className="shrink-0 text-xs font-semibold text-amber-600 transition-colors hover:text-amber-700"
+          className="flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-600 transition-colors hover:text-amber-700"
         >
           {actionLabel}
+          <ArrowUpRight size={13} />
         </button>
       )}
     </div>
   );
+};
+
+/* ==========================================================================
+   EMPTY STATE
+   ========================================================================== */
+
+const EmptyState = ({
+  icon: Icon = Activity,
+  title,
+  description,
+}) => {
+  return (
+    <div className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+        <Icon size={18} />
+      </div>
+
+      <p className="mt-3 text-sm font-semibold text-slate-700">
+        {title}
+      </p>
+
+      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-400">
+        {description}
+      </p>
+    </div>
+  );
+};
+
+/* ==========================================================================
+   ROLE DISTRIBUTION COLORS
+   ========================================================================== */
+
+const ROLE_COLORS = {
+  admin: "#0f172a",
+  manager: "#f59e0b",
+  staff: "#94a3b8",
 };
 
 /* ==========================================================================
@@ -321,537 +263,1004 @@ const SectionHeader = ({
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
-  const [loading] = useState(false);
-  const [error] = useState("");
+  const [dashboard, setDashboard] =
+    useState(null);
 
-  const lastUpdated = useMemo(() => {
-    return new Date().toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  /* ------------------------------------------------------------------------
+     LOAD DASHBOARD
+  ------------------------------------------------------------------------ */
+
+  const loadDashboard = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        if (silent) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        setError("");
+
+        const response =
+          await getAdminDashboard();
+
+        if (!response?.success) {
+          throw new Error(
+            response?.message ||
+              "Failed to load admin dashboard"
+          );
+        }
+
+        setDashboard(
+          response.data || null
+        );
+      } catch (err) {
+        console.error(
+          "Admin dashboard error:",
+          err
+        );
+
+        setError(
+          err?.message ||
+            "Unable to load the admin dashboard."
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
+  /* ------------------------------------------------------------------------
+     DATA NORMALIZATION
+  ------------------------------------------------------------------------ */
+
+  const stats = dashboard?.stats || {};
+
+  const userGrowth =
+    dashboard?.userGrowth || [];
+
+  const roleDistribution =
+    dashboard?.roleDistribution || [];
+
+  const recentUsers =
+    dashboard?.recentUsers || [];
+
+  const recentActivity =
+    dashboard?.recentActivity || [];
+
+  /* ------------------------------------------------------------------------
+     ROLE CHART DATA
+  ------------------------------------------------------------------------ */
+
+  const roleChartData = useMemo(() => {
+    return roleDistribution.map(
+      (item) => ({
+        name: getRoleLabel(item._id),
+        value: Number(item.count) || 0,
+        role: item._id,
+      })
+    );
+  }, [roleDistribution]);
+
+  /* ------------------------------------------------------------------------
+     USER GROWTH DATA
+  ------------------------------------------------------------------------ */
+
+  const userGrowthChartData = useMemo(() => {
+    return userGrowth.map((item) => {
+      const date = new Date(
+        `${item._id}T00:00:00`
+      );
+
+      return {
+        date: item._id,
+        label: Number.isNaN(
+          date.getTime()
+        )
+          ? item._id
+          : date.toLocaleDateString(
+              "en-IN",
+              {
+                day: "2-digit",
+                month: "short",
+              }
+            ),
+        users: Number(item.count) || 0,
+      };
     });
-  }, []);
+  }, [userGrowth]);
 
-  return (
-    <div className="space-y-5">
-      {/* ====================================================================
-          PAGE HEADING
-      ==================================================================== */}
+  /* ------------------------------------------------------------------------
+     PAGE LAST UPDATED
+  ------------------------------------------------------------------------ */
 
-      <div className="mb-6">
+  const lastUpdated = dashboard?.lastUpdated
+    ? formatDateTime(
+        dashboard.lastUpdated
+      )
+    : "--";
+
+  /* ------------------------------------------------------------------------
+     LOADING STATE
+  ------------------------------------------------------------------------ */
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Overview
+            <div className="h-3 w-20 animate-pulse rounded bg-slate-200" />
+
+            <div className="mt-3 h-9 w-52 animate-pulse rounded-lg bg-slate-200" />
+
+            <div className="mt-2 h-4 w-80 max-w-full animate-pulse rounded bg-slate-100" />
+          </div>
+
+          <div className="h-14 w-48 animate-pulse rounded-xl bg-slate-100" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          {Array.from({ length: 6 }).map(
+            (_, index) => (
+              <div
+                key={index}
+                className="h-36 animate-pulse rounded-2xl border border-slate-200 bg-white"
+              />
+            )
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          <div className="h-[390px] animate-pulse rounded-2xl border border-slate-200 bg-white xl:col-span-8" />
+
+          <div className="h-[390px] animate-pulse rounded-2xl border border-slate-200 bg-white xl:col-span-4" />
+        </div>
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------------------
+     ERROR STATE
+  ------------------------------------------------------------------------ */
+
+  if (error && !dashboard) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-7 text-center shadow-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+            <AlertCircle size={23} />
+          </div>
+
+          <h2 className="mt-4 text-base font-bold text-slate-900">
+            Unable to load dashboard
+          </h2>
+
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              loadDashboard()
+            }
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+          >
+            <RefreshCw size={14} />
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ====================================================================
+          PAGE HEADER
+      ==================================================================== */}
+
+      <section>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+              Administration
             </p>
 
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               Dashboard
             </h1>
 
-            <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Here's what's happening across your InventoryFlow
-              system today.
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Monitor users, access, administrative
+              activity, and the overall state of your
+              InventoryFlow system.
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 sm:min-w-[220px] sm:text-right">
-            <p className="text-xs font-medium text-slate-400">
-              Last updated
-            </p>
+          <div className="flex items-center gap-2">
+            <div className="hidden rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-right sm:block">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                Last updated
+              </p>
 
-            <p className="mt-1 text-sm font-semibold text-slate-700">
-              {lastUpdated}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ====================================================================
-          LOADING STATE
-      ==================================================================== */}
-
-      {loading && (
-        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-          <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700" />
-
-          <p className="text-sm font-semibold text-slate-700">
-            Loading dashboard...
-          </p>
-
-          <p className="mt-1 text-xs text-slate-400">
-            Fetching the latest system and inventory data.
-          </p>
-        </div>
-      )}
-
-      {/* ====================================================================
-          ERROR STATE
-      ==================================================================== */}
-
-      {!loading && error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-red-800">
-                Unable to load dashboard
-              </h2>
-
-              <p className="mt-1 text-sm text-red-600">
-                {error}
+              <p className="mt-0.5 text-xs font-semibold text-slate-700">
+                {lastUpdated}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() => window.location.reload()}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+              onClick={() =>
+                loadDashboard({
+                  silent: true,
+                })
+              }
+              disabled={refreshing}
+              className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Try Again
+              <RefreshCw
+                size={14}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+
+              <span className="hidden sm:inline">
+                Refresh
+              </span>
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          SOFT ERROR / STALE DATA
+      ==================================================================== */}
+
+      {error && dashboard && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <AlertCircle
+              size={17}
+              className="shrink-0 text-amber-600"
+            />
+
+            <p className="truncate text-xs font-medium text-amber-800">
+              {error}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              loadDashboard({
+                silent: true,
+              })
+            }
+            className="shrink-0 text-xs font-bold text-amber-700 hover:text-amber-900"
+          >
+            Retry
+          </button>
         </div>
       )}
 
       {/* ====================================================================
-          DASHBOARD CONTENT
+          ADMIN STATISTICS
       ==================================================================== */}
 
-      {!loading && !error && (
-        <div className="space-y-5">
-          {/* ==================================================================
-              STATISTICS
-          ================================================================== */}
+      <section>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          <StatCard
+            title="Total Users"
+            value={formatNumber(
+              stats.totalUsers
+            )}
+            description="All registered accounts"
+            icon={Users}
+            iconClass="bg-blue-50 text-blue-600"
+            onClick={() =>
+              navigate("/admin/users")
+            }
+          />
 
-          <section>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-              {dashboardStats.map((stat) => (
-                <StatCard key={stat.title} stat={stat} />
-              ))}
-            </div>
-          </section>
+          <StatCard
+            title="Administrators"
+            value={formatNumber(
+              stats.totalAdmins
+            )}
+            description="System administrators"
+            icon={ShieldCheck}
+            iconClass="bg-slate-100 text-slate-700"
+            onClick={() =>
+              navigate("/admin/users?role=admin")
+            }
+          />
 
-          {/* ==================================================================
-              ANALYTICS OVERVIEW
-          ================================================================== */}
+          <StatCard
+            title="Managers"
+            value={formatNumber(
+              stats.totalManagers
+            )}
+            description="Manager accounts"
+            icon={UserRoundCog}
+            iconClass="bg-amber-50 text-amber-600"
+            onClick={() =>
+              navigate(
+                "/admin/users?role=manager"
+              )
+            }
+          />
 
-          <section className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-            {/* Inventory Movement */}
+          <StatCard
+            title="Staff"
+            value={formatNumber(
+              stats.totalStaff
+            )}
+            description="Staff accounts"
+            icon={UserCog}
+            iconClass="bg-violet-50 text-violet-600"
+            onClick={() =>
+              navigate(
+                "/admin/users?role=staff"
+              )
+            }
+          />
 
-            <div className="min-w-0 xl:col-span-8">
-              <div className="h-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <SectionHeader
-                  title="Inventory Movement"
-                  description="Stock movement across the system"
-                  actionLabel="View history"
-                  onAction={() =>
-                    navigate("/admin/stock-movements")
+          <StatCard
+            title="Active Users"
+            value={formatNumber(
+              stats.activeUsers
+            )}
+            description="Currently enabled"
+            icon={UserCheck}
+            iconClass="bg-emerald-50 text-emerald-600"
+            onClick={() =>
+              navigate(
+                "/admin/users?status=active"
+              )
+            }
+          />
+
+          <StatCard
+            title="Disabled Users"
+            value={formatNumber(
+              stats.disabledUsers
+            )}
+            description="Accounts requiring review"
+            icon={UserRoundX}
+            iconClass="bg-red-50 text-red-600"
+            onClick={() =>
+              navigate(
+                "/admin/users?status=disabled"
+              )
+            }
+          />
+        </div>
+      </section>
+
+      {/* ====================================================================
+          CHARTS
+      ==================================================================== */}
+
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        {/* User Growth */}
+
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-8">
+          <SectionHeader
+            title="User Growth"
+            description="New accounts created over the last 30 days"
+            actionLabel="Manage users"
+            onAction={() =>
+              navigate("/admin/users")
+            }
+          />
+
+          {userGrowthChartData.length > 0 ? (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+              >
+                <AreaChart
+                  data={
+                    userGrowthChartData
                   }
-                />
-
-                <div className="mb-5 flex flex-wrap items-center gap-5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-slate-900" />
-
-                    <span className="text-xs font-medium text-slate-500">
-                      Stock In
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
-
-                    <span className="text-xs font-medium text-slate-500">
-                      Stock Out
-                    </span>
-                  </div>
-
-                  <div className="ml-auto rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-500">
-                    Last 7 days
-                  </div>
-                </div>
-
-                <div className="h-[290px] w-full">
-                  <ResponsiveContainer
-                    width="100%"
-                    height="100%"
-                  >
-                    <AreaChart
-                      data={inventoryMovementData}
-                      margin={{
-                        top: 5,
-                        right: 5,
-                        left: -20,
-                        bottom: 0,
-                      }}
+                  margin={{
+                    top: 10,
+                    right: 8,
+                    left: -20,
+                    bottom: 0,
+                  }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="adminUserGrowthGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
                     >
-                      <defs>
-                        <linearGradient
-                          id="stockInGradient"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="#0f172a"
-                            stopOpacity={0.18}
-                          />
-
-                          <stop
-                            offset="100%"
-                            stopColor="#0f172a"
-                            stopOpacity={0}
-                          />
-                        </linearGradient>
-
-                        <linearGradient
-                          id="stockOutGradient"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="#94a3b8"
-                            stopOpacity={0.18}
-                          />
-
-                          <stop
-                            offset="100%"
-                            stopColor="#94a3b8"
-                            stopOpacity={0}
-                          />
-                        </linearGradient>
-                      </defs>
-
-                      <CartesianGrid
-                        vertical={false}
-                        stroke="#e2e8f0"
-                        strokeDasharray="4 4"
+                      <stop
+                        offset="0%"
+                        stopColor="#0f172a"
+                        stopOpacity={0.16}
                       />
 
-                      <XAxis
-                        dataKey="day"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fontSize: 11,
-                          fill: "#94a3b8",
-                        }}
+                      <stop
+                        offset="100%"
+                        stopColor="#0f172a"
+                        stopOpacity={0}
                       />
+                    </linearGradient>
+                  </defs>
 
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{
-                          fontSize: 11,
-                          fill: "#94a3b8",
-                        }}
-                      />
+                  <CartesianGrid
+                    vertical={false}
+                    stroke="#e2e8f0"
+                    strokeDasharray="4 4"
+                  />
 
-                      <Tooltip
-                        cursor={{
-                          stroke: "#cbd5e1",
-                          strokeDasharray: "4 4",
-                        }}
-                        contentStyle={{
-                          borderRadius: "12px",
-                          border: "1px solid #e2e8f0",
-                          boxShadow:
-                            "0 10px 30px rgba(15,23,42,0.08)",
-                          fontSize: "12px",
-                        }}
-                      />
-
-                      <Area
-                        type="monotone"
-                        dataKey="stockIn"
-                        stroke="#0f172a"
-                        strokeWidth={2}
-                        fill="url(#stockInGradient)"
-                      />
-
-                      <Area
-                        type="monotone"
-                        dataKey="stockOut"
-                        stroke="#94a3b8"
-                        strokeWidth={2}
-                        fill="url(#stockOutGradient)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            {/* Stock Health */}
-
-            <div className="min-w-0 xl:col-span-4">
-              <div className="h-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <SectionHeader
-                  title="Stock Health"
-                  description="Current inventory distribution"
-                  actionLabel="View inventory"
-                  onAction={() => navigate("/admin/inventory")}
-                />
-
-                <div className="flex flex-col items-center">
-                  <div
-                    className="relative flex h-48 w-48 items-center justify-center rounded-full"
-                    style={{
-                      background:
-                        "conic-gradient(#10b981 0% 64%, #f59e0b 64% 85%, #ef4444 85% 94%, #8b5cf6 94% 100%)",
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{
+                      fontSize: 10,
+                      fill: "#94a3b8",
                     }}
-                  >
-                    <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full bg-white">
-                      <span className="text-2xl font-bold text-slate-900">
-                        --
-                      </span>
+                  />
 
-                      <span className="text-xs text-slate-400">
-                        Total Products
+                  <YAxis
+                    allowDecimals={false}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{
+                      fontSize: 10,
+                      fill: "#94a3b8",
+                    }}
+                  />
+
+                  <Tooltip
+                    cursor={{
+                      stroke: "#cbd5e1",
+                      strokeDasharray: "4 4",
+                    }}
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border:
+                        "1px solid #e2e8f0",
+                      boxShadow:
+                        "0 10px 30px rgba(15,23,42,0.08)",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value) => [
+                      `${value} users`,
+                      "New users",
+                    ]}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="users"
+                    stroke="#0f172a"
+                    strokeWidth={2}
+                    fill="url(#adminUserGrowthGradient)"
+                    activeDot={{
+                      r: 5,
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <EmptyState
+              icon={BarChart3}
+              title="No growth data yet"
+              description="User growth information will appear here as new accounts are created."
+            />
+          )}
+        </div>
+
+        {/* Role Distribution */}
+
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-4">
+          <SectionHeader
+            title="Role Distribution"
+            description="Current accounts by role"
+            actionLabel="Users"
+            onAction={() =>
+              navigate("/admin/users")
+            }
+          />
+
+          {roleChartData.length > 0 ? (
+            <>
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <PieChart>
+                    <Pie
+                      data={roleChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={88}
+                      paddingAngle={3}
+                      stroke="none"
+                    >
+                      {roleChartData.map(
+                        (entry) => (
+                          <Cell
+                            key={entry.role}
+                            fill={
+                              ROLE_COLORS[
+                                entry.role
+                              ] ||
+                              "#cbd5e1"
+                            }
+                          />
+                        )
+                      )}
+                    </Pie>
+
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        border:
+                          "1px solid #e2e8f0",
+                        boxShadow:
+                          "0 10px 30px rgba(15,23,42,0.08)",
+                        fontSize: "12px",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="space-y-3">
+                {roleChartData.map(
+                  (item) => (
+                    <div
+                      key={item.role}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{
+                            backgroundColor:
+                              ROLE_COLORS[
+                                item.role
+                              ] ||
+                              "#cbd5e1",
+                          }}
+                        />
+
+                        <span className="text-xs font-medium text-slate-600">
+                          {item.name}
+                        </span>
+                      </div>
+
+                      <span className="text-xs font-bold text-slate-800">
+                        {formatNumber(
+                          item.value
+                        )}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="mt-6 w-full space-y-3">
-                    {stockHealth.map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center justify-between gap-3"
-                      >
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <span
-                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${item.className}`}
-                          />
-
-                          <span className="truncate text-xs font-medium text-slate-600">
-                            {item.label}
-                          </span>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800">
-                            {item.value}%
-                          </span>
-
-                          <span className="hidden text-[10px] text-slate-400 sm:inline">
-                            {item.count}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                  )
+                )}
               </div>
-            </div>
-          </section>
+            </>
+          ) : (
+            <EmptyState
+              icon={Users}
+              title="No role data"
+              description="Role distribution will appear when users are available."
+            />
+          )}
+        </div>
+      </section>
 
-          {/* ==================================================================
-              ACTIVITY AND ALERTS
-          ================================================================== */}
+      {/* ====================================================================
+          RECENT USERS + ADMIN ACTIVITY
+      ==================================================================== */}
 
-          <section className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-12">
-            {/* Recent Activity */}
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        {/* Recent Users */}
 
-            <div className="min-w-0 xl:col-span-7">
-              <div className="h-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <SectionHeader
-                  title="Recent Activity"
-                  description="Latest activity across your system"
-                  actionLabel="View all"
-                  onAction={() => navigate("/admin/activity")}
-                />
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-5">
+          <SectionHeader
+            title="Recently Added Users"
+            description="Latest accounts added to InventoryFlow"
+            actionLabel="View all"
+            onAction={() =>
+              navigate("/admin/users")
+            }
+          />
 
-                <div className="divide-y divide-slate-100">
-                  {recentActivity.map((activity) => {
-                    const Icon = activity.icon;
+          {recentUsers.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {recentUsers.map(
+                (user) => (
+                  <button
+                    key={user._id || user.id}
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/admin/users/${
+                          user._id || user.id
+                        }`
+                      )
+                    }
+                    className="group flex w-full items-center gap-3 py-3.5 text-left first:pt-0 last:pb-0"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
+                      {user.name
+                        ?.charAt(0)
+                        ?.toUpperCase() ||
+                        "U"}
+                    </div>
 
-                    return (
-                      <div
-                        key={activity.id}
-                        className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0"
-                      >
-                        <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${activity.iconClass}`}
-                        >
-                          <Icon size={17} />
-                        </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {user.name ||
+                          "Unnamed user"}
+                      </p>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-800">
-                            {activity.title}
-                          </p>
-
-                          <p className="mt-0.5 truncate text-xs text-slate-500">
-                            {activity.description}
-                          </p>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-1 text-[10px] text-slate-400">
-                          <Clock3 size={11} />
-                          {activity.time}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Alerts */}
-
-            <div className="min-w-0 xl:col-span-5">
-              <div className="h-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <SectionHeader
-                  title="Needs Attention"
-                  description="Issues requiring administrative review"
-                  actionLabel="View alerts"
-                  onAction={() => navigate("/admin/alerts")}
-                />
-
-                <div className="space-y-3">
-                  {alerts.map((alert) => (
-                    <button
-                      type="button"
-                      key={alert.id}
-                      onClick={() => navigate("/admin/alerts")}
-                      className="flex w-full items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 text-left transition-all hover:border-slate-200 hover:bg-slate-50"
-                    >
-                      <div
-                        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                          alert.severity === "critical"
-                            ? "bg-red-50 text-red-600"
-                            : "bg-amber-50 text-amber-600"
-                        }`}
-                      >
-                        <AlertTriangle size={16} />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-bold text-slate-800">
-                            {alert.title}
-                          </p>
-
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                              alert.severity === "critical"
-                                ? "bg-red-100 text-red-600"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {alert.severity}
-                          </span>
-                        </div>
-
-                        <p className="mt-1 text-[11px] leading-5 text-slate-500">
-                          {alert.description}
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <p className="truncate text-[11px] text-slate-400">
+                          {user.email}
                         </p>
 
-                        <p className="mt-1 text-[10px] text-slate-400">
-                          {alert.time}
-                        </p>
+                        <span className="hidden rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500 sm:inline-flex">
+                          {getRoleLabel(
+                            user.role
+                          )}
+                        </span>
                       </div>
-                    </button>
-                  ))}
-                </div>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin/alerts")}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                >
-                  <AlertTriangle size={14} />
-                  Review all alerts
-                </button>
-              </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[10px] text-slate-400">
+                        {formatRelativeTime(
+                          user.createdAt
+                        )}
+                      </p>
+
+                      <ChevronRight
+                        size={14}
+                        className="ml-auto mt-1 text-slate-300 transition-colors group-hover:text-slate-600"
+                      />
+                    </div>
+                  </button>
+                )
+              )}
             </div>
-          </section>
+          ) : (
+            <EmptyState
+              icon={UserPlus}
+              title="No users yet"
+              description="Newly created users will appear in this section."
+            />
+          )}
+        </div>
 
-          {/* ==================================================================
-              QUICK ACTIONS
-          ================================================================== */}
+        {/* Administrative Activity */}
 
-          <section>
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <SectionHeader
-                title="Quick Actions"
-                description="Common administrative tasks"
-              />
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 xl:col-span-7">
+          <SectionHeader
+            title="Recent Administrative Activity"
+            description="Latest actions recorded in the admin audit trail"
+            actionLabel="View audit logs"
+            onAction={() =>
+              navigate(
+                "/admin/audit-logs"
+              )
+            }
+          />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {quickActions.map((action) => {
-                  const Icon = action.icon;
+          {recentActivity.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {recentActivity
+                .slice(0, 6)
+                .map((activity) => {
+                  const actor =
+                    activity.actor;
+
+                  const target =
+                    activity.targetUser;
 
                   return (
-                    <button
-                      type="button"
-                      key={action.label}
-                      onClick={() => navigate(action.path)}
-                      className="group flex items-center gap-3 rounded-xl border border-slate-200 p-3.5 text-left transition-all hover:border-amber-200 hover:bg-amber-50/40 hover:shadow-sm"
+                    <div
+                      key={
+                        activity._id ||
+                        activity.id
+                      }
+                      className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0"
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-colors group-hover:bg-amber-100 group-hover:text-amber-700">
-                        <Icon size={18} />
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                        {activity.action ===
+                        "USER_CREATED" ? (
+                          <UserPlus
+                            size={17}
+                          />
+                        ) : activity.action ===
+                          "ROLE_CHANGED" ? (
+                          <Settings2
+                            size={17}
+                          />
+                        ) : activity.action ===
+                          "STATUS_CHANGED" ? (
+                          <UserCheck
+                            size={17}
+                          />
+                        ) : activity.action ===
+                          "USER_DELETED" ? (
+                          <UserRoundX
+                            size={17}
+                          />
+                        ) : (
+                          <Activity
+                            size={17}
+                          />
+                        )}
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-800">
-                          {action.label}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-800">
+                            {getActionLabel(
+                              activity.action
+                            )}
+                          </p>
+
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                            {activity.action?.replace(
+                              /_/g,
+                              " "
+                            )}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          {activity.description}
                         </p>
 
-                        <p className="mt-0.5 truncate text-[10px] text-slate-400">
-                          {action.description}
-                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
+                          {actor?.name && (
+                            <span>
+                              By{" "}
+                              <span className="font-semibold text-slate-500">
+                                {actor.name}
+                              </span>
+                            </span>
+                          )}
+
+                          {target?.name && (
+                            <>
+                              <span>•</span>
+
+                              <span>
+                                Target:{" "}
+                                <span className="font-semibold text-slate-500">
+                                  {target.name}
+                                </span>
+                              </span>
+                            </>
+                          )}
+
+                          <span>•</span>
+
+                          <span className="inline-flex items-center gap-1">
+                            <Clock3
+                              size={10}
+                            />
+
+                            {formatRelativeTime(
+                              activity.createdAt
+                            )}
+                          </span>
+                        </div>
                       </div>
-
-                      <Plus
-                        size={15}
-                        className="text-slate-300 transition-colors group-hover:text-amber-600"
-                      />
-                    </button>
+                    </div>
                   );
                 })}
-              </div>
             </div>
-          </section>
-
-          {/* ==================================================================
-              SYSTEM STATUS
-          ================================================================== */}
-
-          <section>
-            <div className="flex flex-col justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-5 py-4 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
-                  <CheckCircle2 size={18} />
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold text-emerald-800">
-                    All core services operational
-                  </p>
-
-                  <p className="mt-0.5 text-[10px] text-emerald-700/70">
-                    Last system check completed just now
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate("/admin/system-health")}
-                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-              >
-                System health
-                <ArrowUpRight size={14} />
-              </button>
-            </div>
-          </section>
+          ) : (
+            <EmptyState
+              icon={Activity}
+              title="No administrative activity"
+              description="Administrative actions such as user creation, role changes, and account status changes will appear here."
+            />
+          )}
         </div>
-      )}
+      </section>
+
+      {/* ====================================================================
+          ADMIN QUICK ACTIONS
+      ==================================================================== */}
+
+      <section>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <SectionHeader
+            title="Quick Actions"
+            description="Common administrative tasks"
+          />
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/admin/users")
+              }
+              className="group flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition-all hover:border-blue-200 hover:bg-blue-50/40 hover:shadow-sm"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <Users size={18} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-800">
+                  Manage Users
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Search and manage accounts
+                </p>
+              </div>
+
+              <ChevronRight
+                size={15}
+                className="text-slate-300 transition-colors group-hover:text-blue-600"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/admin/users/create")
+              }
+              className="group flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <UserPlus size={18} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-800">
+                  Add User
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Create a manager or staff account
+                </p>
+              </div>
+
+              <ChevronRight
+                size={15}
+                className="text-slate-300 transition-colors group-hover:text-emerald-600"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  "/admin/audit-logs"
+                )
+              }
+              className="group flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition-all hover:border-violet-200 hover:bg-violet-50/40 hover:shadow-sm"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <Activity size={18} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-800">
+                  Audit Logs
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Review administrative actions
+                </p>
+              </div>
+
+              <ChevronRight
+                size={15}
+                className="text-slate-300 transition-colors group-hover:text-violet-600"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  "/admin/system-health"
+                )
+              }
+              className="group flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition-all hover:border-amber-200 hover:bg-amber-50/40 hover:shadow-sm"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <CheckCircle2 size={18} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-800">
+                  System Health
+                </p>
+
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  Check system services
+                </p>
+              </div>
+
+              <ChevronRight
+                size={15}
+                className="text-slate-300 transition-colors group-hover:text-amber-600"
+              />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          ADMIN STATUS
+      ==================================================================== */}
+
+      <section>
+        <div className="flex flex-col justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 px-5 py-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              <ShieldCheck size={18} />
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-emerald-800">
+                Administrative controls active
+              </p>
+
+              <p className="mt-0.5 text-[10px] text-emerald-700/70">
+                User management and audit tracking are available.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                "/admin/system-health"
+              )
+            }
+            className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
+          >
+            System health
+            <ArrowUpRight size={14} />
+          </button>
+        </div>
+      </section>
     </div>
   );
 };

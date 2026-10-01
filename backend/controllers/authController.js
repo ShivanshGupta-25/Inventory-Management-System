@@ -16,7 +16,6 @@ const register = async (req, res) => {
       name,
       email,
       password,
-      role,
     } = req.body;
 
     if (!name || !email || !password) {
@@ -35,26 +34,17 @@ const register = async (req, res) => {
       });
     }
 
-    if (
-      role &&
-      !["admin", "manager", "staff"].includes(role)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid role",
+    const result =
+      await registerUser({
+        name,
+        email,
+        password,
       });
-    }
-
-    const result = await registerUser({
-      name,
-      email,
-      password,
-      role,
-    });
 
     return res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message:
+        "User registered successfully",
       token: result.token,
       user: result.user,
     });
@@ -85,10 +75,11 @@ const login = async (req, res) => {
       });
     }
 
-    const result = await loginUser({
-      email,
-      password,
-    });
+    const result =
+      await loginUser({
+        email,
+        password,
+      });
 
     return res.status(200).json({
       success: true,
@@ -110,9 +101,10 @@ const login = async (req, res) => {
 
 const me = async (req, res) => {
   try {
-    const user = await getCurrentUser(
-      req.user.userId
-    );
+    const user =
+      await getCurrentUser(
+        req.user.userId
+      );
 
     return res.status(200).json({
       success: true,
@@ -130,14 +122,20 @@ const me = async (req, res) => {
 // UPDATE PROFILE
 // --------------------------------------------------
 
-const updateProfile = async (req, res) => {
+const updateProfile = async (
+  req,
+  res
+) => {
   try {
     const {
       name,
       email,
     } = req.body;
 
-    if (name === undefined && email === undefined) {
+    if (
+      name === undefined &&
+      email === undefined
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -145,17 +143,19 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    const user = await updateUserProfile(
-      req.user.userId,
-      {
-        name,
-        email,
-      }
-    );
+    const user =
+      await updateUserProfile(
+        req.user.userId,
+        {
+          name,
+          email,
+        }
+      );
 
     return res.status(200).json({
       success: true,
-      message: "Profile updated successfully",
+      message:
+        "Profile updated successfully",
       user,
     });
   } catch (error) {
@@ -170,7 +170,10 @@ const updateProfile = async (req, res) => {
 // CHANGE PASSWORD
 // --------------------------------------------------
 
-const changePassword = async (req, res) => {
+const changePassword = async (
+  req,
+  res
+) => {
   try {
     const {
       currentPassword,
@@ -190,7 +193,9 @@ const changePassword = async (req, res) => {
       });
     }
 
-    if (newPassword !== confirmPassword) {
+    if (
+      newPassword !== confirmPassword
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -206,7 +211,8 @@ const changePassword = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Password changed successfully",
+      message:
+        "Password changed successfully",
     });
   } catch (error) {
     return res.status(400).json({
@@ -215,6 +221,10 @@ const changePassword = async (req, res) => {
     });
   }
 };
+
+// --------------------------------------------------
+// EXPORTS
+// --------------------------------------------------
 
 module.exports = {
   register,

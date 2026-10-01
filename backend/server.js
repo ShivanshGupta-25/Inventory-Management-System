@@ -16,6 +16,7 @@ const path = require("path");
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const stockMovementRoutes = require("./routes/stockMovementRoutes");
@@ -105,6 +106,9 @@ app.get("/", (req, res) => {
 
 // Authentication routes
 app.use("/api/auth", authRoutes);
+
+// Admin routes
+app.use("/api/admin", adminRoutes);
 
 // Dashboard routes
 app.use("/api/dashboard", dashboardRoutes);
