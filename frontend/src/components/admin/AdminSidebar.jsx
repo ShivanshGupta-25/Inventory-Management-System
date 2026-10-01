@@ -1,32 +1,25 @@
 import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
-  Boxes,
   ChevronDown,
   ChevronRight,
-  ClipboardList,
-  Database,
   FileBarChart,
-  FileClock,
   LayoutDashboard,
   LogOut,
-  Package,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
   ShieldCheck,
-  ShoppingCart,
-  SlidersHorizontal,
-  Tags,
-  Truck,
   UserCog,
   Users,
-  Warehouse,
   X,
+  ServerCog,
+  ScrollText,
 } from "lucide-react";
+
+import { useAuth } from "../../context/AuthContext";
 
 const AdminSidebar = ({
   isMobileOpen = false,
@@ -35,11 +28,14 @@ const AdminSidebar = ({
   onCollapsedChange,
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
 
   const isControlled = controlledCollapsed !== undefined;
+
   const isCollapsed = isControlled
     ? controlledCollapsed
     : internalCollapsed;
@@ -51,6 +47,7 @@ const AdminSidebar = ({
       setInternalCollapsed(value);
     }
   };
+
 
   const navigation = [
     {
@@ -70,51 +67,15 @@ const AdminSidebar = ({
         {
           label: "Users",
           icon: Users,
-          children: [
-            {
-              label: "All Users",
-              path: "/admin/users",
-            },
-            {
-              label: "Admins",
-              path: "/admin/admins",
-            },
-            {
-              label: "Managers",
-              path: "/admin/users/managers",
-            },
-            {
-              label: "Staff",
-              path: "/admin/users/staff",
-            },
-            {
-              label: "Roles & Permissions",
-              path: "/admin/users/roles",
-            },
-          ],
+          path: "/admin/users",
         },
-
-        
-      ],
-    },
-
-    {
-      section: "INVENTORY",
-      items: [
-        {
-          label: "Inventory",
-          icon: Boxes,
-          children: [
-            {
-              label: "All Inventory",
-              path: "/admin/inventory",
-            },
-            
-          ],
+        {  
+          label: "Roles & Permissions",
+          icon: ShieldCheck,
+          path: "/admin/users/roles", 
         },
       ],
     },
-
 
     {
       section: "MONITORING",
@@ -129,6 +90,11 @@ const AdminSidebar = ({
           icon: Activity,
           path: "/admin/activity",
         },
+        {
+          label: "Audit Logs",
+          icon: ScrollText,
+          path: "/admin/audit-logs",
+        },
       ],
     },
 
@@ -139,6 +105,17 @@ const AdminSidebar = ({
           label: "Reports",
           icon: FileBarChart,
           path: "/admin/reports",
+        },
+      ],
+    },
+
+    {
+      section: "SYSTEM",
+      items: [
+        {
+          label: "System Health",
+          icon: ServerCog,
+          path: "/admin/system-health",
         },
       ],
     },
@@ -157,9 +134,19 @@ const AdminSidebar = ({
     },
   ];
 
+  /*
+   * ============================================================
+   * ROUTE HELPERS
+   * ============================================================
+   */
+
   const isPathActive = (path) => {
     if (path === "/admin/dashboard") {
-      return location.pathname === path;
+      return (
+        location.pathname === "/admin" ||
+        location.pathname === "/admin/" ||
+        location.pathname === "/admin/dashboard"
+      );
     }
 
     return (
@@ -173,9 +160,15 @@ const AdminSidebar = ({
       return isPathActive(item.path);
     }
 
-    return item.children.some((child) => isPathActive(child.path));
+    return item.children.some((child) =>
+      isPathActive(child.path)
+    );
   };
 
+  /*
+   * Automatically open the parent menu containing
+   * the currently active route.
+   */
   useEffect(() => {
     const activeMenus = {};
 
@@ -206,12 +199,36 @@ const AdminSidebar = ({
     }
   };
 
+  /*
+   * ============================================================
+   * LOGOUT
+   * ============================================================
+   */
+
+  const handleLogout = () => {
+    logout();
+    navigate("/auth/login", { replace: true });
+
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
+  /*
+   * ============================================================
+   * NAVIGATION ITEM
+   * ============================================================
+   */
+
   const renderNavItem = (item) => {
     const Icon = item.icon;
     const hasChildren = item.children?.length > 0;
     const active = isParentActive(item);
     const isOpen = openMenus[item.label];
 
+    /*
+     * Parent item with submenu
+     */
     if (hasChildren) {
       return (
         <div key={item.label} className="mb-1">
@@ -244,15 +261,23 @@ const AdminSidebar = ({
               />
 
               {!isCollapsed && (
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">
+                  {item.label}
+                </span>
               )}
             </span>
 
             {!isCollapsed &&
               (isOpen ? (
-                <ChevronDown size={16} />
+                <ChevronDown
+                  size={16}
+                  className="shrink-0"
+                />
               ) : (
-                <ChevronRight size={16} />
+                <ChevronRight
+                  size={16}
+                  className="shrink-0"
+                />
               ))}
           </button>
 
@@ -277,7 +302,13 @@ const AdminSidebar = ({
                     `}
                   >
                     {childActive && (
-                      <span className="absolute -left-[17px] h-5 w-0.5 rounded-full bg-amber-500" />
+                      <span
+                        className="
+                          absolute -left-[17px]
+                          h-5 w-0.5 rounded-full
+                          bg-amber-500
+                        "
+                      />
                     )}
 
                     {child.label}
@@ -290,6 +321,9 @@ const AdminSidebar = ({
       );
     }
 
+    /*
+     * Normal navigation item
+     */
     return (
       <NavLink
         key={item.path}
@@ -314,30 +348,52 @@ const AdminSidebar = ({
         />
 
         {!isCollapsed && (
-          <span className="truncate">{item.label}</span>
+          <span className="truncate">
+            {item.label}
+          </span>
         )}
       </NavLink>
     );
   };
 
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
+
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* ======================================================
+          MOBILE OVERLAY
+      ====================================================== */}
+
       {isMobileOpen && (
         <button
           type="button"
           aria-label="Close admin sidebar"
           onClick={onMobileClose}
-          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px] lg:hidden"
+          className="
+            fixed inset-0 z-40
+            bg-slate-950/40
+            backdrop-blur-[2px]
+            lg:hidden
+          "
         />
       )}
+
+      {/* ======================================================
+          SIDEBAR
+      ====================================================== */}
 
       <aside
         className={`
           fixed left-0 top-0 z-50 flex h-screen flex-col
           border-r border-slate-200 bg-white
           transition-all duration-300 ease-in-out
+
           ${isCollapsed ? "w-[78px]" : "w-[270px]"}
+
           ${
             isMobileOpen
               ? "translate-x-0"
@@ -345,10 +401,15 @@ const AdminSidebar = ({
           }
         `}
       >
-        {/* Brand */}
+        {/* ====================================================
+            BRAND
+        ==================================================== */}
+
         <div
           className={`
-            flex h-[72px] shrink-0 items-center border-b border-slate-200
+            flex h-[72px] shrink-0 items-center
+            border-b border-slate-200
+
             ${
               isCollapsed
                 ? "justify-center px-3"
@@ -361,8 +422,17 @@ const AdminSidebar = ({
             onClick={handleNavigation}
             className="flex items-center gap-3"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 shadow-sm">
-              <Boxes
+            {/* Logo */}
+            <div
+              className="
+                flex h-10 w-10 shrink-0
+                items-center justify-center
+                rounded-xl
+                bg-amber-500
+                shadow-sm
+              "
+            >
+              <ShieldCheck
                 size={22}
                 className="text-white"
                 strokeWidth={2.2}
@@ -371,40 +441,80 @@ const AdminSidebar = ({
 
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="truncate text-[17px] font-bold tracking-tight text-slate-900">
+                <p
+                  className="
+                    truncate text-[17px]
+                    font-bold tracking-tight
+                    text-slate-900
+                  "
+                >
                   InventoryFlow
                 </p>
 
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-600">
+                <p
+                  className="
+                    text-[10px] font-semibold
+                    uppercase tracking-[0.16em]
+                    text-amber-600
+                  "
+                >
                   Admin Panel
                 </p>
               </div>
             )}
           </NavLink>
 
-          {/* Mobile close */}
+          {/* Mobile Close */}
           <button
             type="button"
             onClick={onMobileClose}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+            className="
+              rounded-lg p-2
+              text-slate-500
+              hover:bg-slate-100
+              hover:text-slate-900
+              lg:hidden
+            "
             aria-label="Close sidebar"
           >
             <X size={19} />
           </button>
         </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto px-3 py-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-200">
+        {/* ====================================================
+            MAIN NAVIGATION
+        ==================================================== */}
+
+        <div
+          className="
+            flex-1 overflow-y-auto
+            px-3 py-5
+            scrollbar-thin
+            scrollbar-track-transparent
+            scrollbar-thumb-slate-200
+          "
+        >
           {navigation.map((group) => (
-            <div key={group.section} className="mb-6 last:mb-0">
+            <div
+              key={group.section}
+              className="mb-6 last:mb-0"
+            >
+              {/* Section title */}
               {!isCollapsed && (
                 <div className="mb-2 px-3">
-                  <p className="text-[10px] font-bold tracking-[0.16em] text-slate-400">
+                  <p
+                    className="
+                      text-[10px] font-bold
+                      tracking-[0.16em]
+                      text-slate-400
+                    "
+                  >
                     {group.section}
                   </p>
                 </div>
               )}
 
+              {/* Collapsed separator */}
               {isCollapsed && (
                 <div className="mb-3 h-px bg-slate-100" />
               )}
@@ -414,10 +524,26 @@ const AdminSidebar = ({
           ))}
         </div>
 
-        {/* Bottom Area */}
-        <div className="shrink-0 border-t border-slate-200 p-3">
+        {/* ====================================================
+            ACCOUNT
+        ==================================================== */}
+
+        <div
+          className="
+            shrink-0
+            border-t border-slate-200
+            p-3
+          "
+        >
           {!isCollapsed && (
-            <p className="mb-2 px-3 text-[10px] font-bold tracking-[0.16em] text-slate-400">
+            <p
+              className="
+                mb-2 px-3
+                text-[10px] font-bold
+                tracking-[0.16em]
+                text-slate-400
+              "
+            >
               ACCOUNT
             </p>
           )}
@@ -433,8 +559,10 @@ const AdminSidebar = ({
                 onClick={handleNavigation}
                 title={isCollapsed ? item.label : undefined}
                 className={`
-                  mb-1 flex items-center rounded-xl px-3 py-2.5
-                  text-sm font-medium transition-all duration-200
+                  mb-1 flex items-center
+                  rounded-xl px-3 py-2.5
+                  text-sm font-medium
+                  transition-all duration-200
                   ${
                     active
                       ? "bg-slate-100 text-slate-900"
@@ -449,43 +577,70 @@ const AdminSidebar = ({
                   className="shrink-0"
                 />
 
-                {!isCollapsed && <span>{item.label}</span>}
+                {!isCollapsed && (
+                  <span>{item.label}</span>
+                )}
               </NavLink>
             );
           })}
 
+          {/* Logout */}
           <button
             type="button"
             title={isCollapsed ? "Logout" : undefined}
+            onClick={handleLogout}
             className={`
-              mt-1 flex w-full items-center rounded-xl px-3 py-2.5
-              text-sm font-medium text-slate-600 transition-all
-              hover:bg-red-50 hover:text-red-600
+              mt-1 flex w-full
+              items-center rounded-xl
+              px-3 py-2.5
+              text-sm font-medium
+              text-slate-600
+              transition-all duration-200
+              hover:bg-red-50
+              hover:text-red-600
               ${isCollapsed ? "justify-center" : "gap-3"}
             `}
-            onClick={() => {
-              // Logout logic will be connected to the existing auth
-              // service when the Admin authentication flow is wired.
-            }}
           >
-            <LogOut size={19} strokeWidth={1.9} />
+            <LogOut
+              size={19}
+              strokeWidth={1.9}
+            />
 
-            {!isCollapsed && <span>Logout</span>}
+            {!isCollapsed && (
+              <span>Logout</span>
+            )}
           </button>
         </div>
 
-        {/* Collapse Button - Desktop */}
-        <div className="hidden border-t border-slate-200 p-3 lg:block">
+        {/* ====================================================
+            DESKTOP COLLAPSE
+        ==================================================== */}
+
+        <div
+          className="
+            hidden border-t border-slate-200
+            p-3 lg:block
+          "
+        >
           <button
             type="button"
             onClick={() => setCollapsed(!isCollapsed)}
             className={`
-              flex w-full items-center rounded-xl px-3 py-2.5
-              text-sm font-medium text-slate-500
-              transition-colors hover:bg-slate-50 hover:text-slate-900
+              flex w-full
+              items-center rounded-xl
+              px-3 py-2.5
+              text-sm font-medium
+              text-slate-500
+              transition-colors
+              hover:bg-slate-50
+              hover:text-slate-900
               ${isCollapsed ? "justify-center" : "gap-3"}
             `}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={
+              isCollapsed
+                ? "Expand sidebar"
+                : "Collapse sidebar"
+            }
           >
             {isCollapsed ? (
               <PanelLeftOpen size={19} />

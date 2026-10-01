@@ -77,6 +77,7 @@ import Analytics from "../pages/Manager/Analytics/Analytics";
 // Admin
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminLayout from "../components/admin/AdminLayout";
+import AdminUsers from "../pages/admin/Users";
 
 const AppRoutes = () => {
   return (
@@ -115,13 +116,13 @@ const AppRoutes = () => {
           ADMIN
       ====================================================== */}
 
-      {/* <Route
+      <Route
         element={
           <ProtectedRoute
             allowedRoles={["admin"]}
           />
         }
-      > */}
+      >
         <Route
           path="/admin"
           element={<AdminLayout />}
@@ -132,11 +133,16 @@ const AppRoutes = () => {
           />
 
           <Route
+            path="/admin/users"
+            element={<AdminUsers />}
+          />
+
+          <Route
             path="dashboard"
             element={<AdminDashboard />}
           />
         </Route>
-      {/* </Route> */}
+      </Route>
 
       {/* =====================================================
           MANAGER
