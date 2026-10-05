@@ -78,6 +78,7 @@ import Analytics from "../pages/Manager/Analytics/Analytics";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminLayout from "../components/admin/AdminLayout";
 import AdminUsers from "../pages/admin/Users";
+import AdminProfile from "../pages/admin/AdminProfile";
 
 const AppRoutes = () => {
   return (
@@ -140,6 +141,11 @@ const AppRoutes = () => {
           <Route
             path="dashboard"
             element={<AdminDashboard />}
+          />
+
+          <Route
+            path="profile"
+            element={<AdminProfile />}
           />
         </Route>
       </Route>

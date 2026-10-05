@@ -8,8 +8,11 @@ const {
   changeUserStatus,
   deleteUser,
   getAuditLogs,
-} = require("../services/adminService");
 
+  // Admin profile services
+  getAdminProfile: getAdminProfileService,
+  updateAdminProfile: updateAdminProfileService,
+} = require("../services/adminservice");
 // --------------------------------------------------
 // ADMIN DASHBOARD
 // --------------------------------------------------
@@ -335,7 +338,6 @@ const remove = async (req, res) => {
     });
   }
 };
-
 // --------------------------------------------------
 // AUDIT LOGS
 // --------------------------------------------------
@@ -376,6 +378,63 @@ const auditLogs = async (req, res) => {
 };
 
 // --------------------------------------------------
+// ADMIN PROFILE
+// --------------------------------------------------
+
+const getAdminProfile = async (req, res) => {
+  try {
+    const user = await getAdminProfileService(
+      req.user.userId
+    );
+
+    return res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    console.error(
+      "Get admin profile error:",
+      error
+    );
+
+    return res.status(404).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to retrieve admin profile",
+    });
+  }
+};
+
+const updateAdminProfile = async (req, res) => {
+  try {
+    const user =
+      await updateAdminProfileService(
+        req.user.userId,
+        req.body
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user,
+    });
+  } catch (error) {
+    console.error(
+      "Update admin profile error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to update admin profile",
+    });
+  }
+};
+
+// --------------------------------------------------
 // EXPORTS
 // --------------------------------------------------
 
@@ -389,4 +448,6 @@ module.exports = {
   updateStatus,
   remove,
   auditLogs,
+  getAdminProfile,
+  updateAdminProfile,
 };

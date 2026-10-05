@@ -120,6 +120,7 @@ const getDashboardStats = async () => {
     // ----------------------------------------------
     // ACTIVE USERS
     // ----------------------------------------------
+
     /*
      * Users created before the status field was
      * introduced may not have a status field.
@@ -303,6 +304,7 @@ const getUsers = async ({
   // ------------------------------------------------
   // BUILD FILTER CONDITIONS
   // ------------------------------------------------
+
   /*
    * We use $and here instead of directly attaching
    * multiple $or conditions to the same filter.
@@ -670,7 +672,9 @@ const updateUser = async ({
       );
     }
 
-    if (normalizedName !== user.name) {
+    if (
+      normalizedName !== user.name
+    ) {
       changes.name = {
         from: user.name,
         to: normalizedName,
@@ -700,7 +704,6 @@ const updateUser = async ({
       const existingUser =
         await User.findOne({
           email: normalizedEmail,
-
           _id: {
             $ne: userId,
           },
@@ -979,6 +982,7 @@ const changeUserStatus = async ({
      * normal user management does not allow
      * administrator accounts to be disabled.
      */
+
     throw new Error(
       "Admin accounts cannot be disabled through user management"
     );
@@ -1080,6 +1084,7 @@ const deleteUser = async ({
      * Administrator accounts remain protected
      * even when multiple administrators exist.
      */
+
     throw new Error(
       "Admin accounts cannot be deleted through user management"
     );
@@ -1133,6 +1138,228 @@ const deleteUser = async ({
 };
 
 // --------------------------------------------------
+// ADMIN PROFILE
+// --------------------------------------------------
+
+const getAdminProfile = async (
+  adminId
+) => {
+  const user =
+    await User.findById(adminId)
+      .select("-password")
+      .lean();
+
+  if (!user) {
+    throw new Error(
+      "Administrator account not found"
+    );
+  }
+
+  if (user.role !== "admin") {
+    throw new Error(
+      "Only administrator accounts can access this profile"
+    );
+  }
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status:
+      user.status || "active",
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
+
+// --------------------------------------------------
+// UPDATE ADMIN PROFILE
+// --------------------------------------------------
+
+const updateAdminProfile = async (
+  adminId,
+  updates
+) => {
+  // ------------------------------------------------
+  // GET ADMIN
+  // ------------------------------------------------
+
+  const user =
+    await User.findById(adminId);
+
+  if (!user) {
+    throw new Error(
+      "Administrator account not found"
+    );
+  }
+
+  // ------------------------------------------------
+  // ADMIN VALIDATION
+  // ------------------------------------------------
+
+  if (user.role !== "admin") {
+    throw new Error(
+      "Only administrator accounts can update this profile"
+    );
+  }
+
+  // ------------------------------------------------
+  // ALLOWED UPDATES
+  // ------------------------------------------------
+
+  const changes = {};
+
+  // ------------------------------------------------
+  // NAME
+  // ------------------------------------------------
+
+  if (
+    updates?.name !== undefined
+  ) {
+    if (
+      typeof updates.name !== "string"
+    ) {
+      throw new Error(
+        "Invalid name"
+      );
+    }
+
+    const normalizedName =
+      normalizeName(updates.name);
+
+    if (!normalizedName) {
+      throw new Error(
+        "Name cannot be empty"
+      );
+    }
+
+    if (normalizedName.length < 2) {
+      throw new Error(
+        "Name must contain at least 2 characters"
+      );
+    }
+
+    if (
+      normalizedName !== user.name
+    ) {
+      changes.name = {
+        from: user.name,
+        to: normalizedName,
+      };
+
+      user.name = normalizedName;
+    }
+  }
+
+  // ------------------------------------------------
+  // EMAIL PROTECTION
+  // ------------------------------------------------
+
+  /*
+   * Email changes are intentionally not handled
+   * from the profile page.
+   *
+   * A future security workflow can handle:
+   *
+   * - current password
+   * - new email
+   * - verification
+   * - confirmation
+   */
+
+  if (
+    updates?.email !== undefined
+  ) {
+    throw new Error(
+      "Email changes must be handled through account security settings"
+    );
+  }
+
+  // ------------------------------------------------
+  // ROLE PROTECTION
+  // ------------------------------------------------
+
+  if (
+    updates?.role !== undefined
+  ) {
+    throw new Error(
+      "Administrator role cannot be changed from the profile page"
+    );
+  }
+
+  // ------------------------------------------------
+  // STATUS PROTECTION
+  // ------------------------------------------------
+
+  if (
+    updates?.status !== undefined
+  ) {
+    throw new Error(
+      "Account status cannot be changed from the profile page"
+    );
+  }
+
+  // ------------------------------------------------
+  // NO CHANGES
+  // ------------------------------------------------
+
+  if (
+    Object.keys(changes).length === 0
+  ) {
+    return {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status:
+        user.status || "active",
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  // ------------------------------------------------
+  // SAVE
+  // ------------------------------------------------
+
+  await user.save();
+
+  // ------------------------------------------------
+  // AUDIT
+  // ------------------------------------------------
+
+  await createAuditLog({
+    actor: adminId,
+
+    action: "PROFILE_UPDATED",
+
+    targetUser: user._id,
+
+    description: `Updated administrator profile for ${user.name}`,
+
+    metadata: {
+      changes,
+    },
+  });
+
+  // ------------------------------------------------
+  // RETURN
+  // ------------------------------------------------
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status:
+      user.status || "active",
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
+
+// --------------------------------------------------
 // GET AUDIT LOGS
 // --------------------------------------------------
 
@@ -1168,9 +1395,12 @@ const getAuditLogs = async ({
       "ROLE_CHANGED",
       "STATUS_CHANGED",
       "USER_DELETED",
+      "PROFILE_UPDATED",
     ];
 
-    if (!allowedActions.includes(action)) {
+    if (
+      !allowedActions.includes(action)
+    ) {
       throw new Error(
         "Invalid audit action"
       );
@@ -1292,4 +1522,8 @@ module.exports = {
   changeUserStatus,
   deleteUser,
   getAuditLogs,
+
+  // Admin profile
+  getAdminProfile,
+  updateAdminProfile,
 };

@@ -69,11 +69,11 @@ const AdminSidebar = ({
           icon: Users,
           path: "/admin/users",
         },
-        {  
-          label: "Roles & Permissions",
-          icon: ShieldCheck,
-          path: "/admin/users/roles", 
-        },
+        // {  
+        //   label: "Roles & Permissions",
+        //   icon: ShieldCheck,
+        //   path: "/admin/users/roles", 
+        // },
       ],
     },
 

@@ -10,6 +10,8 @@ const {
   updateStatus,
   remove,
   auditLogs,
+  getAdminProfile,
+  updateAdminProfile,
 } = require("../controllers/adminController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -91,6 +93,20 @@ router.delete(
 router.get(
   "/audit-logs",
   auditLogs
+);
+
+// --------------------------------------------------
+// ADMIN PROFILE
+// --------------------------------------------------
+
+router.get(
+  "/profile",
+  getAdminProfile
+);
+
+router.patch(
+  "/profile",
+  updateAdminProfile
 );
 
 module.exports = router;

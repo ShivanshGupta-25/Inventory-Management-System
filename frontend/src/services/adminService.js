@@ -249,3 +249,21 @@ export const getAdminAuditLogs = async ({
     }
   );
 };
+
+
+// --------------------------------------------------
+// ADMIN PROFILE
+// --------------------------------------------------
+
+export const getAdminProfile = async () => {
+  return apiRequest("/admin/profile", {
+    method: "GET",
+  });
+};
+
+export const updateAdminProfile = async (data) => {
+  return apiRequest("/admin/profile", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+};
