@@ -8,6 +8,7 @@ const {
   changeUserStatus,
   deleteUser,
   getAuditLogs,
+  changeAdminPassword,
 
   // Admin profile services
   getAdminProfile: getAdminProfileService,
@@ -435,6 +436,43 @@ const updateAdminProfile = async (req, res) => {
 };
 
 // --------------------------------------------------
+// CHANGE ADMIN PASSWORD
+// --------------------------------------------------
+
+const changePassword = async (req, res) => {
+  try {
+    const {
+      currentPassword,
+      newPassword,
+    } = req.body;
+
+    await changeAdminPassword({
+      adminId: req.user.userId,
+      currentPassword,
+      newPassword,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Password changed successfully",
+    });
+  } catch (error) {
+    console.error(
+      "Admin change password error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to change password",
+    });
+  }
+};
+
+// --------------------------------------------------
 // EXPORTS
 // --------------------------------------------------
 
@@ -450,4 +488,5 @@ module.exports = {
   auditLogs,
   getAdminProfile,
   updateAdminProfile,
+  changePassword,
 };

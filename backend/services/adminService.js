@@ -1508,6 +1508,143 @@ const getAuditLogs = async ({
   };
 };
 
+
+// --------------------------------------------------
+// CHANGE ADMIN PASSWORD
+// --------------------------------------------------
+
+const changeAdminPassword = async ({
+  adminId,
+  currentPassword,
+  newPassword,
+}) => {
+  // ------------------------------------------------
+  // VALIDATION
+  // ------------------------------------------------
+
+  if (!currentPassword) {
+    throw new Error("Current password is required");
+  }
+
+  if (!newPassword) {
+    throw new Error("New password is required");
+  }
+
+  if (newPassword.length < 8) {
+    throw new Error(
+      "New password must be at least 8 characters"
+    );
+  }
+
+  if (newPassword.length > 128) {
+    throw new Error(
+      "New password cannot exceed 128 characters"
+    );
+  }
+
+  if (!/[A-Z]/.test(newPassword)) {
+    throw new Error(
+      "New password must contain at least one uppercase letter"
+    );
+  }
+
+  if (!/[a-z]/.test(newPassword)) {
+    throw new Error(
+      "New password must contain at least one lowercase letter"
+    );
+  }
+
+  if (!/[0-9]/.test(newPassword)) {
+    throw new Error(
+      "New password must contain at least one number"
+    );
+  }
+
+  // ------------------------------------------------
+  // GET ADMIN
+  // ------------------------------------------------
+
+  const user = await User.findById(adminId);
+
+  if (!user) {
+    throw new Error(
+      "Administrator account not found"
+    );
+  }
+
+  // ------------------------------------------------
+  // ADMIN PROTECTION
+  // ------------------------------------------------
+
+  if (user.role !== "admin") {
+    throw new Error(
+      "Only administrator accounts can change this password"
+    );
+  }
+
+  // ------------------------------------------------
+  // VERIFY CURRENT PASSWORD
+  // ------------------------------------------------
+
+  const passwordMatches = await bcrypt.compare(
+    currentPassword,
+    user.password
+  );
+
+  if (!passwordMatches) {
+    throw new Error(
+      "Current password is incorrect"
+    );
+  }
+
+  // ------------------------------------------------
+  // PREVENT SAME PASSWORD
+  // ------------------------------------------------
+
+  const samePassword = await bcrypt.compare(
+    newPassword,
+    user.password
+  );
+
+  if (samePassword) {
+    throw new Error(
+      "New password must be different from your current password"
+    );
+  }
+
+  // ------------------------------------------------
+  // HASH NEW PASSWORD
+  // ------------------------------------------------
+
+  const hashedPassword = await bcrypt.hash(
+    newPassword,
+    10
+  );
+
+  user.password = hashedPassword;
+
+  await user.save();
+
+  // ------------------------------------------------
+  // AUDIT
+  // ------------------------------------------------
+
+  await createAuditLog({
+    actor: adminId,
+    action: "PASSWORD_CHANGED",
+    targetUser: user._id,
+    description:
+      `Changed administrator password for ${user.name}`,
+    metadata: {
+      accountRole: user.role,
+    },
+  });
+
+  return {
+    success: true,
+  };
+};
+
 // --------------------------------------------------
 // EXPORTS
 // --------------------------------------------------
@@ -1526,4 +1663,6 @@ module.exports = {
   // Admin profile
   getAdminProfile,
   updateAdminProfile,
+
+  changeAdminPassword,
 };

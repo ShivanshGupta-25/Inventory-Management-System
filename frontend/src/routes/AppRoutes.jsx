@@ -79,6 +79,8 @@ import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminLayout from "../components/admin/AdminLayout";
 import AdminUsers from "../pages/admin/Users";
 import AdminProfile from "../pages/admin/AdminProfile";
+import AdminSecurity from "../pages/admin/AdminSecurity";
+import AdminAuditLogs from "../pages/admin/AdminAuditLogs";
 
 const AppRoutes = () => {
   return (
@@ -139,13 +141,23 @@ const AppRoutes = () => {
           />
 
           <Route
-            path="dashboard"
+            path="/admin/dashboard"
             element={<AdminDashboard />}
           />
 
           <Route
-            path="profile"
+            path="/admin/profile"
             element={<AdminProfile />}
+          />
+
+          <Route
+            path="/admin/settings"
+            element={<AdminSecurity />}
+          />
+
+          <Route
+            path="/admin/audit-logs"
+            element={<AdminAuditLogs />}
           />
         </Route>
       </Route>

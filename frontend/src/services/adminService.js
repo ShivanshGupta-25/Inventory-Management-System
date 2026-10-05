@@ -267,3 +267,35 @@ export const updateAdminProfile = async (data) => {
     body: JSON.stringify(data),
   });
 };
+
+// ==================================================
+// CHANGE ADMIN PASSWORD
+// ==================================================
+
+export const changeAdminPassword = async ({
+  currentPassword,
+  newPassword,
+}) => {
+  if (!currentPassword) {
+    throw new Error(
+      "Current password is required."
+    );
+  }
+
+  if (!newPassword) {
+    throw new Error(
+      "New password is required."
+    );
+  }
+
+  return apiRequest(
+    "/admin/security/password",
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+      }),
+    }
+  );
+};

@@ -12,6 +12,7 @@ const {
   auditLogs,
   getAdminProfile,
   updateAdminProfile,
+  changePassword,
 } = require("../controllers/adminController");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -107,6 +108,15 @@ router.get(
 router.patch(
   "/profile",
   updateAdminProfile
+);
+
+// --------------------------------------------------
+// ADMIN SECURITY
+// --------------------------------------------------
+
+router.patch(
+  "/security/password",
+  changePassword
 );
 
 module.exports = router;

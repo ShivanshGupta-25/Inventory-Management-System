@@ -26,6 +26,7 @@ const auditLogSchema = new mongoose.Schema(
         "STATUS_CHANGED",
         "USER_DELETED",
         "PROFILE_UPDATED",
+        "PASSWORD_CHANGED",
       ],
     },
 
