@@ -1,8 +1,8 @@
 import apiRequest from "./api";
 
-// --------------------------------------------------
+// ==================================================
 // ADMIN DASHBOARD
-// --------------------------------------------------
+// ==================================================
 
 export const getAdminDashboard = async () => {
   return apiRequest("/admin/dashboard", {
@@ -10,9 +10,9 @@ export const getAdminDashboard = async () => {
   });
 };
 
-// --------------------------------------------------
-// GET USERS
-// --------------------------------------------------
+// ==================================================
+// GET ADMIN USERS
+// ==================================================
 
 export const getAdminUsers = async ({
   page = 1,
@@ -25,11 +25,11 @@ export const getAdminUsers = async ({
 } = {}) => {
   const params = new URLSearchParams();
 
-  params.set("page", page);
-  params.set("limit", limit);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
 
-  if (search) {
-    params.set("search", search);
+  if (search?.trim()) {
+    params.set("search", search.trim());
   }
 
   if (role) {
@@ -56,13 +56,15 @@ export const getAdminUsers = async ({
   );
 };
 
-// --------------------------------------------------
-// GET USER
-// --------------------------------------------------
+// ==================================================
+// GET SINGLE ADMIN USER
+// ==================================================
 
-export const getAdminUser = async (
-  userId
-) => {
+export const getAdminUser = async (userId) => {
+  if (!userId) {
+    throw new Error("User ID is required.");
+  }
+
   return apiRequest(
     `/admin/users/${userId}`,
     {
@@ -71,27 +73,64 @@ export const getAdminUser = async (
   );
 };
 
-// --------------------------------------------------
-// CREATE USER
-// --------------------------------------------------
+// ==================================================
+// CREATE ADMIN USER
+// ==================================================
 
-export const createAdminUser = async (
-  userData
-) => {
+/*
+ * Supported roles are controlled by the backend.
+ *
+ * Current intended roles:
+ * - admin
+ * - manager
+ * - staff
+ *
+ * The frontend form can now send:
+ *
+ * {
+ *   name,
+ *   email,
+ *   password,
+ *   role: "admin" | "manager" | "staff"
+ * }
+ */
+
+export const createAdminUser = async (userData) => {
+  if (!userData) {
+    throw new Error("User data is required.");
+  }
+
   return apiRequest("/admin/users", {
     method: "POST",
     body: JSON.stringify(userData),
   });
 };
 
-// --------------------------------------------------
-// UPDATE USER
-// --------------------------------------------------
+// ==================================================
+// UPDATE USER DETAILS
+// ==================================================
+
+/*
+ * Backend updateUser() currently handles:
+ *
+ * - name
+ * - email
+ *
+ * Role and status have their own endpoints.
+ */
 
 export const updateAdminUser = async (
   userId,
   userData
 ) => {
+  if (!userId) {
+    throw new Error("User ID is required.");
+  }
+
+  if (!userData) {
+    throw new Error("User data is required.");
+  }
+
   return apiRequest(
     `/admin/users/${userId}`,
     {
@@ -101,14 +140,30 @@ export const updateAdminUser = async (
   );
 };
 
-// --------------------------------------------------
-// CHANGE ROLE
-// --------------------------------------------------
+// ==================================================
+// CHANGE USER ROLE
+// ==================================================
+
+/*
+ * Role changes are intentionally kept separate
+ * from user creation/update.
+ *
+ * Backend currently controls which roles can be
+ * assigned through this endpoint.
+ */
 
 export const updateAdminUserRole = async (
   userId,
   role
 ) => {
+  if (!userId) {
+    throw new Error("User ID is required.");
+  }
+
+  if (!role) {
+    throw new Error("User role is required.");
+  }
+
   return apiRequest(
     `/admin/users/${userId}/role`,
     {
@@ -120,14 +175,22 @@ export const updateAdminUserRole = async (
   );
 };
 
-// --------------------------------------------------
-// CHANGE STATUS
-// --------------------------------------------------
+// ==================================================
+// CHANGE USER STATUS
+// ==================================================
 
 export const updateAdminUserStatus = async (
   userId,
   status
 ) => {
+  if (!userId) {
+    throw new Error("User ID is required.");
+  }
+
+  if (!status) {
+    throw new Error("User status is required.");
+  }
+
   return apiRequest(
     `/admin/users/${userId}/status`,
     {
@@ -139,13 +202,15 @@ export const updateAdminUserStatus = async (
   );
 };
 
-// --------------------------------------------------
+// ==================================================
 // DELETE USER
-// --------------------------------------------------
+// ==================================================
 
-export const deleteAdminUser = async (
-  userId
-) => {
+export const deleteAdminUser = async (userId) => {
+  if (!userId) {
+    throw new Error("User ID is required.");
+  }
+
   return apiRequest(
     `/admin/users/${userId}`,
     {
@@ -154,9 +219,9 @@ export const deleteAdminUser = async (
   );
 };
 
-// --------------------------------------------------
-// AUDIT LOGS
-// --------------------------------------------------
+// ==================================================
+// GET ADMIN AUDIT LOGS
+// ==================================================
 
 export const getAdminAuditLogs = async ({
   page = 1,
@@ -166,15 +231,15 @@ export const getAdminAuditLogs = async ({
 } = {}) => {
   const params = new URLSearchParams();
 
-  params.set("page", page);
-  params.set("limit", limit);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
 
   if (action) {
     params.set("action", action);
   }
 
-  if (search) {
-    params.set("search", search);
+  if (search?.trim()) {
+    params.set("search", search.trim());
   }
 
   return apiRequest(

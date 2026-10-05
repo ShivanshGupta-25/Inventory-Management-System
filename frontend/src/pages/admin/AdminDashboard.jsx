@@ -12,9 +12,12 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-import { getAdminDashboard } from "../../services/adminService";
+import {
+  getAdminDashboard,
+} from "../../services/adminService";
 
-import AdminStatsGrid from "../../components/admin/dashboard/AdminStatsGrid";
+import AdminUserStats from "../../components/admin/users/AdminUserStats";
+
 import AdminUserGrowthChart from "../../components/admin/dashboard/AdminUserGrowthChart";
 import AdminRoleDistribution from "../../components/admin/dashboard/AdminRoleDistribution";
 import AdminRecentUsers from "../../components/admin/dashboard/AdminRecentUsers";
@@ -23,6 +26,10 @@ import AdminQuickActions from "../../components/admin/dashboard/AdminQuickAction
 import AdminSystemStatus from "../../components/admin/dashboard/AdminSystemStatus";
 import AdminDashboardSkeleton from "../../components/admin/dashboard/AdminDashboardSkeleton";
 import AdminDashboardError from "../../components/admin/dashboard/AdminDashboardError";
+
+// --------------------------------------------------
+// FORMAT DATE / TIME
+// --------------------------------------------------
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -35,77 +42,101 @@ const formatDateTime = (value) => {
     return "--";
   }
 
-  return date.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return date.toLocaleString(
+    "en-IN",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  );
 };
+
+// --------------------------------------------------
+// COMPONENT
+// --------------------------------------------------
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
   // --------------------------------------------------
-  // Dashboard state
+  // DASHBOARD STATE
   // --------------------------------------------------
 
-  const [dashboard, setDashboard] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
+  const [dashboard, setDashboard] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [refreshing, setRefreshing] =
+    useState(false);
 
   // --------------------------------------------------
-  // Load dashboard
+  // LOAD DASHBOARD
   // --------------------------------------------------
 
-  const loadDashboard = useCallback(
-    async ({ silent = false } = {}) => {
-      try {
-        if (silent) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
+  const loadDashboard =
+    useCallback(
+      async ({
+        silent = false,
+      } = {}) => {
+        try {
+          if (silent) {
+            setRefreshing(true);
+          } else {
+            setLoading(true);
+          }
 
-        setError("");
+          setError("");
 
-        const response =
-          await getAdminDashboard();
+          const response =
+            await getAdminDashboard();
 
-        if (!response?.success) {
-          throw new Error(
-            response?.message ||
-              "Failed to load admin dashboard"
+          if (!response?.success) {
+            throw new Error(
+              response?.message ||
+                "Failed to load admin dashboard"
+            );
+          }
+
+          setDashboard(
+            response.data || null
           );
+        } catch (err) {
+          console.error(
+            "Admin dashboard error:",
+            err
+          );
+
+          setError(
+            err?.message ||
+              "Unable to load the admin dashboard."
+          );
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
         }
+      },
+      []
+    );
 
-        setDashboard(response.data || null);
-      } catch (err) {
-        console.error(
-          "Admin dashboard error:",
-          err
-        );
-
-        setError(
-          err?.message ||
-            "Unable to load the admin dashboard."
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    []
-  );
+  // --------------------------------------------------
+  // INITIAL LOAD
+  // --------------------------------------------------
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
 
   // --------------------------------------------------
-  // Normalize API data
+  // NORMALIZE API DATA
   // --------------------------------------------------
 
-  const stats = dashboard?.stats || {};
+  const stats =
+    dashboard?.stats || {};
 
   const userGrowth =
     dashboard?.userGrowth || [];
@@ -120,92 +151,113 @@ const AdminDashboard = () => {
     dashboard?.recentActivity || [];
 
   // --------------------------------------------------
-  // User growth chart data
+  // USER GROWTH CHART DATA
   // --------------------------------------------------
 
-  const userGrowthChartData = useMemo(() => {
-    return userGrowth.map((item) => {
-      const date = new Date(
-        `${item._id}T00:00:00`
+  const userGrowthChartData =
+    useMemo(() => {
+      return userGrowth.map(
+        (item) => {
+          const date = new Date(
+            `${item._id}T00:00:00`
+          );
+
+          return {
+            date: item._id,
+
+            label:
+              Number.isNaN(
+                date.getTime()
+              )
+                ? item._id
+                : date.toLocaleDateString(
+                    "en-IN",
+                    {
+                      day: "2-digit",
+                      month: "short",
+                    }
+                  ),
+
+            users:
+              Number(item.count) || 0,
+          };
+        }
       );
-
-      return {
-        date: item._id,
-
-        label: Number.isNaN(date.getTime())
-          ? item._id
-          : date.toLocaleDateString(
-              "en-IN",
-              {
-                day: "2-digit",
-                month: "short",
-              }
-            ),
-
-        users: Number(item.count) || 0,
-      };
-    });
-  }, [userGrowth]);
+    }, [userGrowth]);
 
   // --------------------------------------------------
-  // Role distribution chart data
+  // ROLE DISTRIBUTION CHART DATA
   // --------------------------------------------------
 
-  const roleChartData = useMemo(() => {
-    return roleDistribution.map((item) => ({
-      name:
-        item?._id
-          ? item._id.charAt(0).toUpperCase() +
-            item._id.slice(1)
-          : "Unknown",
+  const roleChartData =
+    useMemo(() => {
+      return roleDistribution.map(
+        (item) => ({
+          name: item?._id
+            ? item._id
+                .charAt(0)
+                .toUpperCase() +
+              item._id.slice(1)
+            : "Unknown",
 
-      value: Number(item.count) || 0,
+          value:
+            Number(item.count) || 0,
 
-      role: item._id,
-    }));
-  }, [roleDistribution]);
-
-  // --------------------------------------------------
-  // Last updated
-  // --------------------------------------------------
-
-  const lastUpdated = dashboard?.lastUpdated
-    ? formatDateTime(dashboard.lastUpdated)
-    : "--";
+          role: item._id,
+        })
+      );
+    }, [roleDistribution]);
 
   // --------------------------------------------------
-  // Loading state
+  // LAST UPDATED
+  // --------------------------------------------------
+
+  const lastUpdated =
+    dashboard?.lastUpdated
+      ? formatDateTime(
+          dashboard.lastUpdated
+        )
+      : "--";
+
+  // --------------------------------------------------
+  // LOADING STATE
   // --------------------------------------------------
 
   if (loading) {
-    return <AdminDashboardSkeleton />;
+    return (
+      <AdminDashboardSkeleton />
+    );
   }
 
   // --------------------------------------------------
-  // Error state
+  // ERROR STATE
   // --------------------------------------------------
 
   if (error && !dashboard) {
     return (
       <AdminDashboardError
         error={error}
-        onRetry={() => loadDashboard()}
+        onRetry={() =>
+          loadDashboard()
+        }
       />
     );
   }
 
   // --------------------------------------------------
-  // Dashboard
+  // DASHBOARD
   // --------------------------------------------------
 
   return (
     <div className="space-y-6">
+
       {/* ============================================
           PAGE HEADER
       ============================================ */}
 
       <section>
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
               Administration
@@ -216,13 +268,16 @@ const AdminDashboard = () => {
             </h1>
 
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Monitor users, access, administrative
-              activity, and the overall state of your
-              InventoryFlow system.
+              Monitor users, access,
+              administrative activity,
+              and the overall state
+              of your InventoryFlow
+              system.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+
             <div className="hidden rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-right sm:block">
               <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
                 Last updated
@@ -256,6 +311,7 @@ const AdminDashboard = () => {
                 Refresh
               </span>
             </button>
+
           </div>
         </div>
       </section>
@@ -266,7 +322,9 @@ const AdminDashboard = () => {
 
       {error && dashboard && (
         <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+
           <div className="flex min-w-0 items-center gap-3">
+
             <AlertCircle
               size={17}
               className="shrink-0 text-amber-600"
@@ -275,6 +333,7 @@ const AdminDashboard = () => {
             <p className="truncate text-xs font-medium text-amber-800">
               {error}
             </p>
+
           </div>
 
           <button
@@ -288,15 +347,17 @@ const AdminDashboard = () => {
           >
             Retry
           </button>
+
         </div>
       )}
 
       {/* ============================================
-          ADMIN STATISTICS
+          ADMIN USER STATISTICS
       ============================================ */}
 
-      <AdminStatsGrid
+      <AdminUserStats
         stats={stats}
+        loading={false}
         onNavigate={navigate}
       />
 
@@ -305,6 +366,7 @@ const AdminDashboard = () => {
       ============================================ */}
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+
         <AdminUserGrowthChart
           data={userGrowthChartData}
           onNavigate={navigate}
@@ -314,6 +376,7 @@ const AdminDashboard = () => {
           data={roleChartData}
           onNavigate={navigate}
         />
+
       </section>
 
       {/* ============================================
@@ -321,6 +384,7 @@ const AdminDashboard = () => {
       ============================================ */}
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+
         <AdminRecentUsers
           users={recentUsers}
           onNavigate={navigate}
@@ -330,6 +394,7 @@ const AdminDashboard = () => {
           activities={recentActivity}
           onNavigate={navigate}
         />
+
       </section>
 
       {/* ============================================
@@ -347,6 +412,7 @@ const AdminDashboard = () => {
       <AdminSystemStatus
         onNavigate={navigate}
       />
+
     </div>
   );
 };
