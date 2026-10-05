@@ -77,26 +77,26 @@ const AdminSidebar = ({
       ],
     },
 
-    {
-      section: "MONITORING",
-      items: [
-        {
-          label: "Alerts",
-          icon: AlertTriangle,
-          path: "/admin/alerts",
-        },
-        {
-          label: "Activity Logs",
-          icon: Activity,
-          path: "/admin/activity",
-        },
-        {
-          label: "Audit Logs",
-          icon: ScrollText,
-          path: "/admin/audit-logs",
-        },
-      ],
-    },
+    // {
+    //   section: "MONITORING",
+    //   items: [
+    //     {
+    //       label: "Alerts",
+    //       icon: AlertTriangle,
+    //       path: "/admin/alerts",
+    //     },
+    //     {
+    //       label: "Activity Logs",
+    //       icon: Activity,
+    //       path: "/admin/activity",
+    //     },
+    //     {
+    //       label: "Audit Logs",
+    //       icon: ScrollText,
+    //       path: "/admin/audit-logs",
+    //     },
+    //   ],
+    // },
 
     {
       section: "REPORTS",
