@@ -129,7 +129,7 @@ const AdminUserFilters = ({
             Oldest First
           </option>
 
-          <option value="name:asc">
+          {/* <option value="name:asc">
             Name A–Z
           </option>
 
@@ -151,7 +151,7 @@ const AdminUserFilters = ({
 
           <option value="status:asc">
             Status A–Z
-          </option>
+          </option> */}
         </select>
       </div>
     </div>

@@ -54,7 +54,7 @@ const AdminQuickActions = ({
           <button
             type="button"
             onClick={() =>
-              onNavigate("/admin/users/create")
+              onNavigate("/admin/users")
             }
             className="group flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
           >

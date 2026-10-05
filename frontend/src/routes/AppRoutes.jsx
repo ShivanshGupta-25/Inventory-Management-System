@@ -78,6 +78,7 @@ import Analytics from "../pages/Manager/Analytics/Analytics";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminLayout from "../components/admin/AdminLayout";
 import AdminUsers from "../pages/admin/Users";
+import AdminUserDetails from "../pages/admin/AdminUserDetails";
 import AdminProfile from "../pages/admin/AdminProfile";
 import AdminSecurity from "../pages/admin/AdminSecurity";
 import AdminAuditLogs from "../pages/admin/AdminAuditLogs";
@@ -136,13 +137,18 @@ const AppRoutes = () => {
           />
 
           <Route
+            path="/admin/dashboard"
+            element={<AdminDashboard />}
+          />
+
+          <Route
             path="/admin/users"
             element={<AdminUsers />}
           />
 
           <Route
-            path="/admin/dashboard"
-            element={<AdminDashboard />}
+            path="/admin/users/:id"
+            element={<AdminUserDetails />}
           />
 
           <Route
