@@ -299,3 +299,11 @@ export const changeAdminPassword = async ({
     }
   );
 };
+
+// ==================================================
+// GET SYSTEM HEALTH
+// ==================================================
+export const getAdminSystemHealth = async () =>
+  apiRequest("/admin/system-health", {
+    method: "GET",
+  });

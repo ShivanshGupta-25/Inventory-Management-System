@@ -17,6 +17,7 @@ const {
 
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
+const { systemHealth } = require("../controllers/systemHealthController");
 
 const router = express.Router();
 
@@ -117,6 +118,15 @@ router.patch(
 router.patch(
   "/security/password",
   changePassword
+);
+
+// --------------------------------------------------
+// SYSTEM HEALTH
+// --------------------------------------------------
+
+router.get(
+  "/system-health",
+  systemHealth
 );
 
 module.exports = router;
