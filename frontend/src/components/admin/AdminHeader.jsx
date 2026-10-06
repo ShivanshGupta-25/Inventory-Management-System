@@ -8,9 +8,7 @@ import {
   Settings,
   LogOut,
   ShieldCheck,
-  Users,
   Activity,
-  AlertTriangle,
   CheckCircle2,
   Search,
 } from "lucide-react";
@@ -23,6 +21,107 @@ import {
 
 import { useAuth } from "../../context/AuthContext";
 
+import { getAdminAuditLogs } from "../../services/adminService";
+
+// ------------------------------------------------------------
+// HELPERS
+// ------------------------------------------------------------
+
+const formatRelativeTime = (value) => {
+  if (!value) return "Unknown time";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown time";
+  }
+
+  const seconds = Math.max(
+    0,
+    Math.round((Date.now() - date.getTime()) / 1000)
+  );
+
+  if (seconds < 5) return "Just now";
+
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const getActionLabel = (action) => {
+  const labels = {
+    USER_CREATED: "User created",
+    USER_UPDATED: "User updated",
+    ROLE_CHANGED: "Role changed",
+    STATUS_CHANGED: "Status changed",
+    USER_DELETED: "User deleted",
+    PROFILE_UPDATED: "Profile updated",
+  };
+
+  return (
+    labels[action] ||
+    action
+      ?.replace(/_/g, " ")
+      ?.replace(/\b\w/g, (char) =>
+        char.toUpperCase()
+      ) ||
+    "Administrative activity"
+  );
+};
+
+const getNotificationType = (action) => {
+  switch (action) {
+    case "USER_DELETED":
+      return "warning";
+
+    case "STATUS_CHANGED":
+      return "warning";
+
+    case "ROLE_CHANGED":
+      return "info";
+
+    case "USER_CREATED":
+      return "success";
+
+    case "USER_UPDATED":
+      return "info";
+
+    case "PROFILE_UPDATED":
+      return "info";
+
+    default:
+      return "info";
+  }
+};
+
+// ------------------------------------------------------------
+// COMPONENT
+// ------------------------------------------------------------
+
 const AdminHeader = ({ onMenuClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,73 +131,115 @@ const AdminHeader = ({ onMenuClick }) => {
   const profileRef = useRef(null);
   const notificationsRef = useRef(null);
 
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] =
+    useState(false);
+
   const [notificationsOpen, setNotificationsOpen] =
     useState(false);
 
-  // --------------------------------------------------
-  // Current page information
-  // --------------------------------------------------
+  // ----------------------------------------------------------
+  // AUDIT NOTIFICATIONS
+  // ----------------------------------------------------------
+
+  const [notifications, setNotifications] =
+    useState([]);
+
+  const [notificationsLoading, setNotificationsLoading] =
+    useState(false);
+
+  const [notificationsError, setNotificationsError] =
+    useState("");
+
+  const [readNotificationIds, setReadNotificationIds] =
+    useState(() => {
+      try {
+        const stored = localStorage.getItem(
+          "adminHeaderReadAuditIds"
+        );
+
+        return stored
+          ? JSON.parse(stored)
+          : [];
+      } catch {
+        return [];
+      }
+    });
+
+  // ----------------------------------------------------------
+  // PAGE INFORMATION
+  // ----------------------------------------------------------
 
   const pageTitles = {
     "/admin/dashboard": {
       title: "Dashboard",
-      subtitle: "System overview and administration",
+      subtitle:
+        "System overview and administration",
     },
 
     "/admin/users": {
       title: "Users",
-      subtitle: "Manage system users and accounts",
+      subtitle:
+        "Manage system users and accounts",
     },
 
     "/admin/users/managers": {
       title: "Managers",
-      subtitle: "Manage manager accounts",
+      subtitle:
+        "Manage manager accounts",
     },
 
     "/admin/users/staff": {
       title: "Staff",
-      subtitle: "Manage staff accounts",
+      subtitle:
+        "Manage staff accounts",
     },
 
     "/admin/users/roles": {
       title: "Roles & Permissions",
-      subtitle: "Manage access control and permissions",
+      subtitle:
+        "Manage access control and permissions",
     },
 
     "/admin/alerts": {
       title: "Alerts",
-      subtitle: "Review system alerts and notifications",
+      subtitle:
+        "Review system alerts and notifications",
     },
 
     "/admin/activity": {
       title: "Activity Logs",
-      subtitle: "Monitor recent system activity",
+      subtitle:
+        "Monitor recent system activity",
     },
 
     "/admin/audit-logs": {
       title: "Audit Logs",
-      subtitle: "Review administrative actions",
+      subtitle:
+        "Review administrative actions",
     },
 
     "/admin/reports": {
       title: "Reports",
-      subtitle: "Review administrative reports",
+      subtitle:
+        "Review administrative reports",
     },
 
     "/admin/system-health": {
       title: "System Health",
-      subtitle: "Monitor system status and services",
+      subtitle:
+        "Monitor system status and services",
     },
 
     "/admin/profile": {
       title: "Profile",
-      subtitle: "Manage your administrator profile",
+      subtitle:
+        "Manage your administrator profile",
     },
 
     "/admin/settings": {
       title: "Settings",
-      subtitle: "Manage account and system preferences",
+      subtitle:
+        "Manage account and system preferences",
     },
   };
 
@@ -118,16 +259,18 @@ const AdminHeader = ({ onMenuClick }) => {
     return (
       pageTitles[matchingPath] || {
         title: "Admin Panel",
-        subtitle: "InventoryFlow administration",
+        subtitle:
+          "InventoryFlow administration",
       }
     );
   };
 
-  const { title, subtitle } = getPageContext();
+  const { title, subtitle } =
+    getPageContext();
 
-  // --------------------------------------------------
-  // Current administrator
-  // --------------------------------------------------
+  // ----------------------------------------------------------
+  // CURRENT ADMINISTRATOR
+  // ----------------------------------------------------------
 
   const adminName =
     user?.name ||
@@ -144,77 +287,154 @@ const AdminHeader = ({ onMenuClick }) => {
         user.role.slice(1)
     : "Administrator";
 
-  const initials = adminName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("") || "AD";
+  const initials =
+    adminName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) =>
+        part.charAt(0).toUpperCase()
+      )
+      .join("") || "AD";
 
-  // --------------------------------------------------
-  // Notifications
-  // Replace sample notifications with backend data
-  // when the notification API is integrated.
-  // --------------------------------------------------
+  // ----------------------------------------------------------
+  // LOAD RECENT AUDITS
+  // ----------------------------------------------------------
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      icon: Users,
-      title: "User management",
-      description:
-        "Review recently created user accounts.",
-      time: "Recent",
-      unread: true,
-      type: "info",
-      link: "/admin/users",
-    },
+  const loadRecentAudits = async ({
+    silent = false,
+  } = {}) => {
+    try {
+      if (!silent) {
+        setNotificationsLoading(true);
+      }
 
-    {
-      id: 2,
-      icon: AlertTriangle,
-      title: "System alerts",
-      description:
-        "Review system alerts and warnings.",
-      time: "Recent",
-      unread: true,
-      type: "warning",
-      link: "/admin/alerts",
-    },
+      setNotificationsError("");
 
-    {
-      id: 3,
-      icon: Activity,
-      title: "Activity monitoring",
-      description:
-        "Review recent administrative activity.",
-      time: "Recent",
-      unread: false,
-      type: "success",
-      link: "/admin/activity",
-    },
-  ]);
+      const response =
+        await getAdminAuditLogs({
+          page: 1,
+          limit: 5,
+        });
 
-  const unreadCount = notifications.filter(
-    (notification) => notification.unread
-  ).length;
+      const logs =
+        response?.logs ||
+        response?.data?.logs ||
+        response?.data ||
+        [];
 
-  // --------------------------------------------------
-  // Close dropdowns when clicking outside
-  // --------------------------------------------------
+      const normalizedNotifications =
+        Array.isArray(logs)
+          ? logs.map((audit) => ({
+              id:
+                audit._id ||
+                audit.id,
+
+              icon:
+                Activity,
+
+              title:
+                getActionLabel(
+                  audit.action
+                ),
+
+              description:
+                audit.description ||
+                "Administrative action recorded.",
+
+              time:
+                formatRelativeTime(
+                  audit.createdAt
+                ),
+
+              unread:
+                !readNotificationIds.includes(
+                  String(
+                    audit._id ||
+                      audit.id
+                  )
+                ),
+
+              type:
+                getNotificationType(
+                  audit.action
+                ),
+
+              link:
+                "/admin/audit-logs",
+
+              audit,
+            }))
+          : [];
+
+      setNotifications(
+        normalizedNotifications
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load recent audit notifications:",
+        error
+      );
+
+      setNotificationsError(
+        error?.message ||
+          "Unable to load recent activity."
+      );
+    } finally {
+      if (!silent) {
+        setNotificationsLoading(false);
+      }
+    }
+  };
+
+  // ----------------------------------------------------------
+  // INITIAL AUDIT LOAD
+  // ----------------------------------------------------------
+
+  useEffect(() => {
+    loadRecentAudits();
+
+    const interval = setInterval(() => {
+      loadRecentAudits({
+        silent: true,
+      });
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [readNotificationIds]);
+
+  // ----------------------------------------------------------
+  // UNREAD COUNT
+  // ----------------------------------------------------------
+
+  const unreadCount =
+    notifications.filter(
+      (notification) =>
+        notification.unread
+    ).length;
+
+  // ----------------------------------------------------------
+  // CLOSE DROPDOWNS OUTSIDE
+  // ----------------------------------------------------------
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         profileRef.current &&
-        !profileRef.current.contains(event.target)
+        !profileRef.current.contains(
+          event.target
+        )
       ) {
         setProfileOpen(false);
       }
 
       if (
         notificationsRef.current &&
-        !notificationsRef.current.contains(event.target)
+        !notificationsRef.current.contains(
+          event.target
+        )
       ) {
         setNotificationsOpen(false);
       }
@@ -233,17 +453,45 @@ const AdminHeader = ({ onMenuClick }) => {
     };
   }, []);
 
-  // Close dropdowns when navigating to another page.
+  // ----------------------------------------------------------
+  // CLOSE DROPDOWNS ON NAVIGATION
+  // ----------------------------------------------------------
+
   useEffect(() => {
     setProfileOpen(false);
     setNotificationsOpen(false);
   }, [location.pathname]);
 
-  // --------------------------------------------------
-  // Notification actions
-  // --------------------------------------------------
+  // ----------------------------------------------------------
+  // MARK ALL READ
+  // ----------------------------------------------------------
 
   const handleMarkAllRead = () => {
+    const ids = notifications.map(
+      (notification) =>
+        String(notification.id)
+    );
+
+    setReadNotificationIds((current) => {
+      const next = Array.from(
+        new Set([
+          ...current,
+          ...ids,
+        ])
+      );
+
+      try {
+        localStorage.setItem(
+          "adminHeaderReadAuditIds",
+          JSON.stringify(next)
+        );
+      } catch {
+        // Ignore storage failures.
+      }
+
+      return next;
+    });
+
     setNotifications((current) =>
       current.map((notification) => ({
         ...notification,
@@ -252,23 +500,60 @@ const AdminHeader = ({ onMenuClick }) => {
     );
   };
 
-  const handleNotificationClick = (notification) => {
+  // ----------------------------------------------------------
+  // NOTIFICATION CLICK
+  // ----------------------------------------------------------
+
+  const handleNotificationClick = (
+    notification
+  ) => {
+    const notificationId = String(
+      notification.id
+    );
+
+    setReadNotificationIds((current) => {
+      const next = Array.from(
+        new Set([
+          ...current,
+          notificationId,
+        ])
+      );
+
+      try {
+        localStorage.setItem(
+          "adminHeaderReadAuditIds",
+          JSON.stringify(next)
+        );
+      } catch {
+        // Ignore storage failures.
+      }
+
+      return next;
+    });
+
     setNotifications((current) =>
       current.map((item) =>
-        item.id === notification.id
-          ? { ...item, unread: false }
+        String(item.id) ===
+        notificationId
+          ? {
+              ...item,
+              unread: false,
+            }
           : item
       )
     );
 
     setNotificationsOpen(false);
 
-    navigate(notification.link);
+    navigate(
+      notification.link ||
+        "/admin/audit-logs"
+    );
   };
 
-  // --------------------------------------------------
-  // Logout
-  // --------------------------------------------------
+  // ----------------------------------------------------------
+  // LOGOUT
+  // ----------------------------------------------------------
 
   const handleLogout = async () => {
     setProfileOpen(false);
@@ -280,27 +565,36 @@ const AdminHeader = ({ onMenuClick }) => {
       } else {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("accessToken");
+        localStorage.removeItem(
+          "authToken"
+        );
+        localStorage.removeItem(
+          "accessToken"
+        );
       }
 
-      navigate("/auth/login", { replace: true });
+      navigate("/auth/login", {
+        replace: true,
+      });
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error(
+        "Logout failed:",
+        error
+      );
     }
   };
 
-  // --------------------------------------------------
-  // Render
-  // --------------------------------------------------
+  // ----------------------------------------------------------
+  // RENDER
+  // ----------------------------------------------------------
 
   return (
     <header className="sticky top-0 z-30 flex h-[72px] min-h-[72px] w-full items-center border-b border-slate-200 bg-white px-4 sm:px-6">
       <div className="flex h-full w-full min-w-0 items-center justify-between gap-3">
 
-        {/* ==========================================
+        {/* ==================================================
             LEFT SECTION
-        ========================================== */}
+        ================================================== */}
 
         <div className="flex min-w-0 flex-1 items-center gap-3">
 
@@ -315,58 +609,22 @@ const AdminHeader = ({ onMenuClick }) => {
             <Menu size={20} />
           </button>
 
-          {/* ========================================
-              DESKTOP SEARCH - TEMPORARILY DISABLED
-
-          <form
-            onSubmit={handleSearchSubmit}
-            className="hidden max-w-xl flex-1 md:block"
-          >
-            <div className="relative mx-auto w-full max-w-md">
-              <Search
-                size={18}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <input
-                type="search"
-                value={searchValue}
-                onChange={(event) =>
-                  setSearchValue(event.target.value)
-                }
-                placeholder="Search users, roles, activity..."
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none"
-              />
-            </div>
-          </form>
-
-          ======================================== */}
-
-          {/* ========================================
-              MOBILE SEARCH - TEMPORARILY DISABLED
-
-          <button
-            type="button"
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 md:hidden"
-            aria-label="Search"
-          >
-            <Search size={19} />
-          </button>
-
-          ======================================== */}
-
           {/* Current Page Context */}
 
           <div className="flex min-w-0 flex-1 flex-col justify-center">
+
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-600 sm:text-[11px]">
               InventoryFlow
+
               <span className="mx-1.5 text-slate-300">
                 /
               </span>
+
               Administration
             </p>
 
             <div className="mt-0.5 flex min-w-0 items-center gap-2">
+
               <h1 className="truncate text-sm font-bold tracking-tight text-slate-900 sm:text-base">
                 {title}
               </h1>
@@ -378,17 +636,20 @@ const AdminHeader = ({ onMenuClick }) => {
               <p className="hidden truncate text-xs text-slate-500 sm:block">
                 {subtitle}
               </p>
+
             </div>
           </div>
         </div>
 
-        {/* ==========================================
+        {/* ==================================================
             RIGHT SECTION
-        ========================================== */}
+        ================================================== */}
 
         <div className="flex h-full shrink-0 items-center gap-2 sm:gap-3">
 
-          {/* Notifications */}
+          {/* ==================================================
+              NOTIFICATIONS
+          ================================================== */}
 
           <div
             ref={notificationsRef}
@@ -397,43 +658,59 @@ const AdminHeader = ({ onMenuClick }) => {
             <button
               type="button"
               onClick={() => {
-                setNotificationsOpen((previous) => !previous);
+                setNotificationsOpen(
+                  (previous) =>
+                    !previous
+                );
+
                 setProfileOpen(false);
+
+                if (!notificationsOpen) {
+                  loadRecentAudits({
+                    silent: true,
+                  });
+                }
               }}
               className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
               aria-label="Notifications"
-              aria-expanded={notificationsOpen}
+              aria-expanded={
+                notificationsOpen
+              }
             >
               <Bell size={19} />
 
               {unreadCount > 0 && (
                 <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
-                  {unreadCount}
+                  {unreadCount > 9
+                    ? "9+"
+                    : unreadCount}
                 </span>
               )}
             </button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 top-12 z-50 w-[min(90vw,340px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+              <div className="absolute right-0 top-12 z-50 w-[min(90vw,360px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
 
                 {/* Notification Header */}
 
                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">
-                      Notifications
+                      Recent activity
                     </h3>
 
                     <p className="mt-0.5 text-[11px] text-slate-400">
-                      {unreadCount} unread notification
-                      {unreadCount !== 1 ? "s" : ""}
+                      Latest administrative audit events
                     </p>
                   </div>
 
                   {unreadCount > 0 && (
                     <button
                       type="button"
-                      onClick={handleMarkAllRead}
+                      onClick={
+                        handleMarkAllRead
+                      }
                       className="shrink-0 text-[11px] font-semibold text-amber-600 transition hover:text-amber-700"
                     >
                       Mark all read
@@ -444,62 +721,115 @@ const AdminHeader = ({ onMenuClick }) => {
                 {/* Notification List */}
 
                 <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => {
-                      const Icon = notification.icon;
 
-                      const iconStyle =
-                        notification.type === "warning"
-                          ? "bg-amber-50 text-amber-600"
-                          : notification.type === "success"
+                  {notificationsLoading ? (
+                    <div className="px-4 py-8 text-center">
+                      <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-amber-500" />
+
+                      <p className="mt-3 text-xs text-slate-400">
+                        Loading recent activity…
+                      </p>
+                    </div>
+                  ) : notificationsError ? (
+                    <div className="px-4 py-8 text-center">
+                      <Activity
+                        size={24}
+                        className="mx-auto text-slate-300"
+                      />
+
+                      <p className="mt-2 text-sm font-medium text-slate-600">
+                        Unable to load activity
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        {notificationsError}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          loadRecentAudits()
+                        }
+                        className="mt-3 text-xs font-semibold text-amber-600 hover:text-amber-700"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  ) : notifications.length >
+                    0 ? (
+                    notifications.map(
+                      (notification) => {
+                        const Icon =
+                          notification.icon;
+
+                        const iconStyle =
+                          notification.type ===
+                          "warning"
+                            ? "bg-amber-50 text-amber-600"
+                            : notification.type ===
+                              "success"
                             ? "bg-emerald-50 text-emerald-600"
                             : "bg-blue-50 text-blue-600";
 
-                      return (
-                        <button
-                          type="button"
-                          key={notification.id}
-                          onClick={() =>
-                            handleNotificationClick(
-                              notification
-                            )
-                          }
-                          className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 ${
-                            notification.unread
-                              ? "bg-amber-50/30"
-                              : ""
-                          }`}
-                        >
-                          <div
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStyle}`}
+                        return (
+                          <button
+                            type="button"
+                            key={
+                              notification.id
+                            }
+                            onClick={() =>
+                              handleNotificationClick(
+                                notification
+                              )
+                            }
+                            className={`flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 ${
+                              notification.unread
+                                ? "bg-amber-50/30"
+                                : ""
+                            }`}
                           >
-                            <Icon size={16} />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-xs font-semibold text-slate-800">
-                                {notification.title}
-                              </p>
-
-                              {notification.unread && (
-                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                              )}
+                            <div
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStyle}`}
+                            >
+                              <Icon size={16} />
                             </div>
 
-                            <p className="mt-0.5 text-[11px] leading-5 text-slate-500">
-                              {notification.description}
-                            </p>
+                            <div className="min-w-0 flex-1">
 
-                            <p className="mt-1 text-[10px] text-slate-400">
-                              {notification.time}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })
+                              <div className="flex items-start justify-between gap-2">
+
+                                <p className="text-xs font-semibold text-slate-800">
+                                  {
+                                    notification.title
+                                  }
+                                </p>
+
+                                {notification.unread && (
+                                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                                )}
+
+                              </div>
+
+                              <p className="mt-0.5 text-[11px] leading-5 text-slate-500">
+                                {
+                                  notification.description
+                                }
+                              </p>
+
+                              <p className="mt-1 text-[10px] text-slate-400">
+                                {
+                                  notification.time
+                                }
+                              </p>
+
+                            </div>
+                          </button>
+                        );
+                      }
+                    )
                   ) : (
                     <div className="px-4 py-8 text-center">
+
                       <CheckCircle2
                         size={24}
                         className="mx-auto text-slate-300"
@@ -510,21 +840,28 @@ const AdminHeader = ({ onMenuClick }) => {
                       </p>
 
                       <p className="mt-1 text-xs text-slate-400">
-                        No notifications to display.
+                        No recent audit activity.
                       </p>
+
                     </div>
                   )}
+
                 </div>
 
                 {/* Notification Footer */}
 
                 <Link
-                  to="/admin/alerts"
-                  onClick={() => setNotificationsOpen(false)}
+                  to="/admin/audit-logs"
+                  onClick={() =>
+                    setNotificationsOpen(
+                      false
+                    )
+                  }
                   className="block border-t border-slate-100 px-4 py-3 text-center text-xs font-semibold text-amber-600 transition hover:bg-amber-50"
                 >
-                  View all notifications
+                  View all audit logs
                 </Link>
+
               </div>
             )}
           </div>
@@ -533,7 +870,9 @@ const AdminHeader = ({ onMenuClick }) => {
 
           <div className="hidden h-7 w-px bg-slate-200 sm:block" />
 
-          {/* Profile */}
+          {/* ==================================================
+              PROFILE
+          ================================================== */}
 
           <div
             ref={profileRef}
@@ -542,7 +881,11 @@ const AdminHeader = ({ onMenuClick }) => {
             <button
               type="button"
               onClick={() => {
-                setProfileOpen((previous) => !previous);
+                setProfileOpen(
+                  (previous) =>
+                    !previous
+                );
+
                 setNotificationsOpen(false);
               }}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-50"
@@ -566,7 +909,9 @@ const AdminHeader = ({ onMenuClick }) => {
               <ChevronDown
                 size={15}
                 className={`hidden shrink-0 text-slate-400 transition-transform sm:block ${
-                  profileOpen ? "rotate-180" : ""
+                  profileOpen
+                    ? "rotate-180"
+                    : ""
                 }`}
               />
             </button>
@@ -577,34 +922,49 @@ const AdminHeader = ({ onMenuClick }) => {
                 {/* Profile Summary */}
 
                 <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+
                   <div className="flex items-center gap-3">
+
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-800">
                       {initials}
                     </div>
 
                     <div className="min-w-0">
+
                       <p className="truncate text-sm font-semibold text-slate-800">
                         {adminName}
                       </p>
 
                       <p className="truncate text-xs text-slate-400">
-                        {adminEmail || "Administrator account"}
+                        {adminEmail ||
+                          "Administrator account"}
                       </p>
+
                     </div>
                   </div>
 
                   <div className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-amber-700">
-                    <ShieldCheck size={13} />
-                    <span>{adminRole}</span>
+                    <ShieldCheck
+                      size={13}
+                    />
+
+                    <span>
+                      {adminRole}
+                    </span>
                   </div>
                 </div>
 
                 {/* Account Links */}
 
                 <div className="p-2">
+
                   <Link
                     to="/admin/profile"
-                    onClick={() => setProfileOpen(false)}
+                    onClick={() =>
+                      setProfileOpen(
+                        false
+                      )
+                    }
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                   >
                     <User size={16} />
@@ -613,17 +973,23 @@ const AdminHeader = ({ onMenuClick }) => {
 
                   <Link
                     to="/admin/settings"
-                    onClick={() => setProfileOpen(false)}
+                    onClick={() =>
+                      setProfileOpen(
+                        false
+                      )
+                    }
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                   >
                     <Settings size={16} />
                     Settings
                   </Link>
+
                 </div>
 
                 {/* Logout */}
 
                 <div className="border-t border-slate-100 p-2">
+
                   <button
                     type="button"
                     onClick={handleLogout}
@@ -632,7 +998,9 @@ const AdminHeader = ({ onMenuClick }) => {
                     <LogOut size={16} />
                     Logout
                   </button>
+
                 </div>
+
               </div>
             )}
           </div>

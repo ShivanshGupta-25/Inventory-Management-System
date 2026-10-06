@@ -97,6 +97,26 @@ const AdminSidebar = ({
         },
       ],
     },
+    {
+      section: "Communication ",
+      items: [
+        // {
+        //   label: "Alerts",
+        //   icon: AlertTriangle,
+        //   path: "/admin/alerts",
+        // },
+        // {
+        //   label: "Activity Logs",
+        //   icon: Activity,
+        //   path: "/admin/activity",
+        // },
+        {
+          label: "chat",
+          icon: ScrollText,
+          path: "/admin/communication",
+        },
+      ],
+    },
 
     {
       section: "REPORTS",

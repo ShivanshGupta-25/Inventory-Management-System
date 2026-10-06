@@ -2,10 +2,10 @@ import {
   Activity,
   AlertTriangle,
   Database,
-  Download,
   KeyRound,
   Pause,
   Play,
+  RefreshCw,
   Server,
   WifiOff,
 } from "lucide-react";
@@ -20,7 +20,6 @@ import {
 
 import { getAdminSystemHealth } from "../../services/adminService";
 
-import SystemHealthHeader from "../../components/admin/systemHealth/SystemHealthHeader";
 import SystemHealthOverview from "../../components/admin/systemHealth/SystemHealthOverview";
 import SystemHealthStatCard from "../../components/admin/systemHealth/SystemHealthStatCard";
 import SystemHealthServices from "../../components/admin/systemHealth/SystemHealthServices";
@@ -49,14 +48,17 @@ const MAX_BACKOFF_MULTIPLIER = 8;
 const STORAGE_KEY = "adminSystemHealth:prefs";
 
 // ------------------------------------------------------------
-// PURE HELPERS (defined once, outside the component)
+// PURE HELPERS
 // ------------------------------------------------------------
 
 const formatDateTime = (value) => {
   if (!value) return "Not available";
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not available";
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
 
   return date.toLocaleString("en-IN", {
     day: "2-digit",
@@ -69,37 +71,54 @@ const formatDateTime = (value) => {
 };
 
 const formatUptime = (seconds) => {
-  if (seconds === null || seconds === undefined) return "Not available";
+  if (seconds === null || seconds === undefined) {
+    return "Not available";
+  }
 
   const totalSeconds = Math.floor(seconds);
+
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
 
   if (days > 0) return `${days}d ${hours}h ${minutes}m`;
   if (hours > 0) return `${hours}h ${minutes}m`;
+
   return `${minutes}m`;
 };
 
 const formatBytes = (bytes) => {
-  if (bytes === null || bytes === undefined || bytes <= 0) return "—";
+  if (bytes === null || bytes === undefined || bytes <= 0) {
+    return "—";
+  }
 
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.max(0, Math.floor(Math.log(bytes) / Math.log(1024)));
+
+  const index = Math.max(
+    0,
+    Math.floor(Math.log(bytes) / Math.log(1024))
+  );
+
   const safeIndex = Math.min(index, units.length - 1);
 
-  return `${(bytes / Math.pow(1024, safeIndex)).toFixed(1)} ${units[safeIndex]}`;
+  return `${(
+    bytes / Math.pow(1024, safeIndex)
+  ).toFixed(1)} ${units[safeIndex]}`;
 };
 
 const formatRelative = (date) => {
   if (!date) return "never";
 
-  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  const seconds = Math.max(
+    0,
+    Math.round((Date.now() - date.getTime()) / 1000)
+  );
 
   if (seconds < 5) return "just now";
   if (seconds < 60) return `${seconds}s ago`;
 
   const minutes = Math.floor(seconds / 60);
+
   if (minutes < 60) return `${minutes}m ago`;
 
   return `${Math.floor(minutes / 60)}h ago`;
@@ -108,6 +127,7 @@ const formatRelative = (date) => {
 const readPrefs = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -116,15 +136,22 @@ const readPrefs = () => {
 
 const writePrefs = (prefs) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(prefs)
+    );
   } catch {
-    // Storage can be unavailable (private mode, quota). Preferences are optional.
+    // Storage can be unavailable.
+    // Preferences are optional.
   }
 };
 
 const average = (values) =>
   values.length
-    ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length)
+    ? Math.round(
+        values.reduce((sum, v) => sum + v, 0) /
+          values.length
+      )
     : null;
 
 // ------------------------------------------------------------
@@ -142,8 +169,10 @@ const AdminSystemHealth = () => {
   const [autoRefresh, setAutoRefresh] = useState(
     initialPrefs.autoRefresh ?? true
   );
+
   const [refreshInterval, setRefreshInterval] = useState(
-    initialPrefs.refreshInterval ?? DEFAULT_REFRESH_INTERVAL
+    initialPrefs.refreshInterval ??
+      DEFAULT_REFRESH_INTERVAL
   );
 
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -161,8 +190,10 @@ const AdminSystemHealth = () => {
 
   const loadHealth = useCallback(
     async ({ initial = false, silent = false } = {}) => {
-      // One request at a time, whether it comes from the timer or a click.
+      // One request at a time, whether it comes from
+      // the timer or a click.
       if (inFlightRef.current) return;
+
       inFlightRef.current = true;
 
       if (initial) {
@@ -184,9 +215,12 @@ const AdminSystemHealth = () => {
 
         if (!mountedRef.current) return;
 
-        const roundTrip = Math.round(performance.now() - startedAt);
+        const roundTrip = Math.round(
+          performance.now() - startedAt
+        );
 
         failuresRef.current = 0;
+
         setFailures(0);
         setError("");
 
@@ -200,18 +234,28 @@ const AdminSystemHealth = () => {
             {
               time: Date.now(),
               api: roundTrip,
-              db: healthData?.database?.latency ?? null,
+              db:
+                healthData?.database?.latency ??
+                null,
             },
           ].slice(-HISTORY_LIMIT)
         );
       } catch (err) {
-        console.error("Failed to load system health:", err);
+        console.error(
+          "Failed to load system health:",
+          err
+        );
 
         if (!mountedRef.current) return;
 
         failuresRef.current += 1;
+
         setFailures(failuresRef.current);
-        setError(err?.message || "Unable to retrieve system health.");
+
+        setError(
+          err?.message ||
+            "Unable to retrieve system health."
+        );
       } finally {
         inFlightRef.current = false;
 
@@ -230,6 +274,7 @@ const AdminSystemHealth = () => {
 
   useEffect(() => {
     mountedRef.current = true;
+
     loadHealth({ initial: true });
 
     return () => {
@@ -239,9 +284,11 @@ const AdminSystemHealth = () => {
 
   // ------------------------------------------------------------
   // AUTO REFRESH
+  //
   // - user-selectable interval
-  // - skips requests while the tab is hidden, refreshes on return
-  // - backs off when the API keeps failing
+  // - skips requests while tab is hidden
+  // - refreshes on return
+  // - backs off when API keeps failing
   // ------------------------------------------------------------
 
   useEffect(() => {
@@ -255,7 +302,11 @@ const AdminSystemHealth = () => {
         2 ** failuresRef.current,
         MAX_BACKOFF_MULTIPLIER
       );
-      timer = setTimeout(tick, refreshInterval * backoff);
+
+      timer = setTimeout(
+        tick,
+        refreshInterval * backoff
+      );
     };
 
     const tick = async () => {
@@ -265,7 +316,9 @@ const AdminSystemHealth = () => {
         await loadHealth({ silent: true });
       }
 
-      if (!cancelled) schedule();
+      if (!cancelled) {
+        schedule();
+      }
     };
 
     const handleVisibility = () => {
@@ -275,53 +328,39 @@ const AdminSystemHealth = () => {
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibility);
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
+
     schedule();
 
     return () => {
       cancelled = true;
+
       clearTimeout(timer);
-      document.removeEventListener("visibilitychange", handleVisibility);
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
+      );
     };
-  }, [autoRefresh, refreshInterval, loadHealth]);
+  }, [
+    autoRefresh,
+    refreshInterval,
+    loadHealth,
+  ]);
 
   // ------------------------------------------------------------
   // PERSIST PREFERENCES
   // ------------------------------------------------------------
 
   useEffect(() => {
-    writePrefs({ autoRefresh, refreshInterval });
+    writePrefs({
+      autoRefresh,
+      refreshInterval,
+    });
   }, [autoRefresh, refreshInterval]);
-
-  // ------------------------------------------------------------
-  // EXPORT SNAPSHOT
-  // ------------------------------------------------------------
-
-  // const handleExport = useCallback(() => {
-  //   if (!health) return;
-
-  //   const snapshot = {
-  //     exportedAt: new Date().toISOString(),
-  //     lastUpdated: lastUpdated?.toISOString() ?? null,
-  //     apiRoundTripMs: apiLatency,
-  //     health,
-  //   };
-
-  //   const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
-  //     type: "application/json",
-  //   });
-
-  //   const url = URL.createObjectURL(blob);
-  //   const link = document.createElement("a");
-  //   link.href = url;
-  //   link.download = `system-health-${new Date()
-  //     .toISOString()
-  //     .replace(/[:.]/g, "-")}.json`;
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   link.remove();
-  //   URL.revokeObjectURL(url);
-  // }, [health, lastUpdated, apiLatency]);
 
   // ------------------------------------------------------------
   // SERVICE DATA
@@ -335,21 +374,26 @@ const AdminSystemHealth = () => {
         key: "api",
         name: "API Server",
         description: "Node.js / Express API",
-        status: health?.server?.status || "unknown",
+        status:
+          health?.server?.status || "unknown",
         responseTime: apiLatency,
       },
       {
         key: "database",
         name: "MongoDB",
         description: "Application database",
-        status: health?.database?.status || "unknown",
-        responseTime: health?.database?.latency ?? null,
+        status:
+          health?.database?.status || "unknown",
+        responseTime:
+          health?.database?.latency ?? null,
       },
       {
         key: "authentication",
         name: "Authentication",
         description: "JWT authentication service",
-        status: health?.authentication?.status || "unknown",
+        status:
+          health?.authentication?.status ||
+          "unknown",
         responseTime: null,
       },
       {
@@ -367,7 +411,10 @@ const AdminSystemHealth = () => {
   // ------------------------------------------------------------
 
   const summary = useMemo(() => {
-    const find = (key) => services.find((service) => service.key === key);
+    const find = (key) =>
+      services.find(
+        (service) => service.key === key
+      );
 
     return {
       api: find("api"),
@@ -382,15 +429,30 @@ const AdminSystemHealth = () => {
 
   const security = useMemo(
     () => ({
-      authentication: health?.authentication?.status || "unknown",
+      authentication:
+        health?.authentication?.status ||
+        "unknown",
+
       authenticationSecretConfigured: Boolean(
         health?.authentication?.secretConfigured
       ),
-      rateLimiting: health?.rateLimiting?.status || "unknown",
-      failedLogins: health?.security?.failedLogins ?? null,
-      suspiciousEvents: health?.security?.suspiciousEvents ?? null,
-      status: health?.security?.status || "unknown",
-      recentEvents: health?.security?.recentEvents || [],
+
+      rateLimiting:
+        health?.rateLimiting?.status ||
+        "unknown",
+
+      failedLogins:
+        health?.security?.failedLogins ?? null,
+
+      suspiciousEvents:
+        health?.security?.suspiciousEvents ??
+        null,
+
+      status:
+        health?.security?.status || "unknown",
+
+      recentEvents:
+        health?.security?.recentEvents || [],
     }),
     [health]
   );
@@ -400,16 +462,31 @@ const AdminSystemHealth = () => {
   // ------------------------------------------------------------
 
   const memory = useMemo(() => {
-    const used = health?.server?.memory?.heapUsed ?? null;
-    const total = health?.server?.memory?.heapTotal ?? null;
-    const rss = health?.server?.memory?.rss ?? null;
+    const used =
+      health?.server?.memory?.heapUsed ?? null;
+
+    const total =
+      health?.server?.memory?.heapTotal ?? null;
+
+    const rss =
+      health?.server?.memory?.rss ?? null;
 
     const percent =
-      used != null && total != null && total > 0
-        ? Math.min(100, Math.round((used / total) * 100))
+      used != null &&
+      total != null &&
+      total > 0
+        ? Math.min(
+            100,
+            Math.round((used / total) * 100)
+          )
         : null;
 
-    return { used, total, rss, percent };
+    return {
+      used,
+      total,
+      rss,
+      percent,
+    };
   }, [health]);
 
   // ------------------------------------------------------------
@@ -421,7 +498,7 @@ const AdminSystemHealth = () => {
   }
 
   // ------------------------------------------------------------
-  // ERROR (no data to show at all)
+  // ERROR
   // ------------------------------------------------------------
 
   if (error && !health) {
@@ -430,14 +507,17 @@ const AdminSystemHealth = () => {
         <div className="mx-auto max-w-7xl">
           <SystemHealthError
             message={error}
-            onRetry={() => loadHealth({ initial: true })}
+            onRetry={() =>
+              loadHealth({ initial: true })
+            }
           />
         </div>
       </div>
     );
   }
 
-  const isStale = failures > 0 && Boolean(health);
+  const isStale =
+    failures > 0 && Boolean(health);
 
   // ------------------------------------------------------------
   // MAIN PAGE
@@ -446,26 +526,34 @@ const AdminSystemHealth = () => {
   return (
     <div className="min-h-full bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <SystemHealthHeader
-          onRefresh={() => loadHealth({ initial: false })}
-          refreshing={refreshing}
-        />
 
-        {/* Connection lost: keep showing the last data, but say so */}
+        {/* ----------------------------------------------------
+            CONNECTION STATUS
+        ---------------------------------------------------- */}
+
         {isStale && (
           <div
             role="alert"
             className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800"
           >
-            <WifiOff size={16} className="mt-0.5 shrink-0" />
+            <WifiOff
+              size={16}
+              className="mt-0.5 shrink-0"
+            />
+
             <div>
               <p className="font-semibold">
                 Can't reach the API. Showing data from{" "}
                 {formatRelative(lastUpdated)}.
               </p>
+
               <p className="mt-1">
-                {failures} failed {failures === 1 ? "attempt" : "attempts"} in
-                a row.
+                {failures} failed{" "}
+                {failures === 1
+                  ? "attempt"
+                  : "attempts"}{" "}
+                in a row.
+
                 {autoRefresh
                   ? " Retries are spaced further apart until the connection returns."
                   : " Select Refresh to try again."}
@@ -474,75 +562,142 @@ const AdminSystemHealth = () => {
           </div>
         )}
 
-        {/* Refresh controls */}
+        {/* ----------------------------------------------------
+            REFRESH CONTROLS
+        ---------------------------------------------------- */}
+
         <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-5">
+
+          {/* Pause / Resume */}
           <button
             type="button"
-            onClick={() => setAutoRefresh((value) => !value)}
+            onClick={() =>
+              setAutoRefresh((value) => !value)
+            }
             aria-pressed={autoRefresh}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           >
-            {autoRefresh ? <Pause size={14} /> : <Play size={14} />}
-            {autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh"}
+            {autoRefresh ? (
+              <Pause size={14} />
+            ) : (
+              <Play size={14} />
+            )}
+
+            {autoRefresh
+              ? "Pause auto-refresh"
+              : "Resume auto-refresh"}
           </button>
 
+          {/* Refresh interval */}
           <label className="flex items-center gap-2 text-xs text-slate-500">
             Refresh every
+
             <select
               value={refreshInterval}
-              onChange={(event) => setRefreshInterval(Number(event.target.value))}
+              onChange={(event) =>
+                setRefreshInterval(
+                  Number(event.target.value)
+                )
+              }
               disabled={!autoRefresh}
               className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
               {REFRESH_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
                   {option.label}
                 </option>
               ))}
             </select>
           </label>
 
+          {/* Last updated + Refresh */}
           <div className="ml-auto flex items-center gap-4">
-            <LastUpdated date={lastUpdated} paused={!autoRefresh} />
+            <LastUpdated
+              date={lastUpdated}
+              paused={!autoRefresh}
+            />
 
-            {/* <button
+            {/* Refresh replaces Download Snapshot */}
+            <button
               type="button"
-              onClick={handleExport}
-              disabled={!health}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              onClick={() =>
+                loadHealth({ initial: false })
+              }
+              disabled={refreshing}
+              aria-busy={refreshing}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
-              <Download size={14} />
-              Download snapshot
-            </button> */}
+              <RefreshCw
+                size={14}
+                className={
+                  refreshing
+                    ? "animate-spin motion-reduce:animate-none"
+                    : ""
+                }
+              />
+
+              {refreshing
+                ? "Refreshing…"
+                : "Refresh"}
+            </button>
           </div>
         </section>
 
+        {/* ----------------------------------------------------
+            SYSTEM OVERVIEW
+        ---------------------------------------------------- */}
+
         <SystemHealthOverview
           status={health?.status || "unknown"}
-          lastChecked={formatDateTime(health?.checkedAt)}
+          lastChecked={formatDateTime(
+            health?.checkedAt
+          )}
         />
 
-        {/* Top statistics */}
+        {/* ----------------------------------------------------
+            TOP STATISTICS
+        ---------------------------------------------------- */}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
           <SystemHealthStatCard
             title="API Server"
-            value={summary.api?.status === "healthy" ? "Healthy" : "Unavailable"}
+            value={
+              summary.api?.status === "healthy"
+                ? "Healthy"
+                : "Unavailable"
+            }
             description={
               health?.server?.nodeVersion
-                ? `Node ${health.server.nodeVersion.replace("v", "")}${
-                    apiLatency != null ? ` · ${apiLatency} ms` : ""
+                ? `Node ${health.server.nodeVersion.replace(
+                    "v",
+                    ""
+                  )}${
+                    apiLatency != null
+                      ? ` · ${apiLatency} ms`
+                      : ""
                   }`
                 : "Node.js / Express"
             }
             icon={Server}
             iconClass="bg-sky-50 text-sky-600"
-            status={summary.api?.status === "healthy" ? "healthy" : "critical"}
+            status={
+              summary.api?.status === "healthy"
+                ? "healthy"
+                : "critical"
+            }
           />
 
           <SystemHealthStatCard
             title="Database"
             value={
-              summary.database?.status === "healthy" ? "Connected" : "Unavailable"
+              summary.database?.status ===
+              "healthy"
+                ? "Connected"
+                : "Unavailable"
             }
             description={
               health?.database?.latency != null
@@ -551,13 +706,19 @@ const AdminSystemHealth = () => {
             }
             icon={Database}
             iconClass="bg-emerald-50 text-emerald-600"
-            status={summary.database?.status === "healthy" ? "healthy" : "critical"}
+            status={
+              summary.database?.status ===
+              "healthy"
+                ? "healthy"
+                : "critical"
+            }
           />
 
           <SystemHealthStatCard
             title="Authentication"
             value={
-              summary.authentication?.status === "healthy"
+              summary.authentication?.status ===
+              "healthy"
                 ? "Healthy"
                 : "Unavailable"
             }
@@ -565,13 +726,18 @@ const AdminSystemHealth = () => {
             icon={KeyRound}
             iconClass="bg-violet-50 text-violet-600"
             status={
-              summary.authentication?.status === "healthy" ? "healthy" : "critical"
+              summary.authentication?.status ===
+              "healthy"
+                ? "healthy"
+                : "critical"
             }
           />
 
           <SystemHealthStatCard
             title="Server Uptime"
-            value={formatUptime(health?.server?.uptime)}
+            value={formatUptime(
+              health?.server?.uptime
+            )}
             description={
               health?.server?.environment
                 ? `${health.server.environment} environment`
@@ -581,37 +747,82 @@ const AdminSystemHealth = () => {
             iconClass="bg-amber-50 text-amber-600"
             status="neutral"
           />
+
         </div>
 
-        {/* Response time trend */}
+        {/* ----------------------------------------------------
+            RESPONSE TIME TREND
+        ---------------------------------------------------- */}
+
         <ResponseTrend history={history} />
 
-        {/* Service + database */}
+        {/* ----------------------------------------------------
+            SERVICES + DATABASE
+        ---------------------------------------------------- */}
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
-          <SystemHealthServices services={services} />
+
+          <SystemHealthServices
+            services={services}
+          />
 
           <SystemHealthDatabase
             database={{
-              status: health?.database?.status || "unknown",
-              latency: health?.database?.latency ?? null,
-              state: health?.database?.state ?? null,
-              databaseName: health?.database?.databaseName || null,
-              collections: health?.database?.collections ?? null,
-              dataSize: health?.database?.dataSize ?? null,
-              storageSize: health?.database?.storageSize ?? null,
+              status:
+                health?.database?.status ||
+                "unknown",
+
+              latency:
+                health?.database?.latency ??
+                null,
+
+              state:
+                health?.database?.state ?? null,
+
+              databaseName:
+                health?.database?.databaseName ||
+                null,
+
+              collections:
+                health?.database?.collections ??
+                null,
+
+              dataSize:
+                health?.database?.dataSize ??
+                null,
+
+              storageSize:
+                health?.database?.storageSize ??
+                null,
             }}
           />
+
         </div>
 
-        <SystemHealthInfrastructure server={health?.server} />
+        {/* ----------------------------------------------------
+            INFRASTRUCTURE
+        ---------------------------------------------------- */}
 
-        {/* Security + server information */}
+        <SystemHealthInfrastructure
+          server={health?.server}
+        />
+
+        {/* ----------------------------------------------------
+            SECURITY + SERVER INFORMATION
+        ---------------------------------------------------- */}
+
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <SystemHealthSecurity security={security} />
+
+          <SystemHealthSecurity
+            security={security}
+          />
 
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
             <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+
               <div className="flex items-center gap-3">
+
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                   <Server size={16} />
                 </div>
@@ -620,47 +831,77 @@ const AdminSystemHealth = () => {
                   <h2 className="text-sm font-bold text-slate-900">
                     Server Information
                   </h2>
+
                   <p className="mt-1 text-xs text-slate-500">
                     Runtime information from the API server.
                   </p>
                 </div>
+
               </div>
+
             </div>
 
             <div className="grid grid-cols-2 gap-px bg-slate-100">
+
               <ServerMetric
                 label="Node Version"
-                value={health?.server?.nodeVersion || "—"}
+                value={
+                  health?.server?.nodeVersion ||
+                  "—"
+                }
               />
+
               <ServerMetric
                 label="Environment"
-                value={health?.server?.environment || "—"}
+                value={
+                  health?.server?.environment ||
+                  "—"
+                }
               />
+
               <ServerMetric
                 label="Process Uptime"
-                value={formatUptime(health?.server?.uptime)}
+                value={formatUptime(
+                  health?.server?.uptime
+                )}
               />
+
               <ServerMetric
                 label="Heap Used"
-                value={formatBytes(memory.used)}
+                value={formatBytes(
+                  memory.used
+                )}
               />
+
               <ServerMetric
                 label="Heap Total"
-                value={formatBytes(memory.total)}
+                value={formatBytes(
+                  memory.total
+                )}
               />
+
               <ServerMetric
                 label="Resident Memory"
-                value={formatBytes(memory.rss)}
+                value={formatBytes(
+                  memory.rss
+                )}
               />
+
             </div>
 
             {memory.percent != null && (
               <div className="border-t border-slate-100 px-5 py-4 sm:px-6">
+
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-slate-600">Heap usage</span>
+
+                  <span className="font-medium text-slate-600">
+                    Heap usage
+                  </span>
+
                   <span className="font-bold text-slate-800">
                     {memory.percent}%
                   </span>
+
                 </div>
 
                 <div
@@ -679,23 +920,37 @@ const AdminSystemHealth = () => {
                         ? "bg-amber-500"
                         : "bg-emerald-500"
                     }`}
-                    style={{ width: `${memory.percent}%` }}
+                    style={{
+                      width: `${memory.percent}%`,
+                    }}
                   />
                 </div>
 
                 {memory.percent >= 75 && (
                   <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700">
+
                     <AlertTriangle size={12} />
-                    Heap usage is high. Watch for a memory leak if it keeps
-                    climbing.
+
+                    Heap usage is high. Watch for a memory leak if it keeps climbing.
+
                   </p>
                 )}
+
               </div>
             )}
+
           </section>
+
         </div>
 
-        <SystemHealthEvents events={security.recentEvents} />
+        {/* ----------------------------------------------------
+            SECURITY EVENTS
+        ---------------------------------------------------- */}
+
+        <SystemHealthEvents
+          events={security.recentEvents}
+        />
+
       </div>
     </div>
   );
@@ -707,32 +962,67 @@ const AdminSystemHealth = () => {
 
 const ServerMetric = ({ label, value }) => (
   <div className="bg-white p-4 sm:p-5">
+
     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
       {label}
     </p>
-    <p className="mt-2 text-sm font-bold text-slate-800">{value}</p>
+
+    <p className="mt-2 text-sm font-bold text-slate-800">
+      {value}
+    </p>
+
   </div>
 );
 
-// Ticks on its own so the whole page doesn't re-render every second.
+// ------------------------------------------------------------
+// LAST UPDATED
+// ------------------------------------------------------------
+
+// Ticks on its own so the whole page doesn't
+// re-render every second.
 const LastUpdated = ({ date, paused }) => {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setTick((value) => value + 1), 1000);
+    const id = setInterval(
+      () =>
+        setTick((value) => value + 1),
+      1000
+    );
+
     return () => clearInterval(id);
   }, []);
 
   return (
-    <p className="text-xs text-slate-500" aria-live="off">
-      Updated <span className="font-semibold text-slate-700">{formatRelative(date)}</span>
-      {paused && <span className="ml-2 text-amber-600">Auto-refresh paused</span>}
+    <p
+      className="text-xs text-slate-500"
+      aria-live="off"
+    >
+      Updated{" "}
+      <span className="font-semibold text-slate-700">
+        {formatRelative(date)}
+      </span>
+
+      {paused && (
+        <span className="ml-2 text-amber-600">
+          Auto-refresh paused
+        </span>
+      )}
     </p>
   );
 };
 
-const Sparkline = ({ values, stroke }) => {
-  const points = values.filter((v) => v != null);
+// ------------------------------------------------------------
+// SPARKLINE
+// ------------------------------------------------------------
+
+const Sparkline = ({
+  values,
+  stroke,
+}) => {
+  const points = values.filter(
+    (v) => v != null
+  );
 
   if (points.length < 2) {
     return (
@@ -745,15 +1035,27 @@ const Sparkline = ({ values, stroke }) => {
   const width = 240;
   const height = 48;
   const pad = 3;
+
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
 
   const path = points
     .map((value, index) => {
-      const x = pad + (index / (points.length - 1)) * (width - pad * 2);
-      const y = height - pad - ((value - min) / range) * (height - pad * 2);
-      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      const x =
+        pad +
+        (index / (points.length - 1)) *
+          (width - pad * 2);
+
+      const y =
+        height -
+        pad -
+        ((value - min) / range) *
+          (height - pad * 2);
+
+      return `${
+        index === 0 ? "M" : "L"
+      }${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
 
@@ -777,50 +1079,108 @@ const Sparkline = ({ values, stroke }) => {
   );
 };
 
-const TrendPanel = ({ title, values, stroke }) => {
-  const points = values.filter((v) => v != null);
-  const latest = points.length ? points[points.length - 1] : null;
+// ------------------------------------------------------------
+// TREND PANEL
+// ------------------------------------------------------------
+
+const TrendPanel = ({
+  title,
+  values,
+  stroke,
+}) => {
+  const points = values.filter(
+    (v) => v != null
+  );
+
+  const latest = points.length
+    ? points[points.length - 1]
+    : null;
 
   return (
     <div className="p-4 sm:p-5">
+
       <div className="flex items-baseline justify-between">
-        <p className="text-xs font-semibold text-slate-600">{title}</p>
-        <p className="text-sm font-bold text-slate-900">
-          {latest != null ? `${latest} ms` : "—"}
+
+        <p className="text-xs font-semibold text-slate-600">
+          {title}
         </p>
+
+        <p className="text-sm font-bold text-slate-900">
+          {latest != null
+            ? `${latest} ms`
+            : "—"}
+        </p>
+
       </div>
 
-      <Sparkline values={values} stroke={stroke} />
+      <Sparkline
+        values={values}
+        stroke={stroke}
+      />
 
       <div className="mt-1 flex justify-between text-[11px] text-slate-500">
-        <span>Avg {points.length ? `${average(points)} ms` : "—"}</span>
-        <span>Peak {points.length ? `${Math.max(...points)} ms` : "—"}</span>
+
+        <span>
+          Avg{" "}
+          {points.length
+            ? `${average(points)} ms`
+            : "—"}
+        </span>
+
+        <span>
+          Peak{" "}
+          {points.length
+            ? `${Math.max(...points)} ms`
+            : "—"}
+        </span>
+
       </div>
+
     </div>
   );
 };
 
-const ResponseTrend = ({ history }) => (
+// ------------------------------------------------------------
+// RESPONSE TREND
+// ------------------------------------------------------------
+
+const ResponseTrend = ({
+  history,
+}) => (
   <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
     <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
-      <h2 className="text-sm font-bold text-slate-900">Response time</h2>
+
+      <h2 className="text-sm font-bold text-slate-900">
+        Response time
+      </h2>
+
       <p className="mt-1 text-xs text-slate-500">
         Last {HISTORY_LIMIT} checks from this browser session.
       </p>
+
     </div>
 
     <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+
       <TrendPanel
         title="API round trip"
-        values={history.map((h) => h.api)}
+        values={history.map(
+          (h) => h.api
+        )}
         stroke="#0284c7"
       />
+
       <TrendPanel
         title="Database latency"
-        values={history.map((h) => h.db)}
+        values={history.map(
+          (h) => h.db
+        )}
         stroke="#059669"
       />
+
     </div>
+
   </section>
 );
 

@@ -84,6 +84,7 @@ import AdminSecurity from "../pages/admin/AdminSecurity";
 import AdminAuditLogs from "../pages/admin/AdminAuditLogs";
 import AdminSystemHealth from "../pages/admin/AdminSystemHealth";
 import AdminReports from "../pages/admin/AdminReports";
+import AdminCommunicationPage from "../pages/admin/AdminCommunicationPage";
 
 const AppRoutes = () => {
   return (
@@ -166,6 +167,11 @@ const AppRoutes = () => {
           <Route
             path="/admin/audit-logs"
             element={<AdminAuditLogs />}
+          />
+
+          <Route 
+            path="/admin/communication" 
+            element={<AdminCommunicationPage />} 
           />
 
           <Route
