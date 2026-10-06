@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -24,21 +25,16 @@ import MessageItem from "./MessageItem";
 import MessageSelectionToolbar from "./MessageSelectionToolbar";
 import ForwardMessageModal from "./ForwardMessageModal";
 
-import {
-  useCommunication,
-} from "../../context/CommunicationContext";
+import { useCommunication } from "../../context/CommunicationContext";
 
 /* =========================================================
    CONSTANTS
 ========================================================= */
 
 const MAX_ATTACHMENTS = 5;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const MAX_FILE_SIZE =
-  10 * 1024 * 1024;
-
-const IMAGE_VIDEO_ACCEPT =
-  "image/*,video/*";
+const IMAGE_VIDEO_ACCEPT = "image/*,video/*";
 
 const DOCUMENT_ACCEPT = [
   ".pdf",
@@ -118,23 +114,12 @@ const DOCUMENT_EXTENSIONS = [
    HELPERS
 ========================================================= */
 
-const getMessageId = (
-  message
-) =>
-  message?.id ||
-  message?._id ||
-  null;
+const getMessageId = (message) => message?.id || message?._id || null;
 
-const getConversationId = (
-  conversation
-) =>
-  conversation?.id ||
-  conversation?._id ||
-  null;
+const getConversationId = (conversation) =>
+  conversation?.id || conversation?._id || null;
 
-const getConversationName = (
-  conversation
-) => {
+const getConversationName = (conversation) => {
   if (!conversation) {
     return "Conversation";
   }
@@ -147,34 +132,23 @@ const getConversationName = (
   );
 };
 
-const getFilePreviewUrl = (
-  file
-) => {
+const getFilePreviewUrl = (file) => {
   if (!file) {
     return null;
   }
 
-  return URL.createObjectURL(
-    file
-  );
+  return URL.createObjectURL(file);
 };
 
 /* =========================================================
    THREAD MESSAGE
 ========================================================= */
 
-const ThreadMessage = ({
-  message,
-  currentUserId,
-}) => {
+const ThreadMessage = ({ message, currentUserId }) => {
   const senderId =
-    message?.sender?.id ||
-    message?.sender?._id ||
-    message?.senderId;
+    message?.sender?.id || message?.sender?._id || message?.senderId;
 
-  const own =
-    String(senderId) ===
-    String(currentUserId);
+  const own = String(senderId) === String(currentUserId);
 
   const senderName =
     message?.sender?.name ||
@@ -182,70 +156,30 @@ const ThreadMessage = ({
     message?.senderName ||
     "Unknown user";
 
-  const deleted =
-    Boolean(
-      message?.deletedForEveryone
-    );
-
-  const text =
-    message?.text ||
-    message?.content ||
-    "";
+  const deleted = Boolean(message?.deletedForEveryone);
+  const text = message?.text || message?.content || "";
 
   const hasAttachments =
-    Array.isArray(
-      message?.attachments
-    ) &&
-    message.attachments.length > 0;
+    Array.isArray(message?.attachments) && message.attachments.length > 0;
 
   return (
     <div
-      className={`
-        rounded-xl
-        border
-        px-3
-        py-2.5
-        ${
-          own
-            ? "border-blue-100 bg-blue-50"
-            : "border-slate-200 bg-white"
-        }
-      `}
+      className={`rounded-xl border px-3 py-2.5 ${
+        own ? "border-blue-100 bg-blue-50" : "border-slate-200 bg-white"
+      }`}
     >
-      <div
-        className="
-          flex
-          items-center
-          justify-between
-          gap-3
-        "
-      >
+      <div className="flex items-center justify-between gap-3">
         <p
-          className={`
-            truncate
-            text-xs
-            font-semibold
-            ${
-              own
-                ? "text-blue-700"
-                : "text-slate-700"
-            }
-          `}
+          className={`truncate text-xs font-semibold ${
+            own ? "text-blue-700" : "text-slate-700"
+          }`}
         >
           {senderName}
         </p>
 
         {message?.createdAt && (
-          <span
-            className="
-              shrink-0
-              text-[10px]
-              text-slate-400
-            "
-          >
-            {new Date(
-              message.createdAt
-            ).toLocaleTimeString([], {
+          <span className="shrink-0 text-[10px] text-slate-400">
+            {new Date(message.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -254,41 +188,19 @@ const ThreadMessage = ({
       </div>
 
       {deleted ? (
-        <p
-          className="
-            mt-1.5
-            text-sm
-            italic
-            text-slate-400
-          "
-        >
+        <p className="mt-1.5 text-sm italic text-slate-400">
           This message was deleted
         </p>
       ) : (
         <>
           {text && (
-            <p
-              className="
-                mt-1.5
-                whitespace-pre-wrap
-                break-words
-                text-sm
-                leading-6
-                text-slate-700
-              "
-            >
+            <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
               {text}
             </p>
           )}
 
           {hasAttachments && (
-            <p
-              className="
-                mt-1.5
-                text-xs
-                text-slate-400
-              "
-            >
+            <p className="mt-1.5 text-xs text-slate-400">
               {message.attachments.length}{" "}
               {message.attachments.length === 1
                 ? "attachment"
@@ -346,85 +258,76 @@ const ConversationWindow = ({
   } = useCommunication();
 
   /* =======================================================
+     REFS
+  ======================================================== */
+
+  const messagesContainerRef = useRef(null);
+  const messagesContentRef = useRef(null); // NEW: inner list wrapper
+  const fileInputRef = useRef(null);
+  const attachmentMenuRef = useRef(null);
+  const filePreviewsRef = useRef([]);
+  const messageSearchInputRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+  const shouldScrollToBottomRef = useRef(true);
+
+  /* =======================================================
      COMPOSER
   ======================================================== */
 
-  const [
-    composerText,
-    setComposerText,
-  ] = useState("");
-
-  const [
-    selectedFiles,
-    setSelectedFiles,
-  ] = useState([]);
-
-  const [
-    filePreviews,
-    setFilePreviews,
-  ] = useState([]);
-
-  const [sending, setSending] =
-    useState(false);
-
-  const [showAttachmentMenu, setShowAttachmentMenu] =
-    useState(false);
-
-  const [fileAccept, setFileAccept] =
-    useState(IMAGE_VIDEO_ACCEPT);
-
+  const [composerText, setComposerText] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [filePreviews, setFilePreviews] = useState([]);
+  const [sending, setSending] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [fileAccept, setFileAccept] = useState(IMAGE_VIDEO_ACCEPT);
   const [fileSelectionCategory, setFileSelectionCategory] =
     useState("other");
+
+  filePreviewsRef.current = filePreviews;
 
   /* =======================================================
      SELECTION
   ======================================================== */
 
-  const [
-    selectionMode,
-    setSelectionMode,
-  ] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState(new Set());
+  const [processingSelection, setProcessingSelection] = useState(false);
 
-  const [
-    selectedMessageIds,
-    setSelectedMessageIds,
-  ] = useState(new Set());
+  /* =======================================================
+     SINGLE OPEN ACTION MENU (NEW)
+     Only one message may have its action menu open at a time.
+  ======================================================== */
 
-  const [
-    processingSelection,
-    setProcessingSelection,
-  ] = useState(false);
+  const [activeMenuMessageId, setActiveMenuMessageId] = useState(null);
 
   /* =======================================================
      FORWARD MODAL
   ======================================================== */
 
-  const [
-    showForwardModal,
-    setShowForwardModal,
-  ] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
 
   /* =======================================================
      MESSAGE THREAD
   ======================================================= */
 
-  const [
-    activeThread,
-    setActiveThread,
-  ] = useState(null);
-
-  const [
-    threadLoading,
-    setThreadLoading,
-  ] = useState(false);
-
-  const [
-    threadError,
-    setThreadError,
-  ] = useState("");
+  const [activeThread, setActiveThread] = useState(null);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState("");
 
   /* =======================================================
-     ATTACHMENT MENU
+     MESSAGE SEARCH STATE
+  ======================================================== */
+
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [messageSearchText, setMessageSearchText] = useState("");
+  const [messageSearchFocused, setMessageSearchFocused] = useState(false);
+  const [activeSearchResultIndex, setActiveSearchResultIndex] =
+    useState(-1);
+  const [searchNavigationLoading, setSearchNavigationLoading] =
+    useState(false);
+
+  /* =======================================================
+     ATTACHMENT MENU (outside click / escape)
   ======================================================== */
 
   useEffect(() => {
@@ -447,94 +350,20 @@ const ConversationWindow = ({
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleOutsideClick
-    );
-
-    document.addEventListener(
-      "keydown",
-      handleEscape
-    );
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutsideClick
-      );
-
-      document.removeEventListener(
-        "keydown",
-        handleEscape
-      );
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [showAttachmentMenu]);
-
-  /* =======================================================
-     MESSAGE SEARCH
-  ======================================================== */
-
-  const [
-    messageSearchOpen,
-    setMessageSearchOpen,
-  ] = useState(false);
-
-  const [
-    messageSearchText,
-    setMessageSearchText,
-  ] = useState("");
-
-  const [
-    messageSearchFocused,
-    setMessageSearchFocused,
-  ] = useState(false);
-
-  const [
-    activeSearchResultIndex,
-    setActiveSearchResultIndex,
-  ] = useState(-1);
-
-  const [
-    searchNavigationLoading,
-    setSearchNavigationLoading,
-  ] = useState(false);
-
-  /* =======================================================
-     REFS
-  ======================================================== */
-
-  const messagesContainerRef =
-    useRef(null);
-
-  const fileInputRef =
-    useRef(null);
-
-  const attachmentMenuRef =
-    useRef(null);
-
-  const filePreviewsRef =
-    useRef([]);
-
-  filePreviewsRef.current =
-    filePreviews;
-
-  const messageSearchInputRef =
-    useRef(null);
-
-  const searchDebounceRef =
-    useRef(null);
-
-  const shouldScrollToBottomRef =
-    useRef(true);
 
   /* =======================================================
      CURRENT CONVERSATION
   ======================================================== */
 
-  const conversationId =
-    getConversationId(
-      conversation
-    );
+  const conversationId = getConversationId(conversation);
 
   /* =======================================================
      MESSAGE MAP
@@ -543,19 +372,13 @@ const ConversationWindow = ({
   const messageById = useMemo(() => {
     const map = new Map();
 
-    (messages || []).forEach(
-      (message) => {
-        const id =
-          getMessageId(message);
+    (messages || []).forEach((message) => {
+      const id = getMessageId(message);
 
-        if (id) {
-          map.set(
-            String(id),
-            message
-          );
-        }
+      if (id) {
+        map.set(String(id), message);
       }
-    );
+    });
 
     return map;
   }, [messages]);
@@ -564,88 +387,46 @@ const ConversationWindow = ({
      SELECTED MESSAGES
   ======================================================== */
 
-  const selectedMessages =
-    useMemo(
-      () =>
-        Array.from(
-          selectedMessageIds
-        )
-          .map((id) =>
-            messageById.get(
-              String(id)
-            )
-          )
-          .filter(Boolean),
-      [
-        selectedMessageIds,
-        messageById,
-      ]
-    );
+  const selectedMessages = useMemo(
+    () =>
+      Array.from(selectedMessageIds)
+        .map((id) => messageById.get(String(id)))
+        .filter(Boolean),
+    [selectedMessageIds, messageById]
+  );
 
-  const selectedCount =
-    selectedMessageIds.size;
-
-  /* =======================================================
-     DELETE-FOR-EVERYONE ELIGIBILITY
-  ======================================================== */
+  const selectedCount = selectedMessageIds.size;
 
   const canDeleteForEveryone =
     selectedMessages.length > 0 &&
-    selectedMessages.every(
-      (message) => {
-        const senderId =
-          message?.sender?.id ||
-          message?.sender?._id ||
-          message?.senderId;
+    selectedMessages.every((message) => {
+      const senderId =
+        message?.sender?.id || message?.sender?._id || message?.senderId;
 
-        return (
-          String(senderId) ===
-            String(
-              currentUserId
-            ) &&
-          !message?.deletedForEveryone
-        );
-      }
-    );
-
-  /* =======================================================
-     FORWARD ELIGIBILITY
-  ======================================================== */
+      return (
+        String(senderId) === String(currentUserId) &&
+        !message?.deletedForEveryone
+      );
+    });
 
   const canForward =
     selectedMessages.length > 0 &&
-    selectedMessages.every(
-      (message) =>
-        !message?.deletedForEveryone
-    );
+    selectedMessages.every((message) => !message?.deletedForEveryone);
 
   /* =======================================================
-     CLEAR SELECTION
+     SELECTION HELPERS
   ======================================================== */
 
   const clearSelection = () => {
     setSelectionMode(false);
-
-    setSelectedMessageIds(
-      new Set()
-    );
-
+    setSelectedMessageIds(new Set());
     setShowForwardModal(false);
   };
 
-  /* =======================================================
-     ENTER SELECTION MODE
-  ======================================================== */
-
-  const enterSelectionMode = (
-    messageOrId
-  ) => {
+  const enterSelectionMode = (messageOrId) => {
     const messageId =
-      typeof messageOrId ===
-      "object"
-        ? getMessageId(
-            messageOrId
-          )
+      typeof messageOrId === "object"
+        ? getMessageId(messageOrId)
         : messageOrId;
 
     if (!messageId) {
@@ -653,83 +434,64 @@ const ConversationWindow = ({
     }
 
     setSelectionMode(true);
-
-    setSelectedMessageIds(
-      new Set([
-        String(messageId),
-      ])
-    );
-
+    setSelectedMessageIds(new Set([String(messageId)]));
     setShowForwardModal(false);
   };
 
-  /* =======================================================
-     TOGGLE SELECTION
-  ======================================================== */
-
-  const toggleMessageSelection = (
-    messageOrId
-  ) => {
+  const toggleMessageSelection = (messageOrId) => {
     const messageId =
-      typeof messageOrId ===
-      "object"
-        ? getMessageId(
-            messageOrId
-          )
+      typeof messageOrId === "object"
+        ? getMessageId(messageOrId)
         : messageOrId;
 
     if (!messageId) {
       return;
     }
 
-    const id =
-      String(messageId);
+    const id = String(messageId);
 
-    setSelectedMessageIds(
-      (current) => {
-        const next =
-          new Set(current);
+    setSelectedMessageIds((current) => {
+      const next = new Set(current);
 
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-
-        return next;
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
       }
-    );
+
+      return next;
+    });
   };
 
-  /* =======================================================
-     EXIT SELECTION WHEN EMPTY
-  ======================================================== */
-
+  // Exit selection mode when nothing is selected
   useEffect(() => {
-    if (
-      selectionMode &&
-      selectedMessageIds.size === 0
-    ) {
+    if (selectionMode && selectedMessageIds.size === 0) {
       setSelectionMode(false);
     }
-  }, [
-    selectionMode,
-    selectedMessageIds,
-  ]);
+  }, [selectionMode, selectedMessageIds]);
 
   /* =======================================================
-     CLEAR SELECTION WHEN
-     CONVERSATION CHANGES
+     CONVERSATION CHANGE: SCROLL RESET (NEW)
+
+     This is a layout effect and is declared BEFORE the
+     scroll layout effect below, so the "stick to bottom"
+     flag is already true when the new chat first scrolls.
+  ======================================================== */
+
+  useLayoutEffect(() => {
+    shouldScrollToBottomRef.current = true;
+  }, [conversationId]);
+
+  /* =======================================================
+     CONVERSATION CHANGE: RESET UI STATE
   ======================================================== */
 
   useEffect(() => {
     setSelectionMode(false);
-
-    setSelectedMessageIds(
-      new Set()
-    );
-
+    setSelectedMessageIds(new Set());
     setShowForwardModal(false);
+
+    setActiveMenuMessageId(null);
 
     setActiveThread(null);
     setThreadError("");
@@ -760,50 +522,31 @@ const ConversationWindow = ({
 
     const query = messageSearchText.trim();
 
-    if (
-      !messageSearchOpen ||
-      !conversationId
-    ) {
+    if (!messageSearchOpen || !conversationId) {
       return undefined;
     }
 
     if (!query) {
       setActiveSearchResultIndex(-1);
-      searchMessages?.(
-        conversationId,
-        ""
-      );
+      searchMessages?.(conversationId, "");
 
       return undefined;
     }
 
     setActiveSearchResultIndex(-1);
 
-    searchDebounceRef.current =
-      setTimeout(() => {
-        searchMessages?.(
-          conversationId,
-          query
-        );
-      }, 350);
+    searchDebounceRef.current = setTimeout(() => {
+      searchMessages?.(conversationId, query);
+    }, 350);
 
     return () => {
-      clearTimeout(
-        searchDebounceRef.current
-      );
+      clearTimeout(searchDebounceRef.current);
     };
-  }, [
-    messageSearchText,
-    messageSearchOpen,
-    conversationId,
-    searchMessages,
-  ]);
+  }, [messageSearchText, messageSearchOpen, conversationId, searchMessages]);
 
   useEffect(() => {
     return () => {
-      clearTimeout(
-        searchDebounceRef.current
-      );
+      clearTimeout(searchDebounceRef.current);
     };
   }, []);
 
@@ -820,9 +563,7 @@ const ConversationWindow = ({
   };
 
   const handleCloseMessageSearch = () => {
-    clearTimeout(
-      searchDebounceRef.current
-    );
+    clearTimeout(searchDebounceRef.current);
 
     setMessageSearchOpen(false);
     setMessageSearchText("");
@@ -830,47 +571,29 @@ const ConversationWindow = ({
     setActiveSearchResultIndex(-1);
     setSearchNavigationLoading(false);
 
-    searchMessages?.(
-      conversationId,
-      ""
-    );
+    searchMessages?.(conversationId, "");
   };
 
-  const handleMessageSearchChange = (
-    event
-  ) => {
-    const value =
-      event.target.value;
+  const handleMessageSearchChange = (event) => {
+    const value = event.target.value;
 
     setMessageSearchText(value);
     setActiveSearchResultIndex(-1);
     setSearchNavigationLoading(false);
 
-    /*
-     * Clear results from the previous query
-     * immediately so an old match is never
-     * selected while the new query is waiting
-     * for its debounced response.
-     */
+    // Clear results from the previous query immediately so an old
+    // match is never selected while the new query is debouncing.
     if (conversationId) {
-      searchMessages?.(
-        conversationId,
-        ""
-      );
+      searchMessages?.(conversationId, "");
     }
   };
 
-  const highlightSearchResult = (
-    resultId
-  ) => {
+  const highlightSearchResult = (resultId) => {
     if (!resultId) {
       return false;
     }
 
-    const target =
-      document.getElementById(
-        `message-${resultId}`
-      );
+    const target = document.getElementById(`message-${resultId}`);
 
     if (!target) {
       return false;
@@ -881,44 +604,27 @@ const ConversationWindow = ({
       block: "center",
     });
 
-    target.classList.add(
-      "ring-2",
-      "ring-blue-400",
-      "ring-offset-2"
-    );
+    target.classList.add("ring-2", "ring-blue-400", "ring-offset-2");
 
     setTimeout(() => {
-      target.classList.remove(
-        "ring-2",
-        "ring-blue-400",
-        "ring-offset-2"
-      );
+      target.classList.remove("ring-2", "ring-blue-400", "ring-offset-2");
     }, 1400);
 
     return true;
   };
 
-  const handleSearchResultClick = async (
-    result,
-    resultIndex = -1
-  ) => {
-    const resultId =
-      getMessageId(result);
+  const handleSearchResultClick = async (result, resultIndex = -1) => {
+    const resultId = getMessageId(result);
 
     if (!resultId) {
       return;
     }
 
     if (resultIndex >= 0) {
-      setActiveSearchResultIndex(
-        resultIndex
-      );
+      setActiveSearchResultIndex(resultIndex);
     }
 
-    const existingElement =
-      document.getElementById(
-        `message-${resultId}`
-      );
+    const existingElement = document.getElementById(`message-${resultId}`);
 
     if (existingElement) {
       requestAnimationFrame(() => {
@@ -934,76 +640,49 @@ const ConversationWindow = ({
 
     try {
       setSearchNavigationLoading(true);
-      shouldScrollToBottomRef.current =
-        false;
 
-      await loadMessageFromSearchResult(
-        result
-      );
+      // Don't pull the list back down while jumping to an old match
+      shouldScrollToBottomRef.current = false;
+
+      await loadMessageFromSearchResult(result);
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          highlightSearchResult(
-            resultId
-          );
+          highlightSearchResult(resultId);
         });
       });
     } catch (error) {
-      console.error(
-        "Failed to navigate to search result:",
-        error
-      );
+      console.error("Failed to navigate to search result:", error);
     } finally {
       setSearchNavigationLoading(false);
     }
   };
 
-  const navigateSearchResult = async (
-    direction
-  ) => {
-    const results =
-      messageSearchResults || [];
+  const navigateSearchResult = async (direction) => {
+    const results = messageSearchResults || [];
 
-    if (
-      !results.length ||
-      searchNavigationLoading
-    ) {
+    if (!results.length || searchNavigationLoading) {
       return;
     }
 
     let nextIndex;
 
     if (activeSearchResultIndex < 0) {
-      nextIndex =
-        direction > 0
-          ? 0
-          : results.length - 1;
+      nextIndex = direction > 0 ? 0 : results.length - 1;
     } else {
       nextIndex =
-        (activeSearchResultIndex +
-          direction +
-          results.length) %
+        (activeSearchResultIndex + direction + results.length) %
         results.length;
     }
 
-    setActiveSearchResultIndex(
-      nextIndex
-    );
+    setActiveSearchResultIndex(nextIndex);
 
-    await handleSearchResultClick(
-      results[nextIndex],
-      nextIndex
-    );
+    await handleSearchResultClick(results[nextIndex], nextIndex);
   };
 
-  /*
-   * WhatsApp-style behavior:
-   * once the search response arrives, automatically
-   * focus the first matching message.
-   */
+  // Once the search response arrives, focus the first match
   useEffect(() => {
-    const results =
-      messageSearchResults || [];
+    const results = messageSearchResults || [];
 
     if (
       !messageSearchOpen ||
@@ -1015,10 +694,8 @@ const ConversationWindow = ({
       return;
     }
 
-    handleSearchResultClick(
-      results[0],
-      0
-    );
+    handleSearchResultClick(results[0], 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     messageSearchResults,
     messageSearchOpen,
@@ -1028,14 +705,16 @@ const ConversationWindow = ({
   ]);
 
   /* =======================================================
-     SCROLL TO BOTTOM
+     SCROLL TO BOTTOM (UPDATED)
+
+     - Layout effect: scrolls BEFORE paint, so a chat opens
+       already at the newest message (no visible jump).
+     - ResizeObserver: images / attachments change height after
+       render, so keep following while pinned to the bottom.
   ======================================================== */
 
-  const scrollToBottom = (
-    behavior = "auto"
-  ) => {
-    const container =
-      messagesContainerRef.current;
+  const scrollToBottom = (behavior = "auto") => {
+    const container = messagesContainerRef.current;
 
     if (!container) {
       return;
@@ -1047,63 +726,57 @@ const ConversationWindow = ({
     });
   };
 
-  useEffect(() => {
-    if (!messages?.length) {
+  const hasMessages = Boolean(messages?.length);
+
+  useLayoutEffect(() => {
+    if (!hasMessages || loading) {
       return;
     }
 
-    if (
-      shouldScrollToBottomRef.current
-    ) {
-      requestAnimationFrame(() => {
-        scrollToBottom("auto");
-      });
+    if (shouldScrollToBottomRef.current) {
+      scrollToBottom("auto");
     }
-  }, [
-    messages,
-    conversationId,
-  ]);
+  }, [messages, conversationId, loading, hasMessages]);
 
-  /* =======================================================
-     MESSAGE SCROLL
-  ======================================================== */
+  useEffect(() => {
+    const content = messagesContentRef.current;
 
-  const handleMessagesScroll =
-    () => {
-      const container =
-        messagesContainerRef.current;
+    if (!content || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
 
-      if (!container) {
-        return;
+    const observer = new ResizeObserver(() => {
+      if (shouldScrollToBottomRef.current) {
+        scrollToBottom("auto");
       }
+    });
 
-      const distanceFromBottom =
-        container.scrollHeight -
-        container.scrollTop -
-        container.clientHeight;
+    observer.observe(content);
 
-      shouldScrollToBottomRef.current =
-        distanceFromBottom < 120;
-    };
+    return () => observer.disconnect();
+  }, [conversationId, loading, hasMessages]);
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+
+    shouldScrollToBottomRef.current = distanceFromBottom < 120;
+  };
 
   /* =======================================================
      COMPOSER
   ======================================================== */
 
-  const handleComposerChange = (
-    event
-  ) => {
-    const value =
-      event.target.value;
+  const handleComposerChange = (event) => {
+    const value = event.target.value;
 
-    /*
-     * If the user starts composing while messages are
-     * selected, immediately exit selection mode.
-     *
-     * IMPORTANT:
-     * Only the selection is cleared. The typed value is
-     * preserved in composerText.
-     */
+    // Start composing -> leave selection mode (typed text is preserved)
     if (selectionMode) {
       clearSelection();
     }
@@ -1112,13 +785,9 @@ const ConversationWindow = ({
 
     if (conversationId) {
       if (value.trim()) {
-        onTypingStart?.(
-          conversationId
-        );
+        onTypingStart?.(conversationId);
       } else {
-        onTypingStop?.(
-          conversationId
-        );
+        onTypingStop?.(conversationId);
       }
     }
   };
@@ -1130,62 +799,28 @@ const ConversationWindow = ({
   const handleSend = async () => {
     const text = composerText.trim();
 
-    if (
-      (!text && selectedFiles.length === 0) ||
-      sending
-    ) {
+    if ((!text && selectedFiles.length === 0) || sending) {
       return;
     }
 
-    /*
-     * Capture the reply target BEFORE sending.
-     *
-     * This is important because the reply state is cleared
-     * after a successful send.
-     */
-    const replyToId =
-      replyingTo?.id ||
-      replyingTo?._id ||
-      null;
+    // Capture the reply target BEFORE sending; reply state is
+    // cleared after a successful send.
+    const replyToId = replyingTo?.id || replyingTo?._id || null;
 
     try {
       setSending(true);
       setShowAttachmentMenu(false);
 
-      /*
-       * IMPORTANT:
-       *
-       * The third argument is the original message ID.
-       *
-       * ConversationContext.sendMessage()
-       * already accepts:
-       *
-       *   (text, files, replyTo)
-       *
-       * and communicationService.sendMessage()
-       * already sends replyTo to the backend.
-       */
-      await onSend?.(
-        text,
-        selectedFiles,
-        replyToId
-      );
+      // Third argument is the original message id
+      await onSend?.(text, selectedFiles, replyToId);
 
-      /*
-       * Clear reply state only after the message
-       * has been successfully sent.
-       */
       onCancelReply?.();
 
-      filePreviewsRef.current.forEach(
-        (preview) => {
-          if (preview?.url) {
-            URL.revokeObjectURL(
-              preview.url
-            );
-          }
+      filePreviewsRef.current.forEach((preview) => {
+        if (preview?.url) {
+          URL.revokeObjectURL(preview.url);
         }
-      );
+      });
 
       setComposerText("");
       setSelectedFiles([]);
@@ -1201,28 +836,15 @@ const ConversationWindow = ({
         scrollToBottom("smooth");
       });
     } catch (error) {
-      console.error(
-        "Failed to send message:",
-        error
-      );
+      console.error("Failed to send message:", error);
     } finally {
       setSending(false);
     }
   };
 
-  /* =======================================================
-     KEYBOARD
-  ======================================================== */
-
-  const handleComposerKeyDown = (
-    event
-  ) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
+  const handleComposerKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-
       handleSend();
     }
   };
@@ -1231,19 +853,13 @@ const ConversationWindow = ({
      FILE VALIDATION
   ======================================================== */
 
-  const validateFile = (
-    file,
-    category = fileSelectionCategory
-  ) => {
+  const validateFile = (file, category = fileSelectionCategory) => {
     if (!file) {
       return false;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      window.alert(
-        `${file.name} is larger than 10 MB.`
-      );
-
+      window.alert(`${file.name} is larger than 10 MB.`);
       return false;
     }
 
@@ -1252,10 +868,7 @@ const ConversationWindow = ({
         !file.type.startsWith("image/") &&
         !file.type.startsWith("video/")
       ) {
-        window.alert(
-          `${file.name} is not an image or video.`
-        );
-
+        window.alert(`${file.name} is not an image or video.`);
         return false;
       }
 
@@ -1263,26 +876,21 @@ const ConversationWindow = ({
     }
 
     if (category === "document") {
-      const extension =
-        file.name.split(".").pop()?.toLowerCase() || "";
+      const extension = file.name.split(".").pop()?.toLowerCase() || "";
 
       const isDocument =
         DOCUMENT_EXTENSIONS.includes(extension) ||
         ACCEPTED_FILE_TYPES.includes(file.type);
 
       if (!isDocument) {
-        window.alert(
-          `${file.name} is not a supported document type.`
-        );
-
+        window.alert(`${file.name} is not a supported document type.`);
         return false;
       }
 
       return true;
     }
 
-    // "Other files" intentionally accepts any file type;
-    // the size limit is still enforced above.
+    // "Other files" accepts any type; size limit is enforced above.
     return true;
   };
 
@@ -1291,17 +899,12 @@ const ConversationWindow = ({
   ======================================================== */
 
   const openFilePicker = (category) => {
-    if (
-      sending ||
-      selectedFiles.length >= MAX_ATTACHMENTS
-    ) {
+    if (sending || selectedFiles.length >= MAX_ATTACHMENTS) {
       setShowAttachmentMenu(false);
       return;
     }
 
-    const option = ATTACHMENT_OPTIONS.find(
-      (item) => item.id === category
-    );
+    const option = ATTACHMENT_OPTIONS.find((item) => item.id === category);
 
     if (!option || !fileInputRef.current) {
       return;
@@ -1311,12 +914,10 @@ const ConversationWindow = ({
     setFileAccept(option.accept);
     setShowAttachmentMenu(false);
 
-    // Reset the native input so selecting the same file again
-    // still triggers onChange.
+    // Reset so selecting the same file again still triggers onChange
     fileInputRef.current.value = "";
 
-    // Let React apply the latest accept value before opening
-    // the native picker.
+    // Let React apply the new accept value before opening the picker
     requestAnimationFrame(() => {
       fileInputRef.current?.click();
     });
@@ -1327,16 +928,13 @@ const ConversationWindow = ({
   ======================================================== */
 
   const handleFilesSelected = (event) => {
-    const incomingFiles = Array.from(
-      event.target.files || []
-    );
+    const incomingFiles = Array.from(event.target.files || []);
 
     if (!incomingFiles.length) {
       return;
     }
 
-    const remainingSlots =
-      MAX_ATTACHMENTS - selectedFiles.length;
+    const remainingSlots = MAX_ATTACHMENTS - selectedFiles.length;
 
     if (remainingSlots <= 0) {
       event.target.value = "";
@@ -1345,36 +943,24 @@ const ConversationWindow = ({
 
     const existingFiles = new Set(
       selectedFiles.map(
-        (file) =>
-          `${file.name}-${file.size}-${file.lastModified}`
+        (file) => `${file.name}-${file.size}-${file.lastModified}`
       )
     );
 
-    const validFiles = incomingFiles.filter(
-      (file) => {
-        const fileKey =
-          `${file.name}-${file.size}-${file.lastModified}`;
+    const validFiles = incomingFiles.filter((file) => {
+      const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
 
-        if (existingFiles.has(fileKey)) {
-          return false;
-        }
-
-        return validateFile(
-          file,
-          fileSelectionCategory
-        );
+      if (existingFiles.has(fileKey)) {
+        return false;
       }
-    );
 
-    const filesToAdd = validFiles.slice(
-      0,
-      remainingSlots
-    );
+      return validateFile(file, fileSelectionCategory);
+    });
+
+    const filesToAdd = validFiles.slice(0, remainingSlots);
 
     if (validFiles.length > filesToAdd.length) {
-      window.alert(
-        `You can attach up to ${MAX_ATTACHMENTS} files.`
-      );
+      window.alert(`You can attach up to ${MAX_ATTACHMENTS} files.`);
     }
 
     if (!filesToAdd.length) {
@@ -1382,10 +968,7 @@ const ConversationWindow = ({
       return;
     }
 
-    setSelectedFiles((current) => [
-      ...current,
-      ...filesToAdd,
-    ]);
+    setSelectedFiles((current) => [...current, ...filesToAdd]);
 
     setFilePreviews((current) => [
       ...current,
@@ -1402,51 +985,30 @@ const ConversationWindow = ({
      REMOVE FILE
   ======================================================== */
 
-  const removeSelectedFile = (
-    index
-  ) => {
-    setSelectedFiles(
-      (current) =>
-        current.filter(
-          (_, fileIndex) =>
-            fileIndex !== index
-        )
+  const removeSelectedFile = (index) => {
+    setSelectedFiles((current) =>
+      current.filter((_, fileIndex) => fileIndex !== index)
     );
 
-    setFilePreviews(
-      (current) => {
-        const preview =
-          current[index];
+    setFilePreviews((current) => {
+      const preview = current[index];
 
-        if (preview?.url) {
-          URL.revokeObjectURL(
-            preview.url
-          );
-        }
-
-        return current.filter(
-          (_, fileIndex) =>
-            fileIndex !== index
-        );
+      if (preview?.url) {
+        URL.revokeObjectURL(preview.url);
       }
-    );
+
+      return current.filter((_, fileIndex) => fileIndex !== index);
+    });
   };
 
-  /* =======================================================
-     CLEANUP FILE PREVIEWS
-  ======================================================== */
-
+  // Revoke object URLs on unmount
   useEffect(() => {
     return () => {
-      filePreviewsRef.current.forEach(
-        (preview) => {
-          if (preview?.url) {
-            URL.revokeObjectURL(
-              preview.url
-            );
-          }
+      filePreviewsRef.current.forEach((preview) => {
+        if (preview?.url) {
+          URL.revokeObjectURL(preview.url);
         }
-      );
+      });
     };
   }, []);
 
@@ -1454,9 +1016,7 @@ const ConversationWindow = ({
      REPLY
   ======================================================== */
 
-  const handleReply = (
-    message
-  ) => {
+  const handleReply = (message) => {
     if (selectionMode) {
       return;
     }
@@ -1464,15 +1024,16 @@ const ConversationWindow = ({
     onReply?.(message);
   };
 
+  const handleCancelReply = () => {
+    onCancelReply?.();
+  };
+
   /* =======================================================
      OPEN MESSAGE THREAD
   ======================================================== */
 
-  const handleOpenThread = async (
-    message
-  ) => {
-    const messageId =
-      getMessageId(message);
+  const handleOpenThread = async (message) => {
+    const messageId = getMessageId(message);
 
     if (!conversationId || !messageId) {
       return;
@@ -1482,16 +1043,10 @@ const ConversationWindow = ({
       setThreadLoading(true);
       setThreadError("");
 
-      const thread =
-        await getMessageThread(
-          conversationId,
-          messageId
-        );
+      const thread = await getMessageThread(conversationId, messageId);
 
       if (!thread) {
-        setThreadError(
-          "Unable to load this thread."
-        );
+        setThreadError("Unable to load this thread.");
         return;
       }
 
@@ -1500,222 +1055,127 @@ const ConversationWindow = ({
         messageId,
       });
     } catch (error) {
-      console.error(
-        "Failed to open message thread:",
-        error
-      );
+      console.error("Failed to open message thread:", error);
 
-      setThreadError(
-        error?.message ||
-          "Unable to load this thread."
-      );
+      setThreadError(error?.message || "Unable to load this thread.");
     } finally {
       setThreadLoading(false);
     }
   };
 
   /* =======================================================
-     CANCEL REPLY
+     SINGLE-MESSAGE HANDLERS
+     (MessageItem handles these itself via context; kept for
+     parity with the original file.)
   ======================================================== */
 
-  const handleCancelReply =
-    () => {
-      onCancelReply?.();
-    };
+  // eslint-disable-next-line no-unused-vars
+  const handleMessageReaction = async (messageId, emoji) => {
+    if (!toggleMessageReaction) {
+      return;
+    }
+
+    try {
+      await toggleMessageReaction(messageId, emoji);
+    } catch (error) {
+      console.error("Failed to toggle message reaction:", error);
+    }
+  };
+
+  // eslint-disable-next-line no-unused-vars
+  const handleSingleDeleteForMe = async (message) => {
+    const messageId = getMessageId(message);
+
+    if (!messageId || !deleteMessageForMe) {
+      return;
+    }
+
+    try {
+      await deleteMessageForMe(messageId);
+    } catch (error) {
+      console.error("Failed to delete message for me:", error);
+    }
+  };
+
+  // eslint-disable-next-line no-unused-vars
+  const handleSingleDeleteForEveryone = async (message) => {
+    const messageId = getMessageId(message);
+
+    if (!messageId || !deleteMessageForEveryone) {
+      return;
+    }
+
+    try {
+      await deleteMessageForEveryone(messageId);
+    } catch (error) {
+      console.error("Failed to delete message for everyone:", error);
+    }
+  };
 
   /* =======================================================
-     SINGLE REACTION
-  ======================================================== */
-
-  const handleMessageReaction =
-    async (
-      messageId,
-      emoji
-    ) => {
-      if (
-        !toggleMessageReaction
-      ) {
-        return;
-      }
-
-      try {
-        await toggleMessageReaction(
-          messageId,
-          emoji
-        );
-      } catch (error) {
-        console.error(
-          "Failed to toggle message reaction:",
-          error
-        );
-      }
-    };
-
-  /* =======================================================
-     SINGLE DELETE FOR ME
-  ======================================================== */
-
-  const handleSingleDeleteForMe =
-    async (message) => {
-      const messageId =
-        getMessageId(message);
-
-      if (
-        !messageId ||
-        !deleteMessageForMe
-      ) {
-        return;
-      }
-
-      try {
-        await deleteMessageForMe(
-          messageId
-        );
-      } catch (error) {
-        console.error(
-          "Failed to delete message for me:",
-          error
-        );
-      }
-    };
-
-  /* =======================================================
-     SINGLE DELETE FOR EVERYONE
-  ======================================================== */
-
-  const handleSingleDeleteForEveryone =
-    async (message) => {
-      const messageId =
-        getMessageId(message);
-
-      if (
-        !messageId ||
-        !deleteMessageForEveryone
-      ) {
-        return;
-      }
-
-      try {
-        await deleteMessageForEveryone(
-          messageId
-        );
-      } catch (error) {
-        console.error(
-          "Failed to delete message for everyone:",
-          error
-        );
-      }
-    };
-
-  /* =======================================================
-     BULK DELETE FOR ME
+     BULK ACTIONS
   ======================================================== */
 
   const handleBulkDeleteForMe = async () => {
-    if (
-      !selectedCount ||
-      processingSelection
-    ) {
+    if (!selectedCount || processingSelection) {
       return;
     }
 
     try {
       setProcessingSelection(true);
 
-      await deleteMessagesForMe(
-        Array.from(selectedMessageIds)
-      );
+      await deleteMessagesForMe(Array.from(selectedMessageIds));
 
       clearSelection();
     } catch (error) {
-      console.error(
-        "Failed to delete selected messages for me:",
-        error
-      );
+      console.error("Failed to delete selected messages for me:", error);
 
-      window.alert(
-        "Some messages could not be deleted."
-      );
+      window.alert("Some messages could not be deleted.");
     } finally {
       setProcessingSelection(false);
     }
   };
 
-  /* =======================================================
-     BULK DELETE FOR EVERYONE
-  ======================================================== */
-
-  const handleBulkDeleteForEveryone =
-    async () => {
-      if (
-        !selectedCount ||
-        !canDeleteForEveryone ||
-        processingSelection
-      ) {
-        return;
-      }
-
-      try {
-        setProcessingSelection(true);
-
-        await deleteMessagesForEveryone(
-          Array.from(selectedMessageIds)
-        );
-
-        clearSelection();
-      } catch (error) {
-        console.error(
-          "Failed to delete selected messages for everyone:",
-          error
-        );
-
-        window.alert(
-          "Some messages could not be deleted for everyone."
-        );
-      } finally {
-        setProcessingSelection(false);
-      }
-    };
-
-  /* =======================================================
-     OPEN FORWARD MODAL
-  ======================================================== */
-
-  const openForwardModal = () => {
-    if (
-      !selectedCount ||
-      !canForward ||
-      processingSelection
-    ) {
+  const handleBulkDeleteForEveryone = async () => {
+    if (!selectedCount || !canDeleteForEveryone || processingSelection) {
       return;
     }
 
-    setShowForwardModal(
-      true
-    );
+    try {
+      setProcessingSelection(true);
+
+      await deleteMessagesForEveryone(Array.from(selectedMessageIds));
+
+      clearSelection();
+    } catch (error) {
+      console.error(
+        "Failed to delete selected messages for everyone:",
+        error
+      );
+
+      window.alert("Some messages could not be deleted for everyone.");
+    } finally {
+      setProcessingSelection(false);
+    }
   };
 
-  /* =======================================================
-     CLOSE FORWARD MODAL
-  ======================================================== */
+  const openForwardModal = () => {
+    if (!selectedCount || !canForward || processingSelection) {
+      return;
+    }
+
+    setShowForwardModal(true);
+  };
 
   const closeForwardModal = () => {
     if (processingSelection) {
       return;
     }
 
-    setShowForwardModal(
-      false
-    );
+    setShowForwardModal(false);
   };
 
-  /* =======================================================
-     FORWARD
-  ======================================================== */
-
-  const handleForward = async (
-    destinationConversationIds
-  ) => {
+  const handleForward = async (destinationConversationIds) => {
     if (
       !selectedCount ||
       !destinationConversationIds?.length ||
@@ -1725,35 +1185,22 @@ const ConversationWindow = ({
     }
 
     try {
-      setProcessingSelection(
-        true
-      );
+      setProcessingSelection(true);
 
       await forwardMessages(
-        Array.from(
-          selectedMessageIds
-        ),
+        Array.from(selectedMessageIds),
         destinationConversationIds
       );
 
-      setShowForwardModal(
-        false
-      );
+      setShowForwardModal(false);
 
       clearSelection();
     } catch (error) {
-      console.error(
-        "Failed to forward messages:",
-        error
-      );
+      console.error("Failed to forward messages:", error);
 
-      window.alert(
-        "The selected messages could not be forwarded."
-      );
+      window.alert("The selected messages could not be forwarded.");
     } finally {
-      setProcessingSelection(
-        false
-      );
+      setProcessingSelection(false);
     }
   };
 
@@ -1761,76 +1208,41 @@ const ConversationWindow = ({
      TYPING LABEL
   ======================================================== */
 
-  const typingLabel =
-    useMemo(() => {
-      const users =
-        Array.isArray(
-          typingUsers
-        )
-          ? typingUsers
-          : [];
+  const typingLabel = useMemo(() => {
+    const users = Array.isArray(typingUsers) ? typingUsers : [];
 
-      if (!users.length) {
-        return "";
-      }
+    if (!users.length) {
+      return "";
+    }
 
-      if (users.length === 1) {
-        return "typing...";
-      }
+    if (users.length === 1) {
+      return "typing...";
+    }
 
-      if (users.length === 2) {
-        return "2 people are typing...";
-      }
+    if (users.length === 2) {
+      return "2 people are typing...";
+    }
 
-      return `${users.length} people are typing...`;
-    }, [typingUsers]);
+    return `${users.length} people are typing...`;
+  }, [typingUsers]);
 
-  /* =======================================================
-     CONVERSATION TITLE
-  ======================================================== */
-
-  const conversationName =
-    getConversationName(
-      conversation
-    );
+  const conversationName = getConversationName(conversation);
 
   /* =======================================================
      EMPTY CONVERSATION
+     (all hooks are above this early return)
   ======================================================== */
 
   if (!conversation) {
     return (
-      <div
-        className="
-          flex
-          h-full
-          min-h-0
-          flex-1
-          items-center
-          justify-center
-          bg-white
-        "
-      >
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center bg-white">
         <div className="text-center">
-          <p
-            className="
-              text-sm
-              font-medium
-              text-slate-700
-            "
-          >
+          <p className="text-sm font-medium text-slate-700">
             Select a conversation
           </p>
 
-          <p
-            className="
-              mt-1
-              text-xs
-              text-slate-400
-            "
-          >
-            Choose a conversation
-            to start messaging.
+          <p className="mt-1 text-xs text-slate-400">
+            Choose a conversation to start messaging.
           </p>
         </div>
       </div>
@@ -1842,151 +1254,56 @@ const ConversationWindow = ({
   ======================================================== */
 
   return (
-    <div
-      className="
-        relative
-        flex
-        h-full
-        min-h-0
-        flex-1
-        flex-col
-        bg-slate-50
-      "
-    >
+    <div className="relative flex h-full min-h-0 flex-1 flex-col bg-slate-50">
       {/* =================================================
           HEADER
       ================================================== */}
 
       {selectionMode ? (
         <MessageSelectionToolbar
-          selectedCount={
-            selectedCount
-          }
-          onCancel={
-            clearSelection
-          }
-          onForward={
-            openForwardModal
-          }
-          onDeleteForMe={
-            handleBulkDeleteForMe
-          }
-          onDeleteForEveryone={
-            handleBulkDeleteForEveryone
-          }
-          canDeleteForEveryone={
-            canDeleteForEveryone
-          }
-          processing={
-            processingSelection
-          }
+          selectedCount={selectedCount}
+          onCancel={clearSelection}
+          onForward={openForwardModal}
+          onDeleteForMe={handleBulkDeleteForMe}
+          onDeleteForEveryone={handleBulkDeleteForEveryone}
+          canDeleteForEveryone={canDeleteForEveryone}
+          processing={processingSelection}
         />
       ) : (
-        <div
-          className="
-            flex
-            shrink-0
-            items-center
-            gap-3
-            border-b
-            border-slate-200
-            bg-white
-            px-3
-            py-3
-          "
-        >
+        <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 py-3">
           {/* BACK */}
 
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="
-                flex
-                h-9
-                w-9
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                text-slate-600
-                transition
-                hover:bg-slate-100
-                md:hidden
-              "
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 md:hidden"
               aria-label="Back"
             >
-              <ArrowLeft
-                size={20}
-              />
+              <ArrowLeft size={20} />
             </button>
           )}
 
           {/* AVATAR */}
 
-          <div
-            className="
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-full
-              bg-gradient-to-br
-              from-blue-500
-              to-indigo-600
-              text-sm
-              font-semibold
-              text-white
-              shadow-sm
-            "
-          >
-            {conversationName
-              .charAt(0)
-              .toUpperCase()}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-semibold text-white shadow-sm">
+            {conversationName.charAt(0).toUpperCase()}
           </div>
 
           {/* INFO */}
 
-          <div
-            className="
-              min-w-0
-              flex-1
-            "
-          >
-            <p
-              className="
-                truncate
-                text-sm
-                font-semibold
-                text-slate-900
-              "
-            >
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-900">
               {conversationName}
             </p>
 
             {typingLabel ? (
-              <p
-                className="
-                  truncate
-                  text-xs
-                  font-medium
-                  text-blue-600
-                "
-              >
+              <p className="truncate text-xs font-medium text-blue-600">
                 {typingLabel}
               </p>
             ) : (
-              <p
-                className="
-                  truncate
-                  text-xs
-                  text-slate-400
-                "
-              >
-                {conversation?.type ===
-                "group"
+              <p className="truncate text-xs text-slate-400">
+                {conversation?.type === "group"
                   ? "Group conversation"
                   : "Conversation"}
               </p>
@@ -1994,22 +1311,18 @@ const ConversationWindow = ({
           </div>
 
           {/* MESSAGE SEARCH */}
+
           <div className="relative shrink-0">
             {messageSearchOpen ? (
               <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 shadow-sm">
-                <Search
-                  size={17}
-                  className="shrink-0 text-slate-400"
-                />
+                <Search size={17} className="shrink-0 text-slate-400" />
 
                 <input
                   ref={messageSearchInputRef}
                   type="text"
                   value={messageSearchText}
                   onChange={handleMessageSearchChange}
-                  onFocus={() =>
-                    setMessageSearchFocused(true)
-                  }
+                  onFocus={() => setMessageSearchFocused(true)}
                   onBlur={() =>
                     setTimeout(() => {
                       setMessageSearchFocused(false);
@@ -2023,12 +1336,9 @@ const ConversationWindow = ({
 
                     if (
                       event.key === "ArrowDown" ||
-                      (event.key === "Enter" &&
-                        !event.shiftKey)
+                      (event.key === "Enter" && !event.shiftKey)
                     ) {
-                      if (
-                        messageSearchResults?.length
-                      ) {
+                      if (messageSearchResults?.length) {
                         event.preventDefault();
                         navigateSearchResult(1);
                       }
@@ -2037,12 +1347,9 @@ const ConversationWindow = ({
 
                     if (
                       event.key === "ArrowUp" ||
-                      (event.key === "Enter" &&
-                        event.shiftKey)
+                      (event.key === "Enter" && event.shiftKey)
                     ) {
-                      if (
-                        messageSearchResults?.length
-                      ) {
+                      if (messageSearchResults?.length) {
                         event.preventDefault();
                         navigateSearchResult(-1);
                       }
@@ -2055,58 +1362,43 @@ const ConversationWindow = ({
 
                 {messageSearchText.trim() &&
                   messageSearchResults?.length > 0 && (
-                      <>
-                        <span className="shrink-0 px-1 text-[10px] font-medium tabular-nums text-slate-400">
-                          {activeSearchResultIndex >= 0
-                            ? activeSearchResultIndex + 1
-                            : 0}
-                          /
-                          {messageSearchResults.length}
-                        </span>
+                    <>
+                      <span className="shrink-0 px-1 text-[10px] font-medium tabular-nums text-slate-400">
+                        {activeSearchResultIndex >= 0
+                          ? activeSearchResultIndex + 1
+                          : 0}
+                        /{messageSearchResults.length}
+                      </span>
 
-                        <button
-                          type="button"
-                          onMouseDown={(event) =>
-                            event.preventDefault()
-                          }
-                          onClick={() =>
-                            navigateSearchResult(-1)
-                          }
-                          disabled={
-                            searchNavigationLoading
-                          }
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Previous search match"
-                          title="Previous match"
-                        >
-                          <ChevronUp size={15} />
-                        </button>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => navigateSearchResult(-1)}
+                        disabled={searchNavigationLoading}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous search match"
+                        title="Previous match"
+                      >
+                        <ChevronUp size={15} />
+                      </button>
 
-                        <button
-                          type="button"
-                          onMouseDown={(event) =>
-                            event.preventDefault()
-                          }
-                          onClick={() =>
-                            navigateSearchResult(1)
-                          }
-                          disabled={
-                            searchNavigationLoading
-                          }
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Next search match"
-                          title="Next match"
-                        >
-                          <ChevronDown size={15} />
-                        </button>
-                      </>
-                    )}
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => navigateSearchResult(1)}
+                        disabled={searchNavigationLoading}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next search match"
+                        title="Next match"
+                      >
+                        <ChevronDown size={15} />
+                      </button>
+                    </>
+                  )}
 
                 <button
                   type="button"
-                  onMouseDown={(event) =>
-                    event.preventDefault()
-                  }
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={handleCloseMessageSearch}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
                   aria-label="Close message search"
@@ -2132,10 +1424,7 @@ const ConversationWindow = ({
                 <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                   {messageSearchLoading ? (
                     <div className="flex items-center gap-2 px-4 py-4 text-xs text-slate-500">
-                      <Loader2
-                        size={15}
-                        className="animate-spin"
-                      />
+                      <Loader2 size={15} className="animate-spin" />
                       Searching messages...
                     </div>
                   ) : messageSearchError ? (
@@ -2144,10 +1433,8 @@ const ConversationWindow = ({
                     </div>
                   ) : messageSearchResults?.length ? (
                     <div className="max-h-[360px] overflow-y-auto py-1">
-                      {messageSearchResults.map(
-                        (result, resultIndex) => {
-                          const resultId =
-                            getMessageId(result);
+                      {messageSearchResults.map((result, resultIndex) => {
+                        const resultId = getMessageId(result);
 
                         const senderName =
                           result?.sender?.name ||
@@ -2165,18 +1452,12 @@ const ConversationWindow = ({
                           <button
                             key={resultId}
                             type="button"
-                            onMouseDown={(event) =>
-                              event.preventDefault()
-                            }
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() =>
-                              handleSearchResultClick(
-                                result,
-                                resultIndex
-                              )
+                              handleSearchResultClick(result, resultIndex)
                             }
                             className={`block w-full border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-slate-50 ${
-                              activeSearchResultIndex ===
-                              resultIndex
+                              activeSearchResultIndex === resultIndex
                                 ? "bg-blue-50"
                                 : ""
                             }`}
@@ -2185,6 +1466,7 @@ const ConversationWindow = ({
                               <span className="truncate text-xs font-semibold text-slate-700">
                                 {senderName}
                               </span>
+
                               {result?.createdAt && (
                                 <span className="shrink-0 text-[10px] text-slate-400">
                                   {new Date(
@@ -2217,159 +1499,60 @@ const ConversationWindow = ({
 
       {/* =================================================
           MESSAGE AREA
+          (keep overflow-y-auto: MessageActionBar uses it
+           to position the bar/menu)
       ================================================== */}
 
       <div
-        ref={
-          messagesContainerRef
-        }
-        onScroll={
-          handleMessagesScroll
-        }
-        className="
-          min-h-0
-          flex-1
-          overflow-y-auto
-          overflow-x-hidden
-          bg-gradient-to-b
-          from-slate-50
-          via-white
-          to-slate-50
-          px-3
-          py-4
-          sm:px-5
-        "
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 px-3 py-4 sm:px-5"
       >
         {loading ? (
-          <div
-            className="
-              flex
-              h-full
-              items-center
-              justify-center
-            "
-          >
-            <div
-              className="
-                rounded-xl
-                border
-                border-slate-200
-                bg-white
-                px-4
-                py-3
-                text-sm
-                text-slate-400
-                shadow-sm
-              "
-            >
+          <div className="flex h-full items-center justify-center">
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-400 shadow-sm">
               Loading messages...
             </div>
           </div>
         ) : messages?.length ? (
-          <div
-            className="
-              flex
-              flex-col
-              gap-3
-            "
-          >
-            {messages.map(
-              (message) => {
-                const messageId =
-                  getMessageId(
-                    message
-                  );
+          <div ref={messagesContentRef} className="flex flex-col gap-3">
+            {messages.map((message) => {
+              const messageId = getMessageId(message);
 
-                const senderId =
-                  message?.sender?.id ||
-                  message?.sender?._id ||
-                  message?.senderId;
+              const senderId =
+                message?.sender?.id ||
+                message?.sender?._id ||
+                message?.senderId;
 
-                const own =
-                  String(
-                    senderId
-                  ) ===
-                  String(
-                    currentUserId
-                  );
+              const own = String(senderId) === String(currentUserId);
 
-                return (
-                  <MessageItem
-                    key={
-                      messageId
-                    }
-                    message={
-                      message
-                    }
-                    own={own}
-                    onReply={
-                      handleReply
-                    }
-                    onOpenThread={
-                      handleOpenThread
-                    }
-                    selectionMode={
-                      selectionMode
-                    }
-                    selected={selectedMessageIds.has(
-                      String(
-                        messageId
-                      )
-                    )}
-                    onToggleSelect={
-                      toggleMessageSelection
-                    }
-                    onEnterSelectionMode={
-                      enterSelectionMode
-                    }
-                    onClearSelection={
-                      clearSelection
-                    }
-                  />
-                );
-              }
-            )}
+              return (
+                <MessageItem
+                  key={messageId}
+                  message={message}
+                  own={own}
+                  onReply={handleReply}
+                  onOpenThread={handleOpenThread}
+                  selectionMode={selectionMode}
+                  selected={selectedMessageIds.has(String(messageId))}
+                  onToggleSelect={toggleMessageSelection}
+                  onEnterSelectionMode={enterSelectionMode}
+                  onClearSelection={clearSelection}
+                  activeMenuMessageId={activeMenuMessageId}
+                  onMenuOpenChange={setActiveMenuMessageId}
+                />
+              );
+            })}
           </div>
         ) : (
-          <div
-            className="
-              flex
-              h-full
-              items-center
-              justify-center
-            "
-          >
-            <div
-              className="
-                rounded-2xl
-                border
-                border-slate-200
-                bg-white
-                px-8
-                py-7
-                text-center
-                shadow-sm
-              "
-            >
-              <p
-                className="
-                  text-sm
-                  font-semibold
-                  text-slate-700
-                "
-              >
+          <div className="flex h-full items-center justify-center">
+            <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7 text-center shadow-sm">
+              <p className="text-sm font-semibold text-slate-700">
                 No messages yet
               </p>
 
-              <p
-                className="
-                  mt-1
-                  text-xs
-                  text-slate-400
-                "
-              >
-                Send a message to
-                start the conversation.
+              <p className="mt-1 text-xs text-slate-400">
+                Send a message to start the conversation.
               </p>
             </div>
           </div>
@@ -2380,247 +1563,88 @@ const ConversationWindow = ({
           REPLY PREVIEW
       ================================================== */}
 
-      {!selectionMode &&
-        replyingTo && (
-          <div
-            className="
-              shrink-0
-              border-t
-              border-slate-200
-              bg-white
-              px-3
-              py-2
-            "
-          >
-            <div
-              className="
-                flex
-                items-start
-                gap-3
-              "
-            >
-              <div
-                className="
-                  min-w-0
-                  flex-1
-                  border-l-2
-                  border-blue-500
-                  pl-3
-                "
-              >
-                <p
-                  className="
-                    text-xs
-                    font-semibold
-                    text-blue-600
-                  "
-                >
-                  Replying to{" "}
-                  {replyingTo.sender
-                    ?.name ||
-                    "message"}
-                </p>
+      {!selectionMode && replyingTo && (
+        <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1 border-l-2 border-blue-500 pl-3">
+              <p className="text-xs font-semibold text-blue-600">
+                Replying to {replyingTo.sender?.name || "message"}
+              </p>
 
-                <p
-                  className="
-                    mt-0.5
-                    truncate
-                    text-xs
-                    text-slate-600
-                  "
-                >
-                  {replyingTo.text ||
-                    (replyingTo
-                      .attachments
-                      ?.length
-                      ? "Attachment"
-                      : "Message")}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={
-                  handleCancelReply
-                }
-                className="
-                  flex
-                  h-7
-                  w-7
-                  shrink-0
-                  items-center
-                  justify-center
-                  rounded-full
-                  text-slate-400
-                  transition
-                  hover:bg-slate-100
-                  hover:text-slate-700
-                "
-                aria-label="Cancel reply"
-              >
-                <X size={16} />
-              </button>
+              <p className="mt-0.5 truncate text-xs text-slate-600">
+                {replyingTo.text ||
+                  (replyingTo.attachments?.length
+                    ? "Attachment"
+                    : "Message")}
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={handleCancelReply}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Cancel reply"
+            >
+              <X size={16} />
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
       {/* =================================================
           ATTACHMENT PREVIEW
       ================================================== */}
 
-      {!selectionMode &&
-        filePreviews.length >
-          0 && (
-          <div
-            className="
-              shrink-0
-              border-t
-              border-slate-200
-              bg-white
-              px-3
-              py-2
-            "
-          >
-            <div
-              className="
-                flex
-                gap-2
-                overflow-x-auto
-                pb-1
-              "
-            >
-              {filePreviews.map(
-                (
-                  preview,
-                  index
-                ) => {
-                  const file =
-                    preview.file;
+      {!selectionMode && filePreviews.length > 0 && (
+        <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {filePreviews.map((preview, index) => {
+              const file = preview.file;
+              const isImage = file?.type?.startsWith("image/");
+              const isVideo = file?.type?.startsWith("video/");
 
-                  const isImage =
-                    file?.type?.startsWith(
-                      "image/"
-                    );
+              return (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                >
+                  {isImage ? (
+                    <img
+                      src={preview.url}
+                      alt={file.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : isVideo ? (
+                    <video
+                      src={preview.url}
+                      muted
+                      playsInline
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-1">
+                      <FileText size={20} className="text-slate-500" />
 
-                  const isVideo =
-                    file?.type?.startsWith(
-                      "video/"
-                    );
-
-                  return (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="
-                        relative
-                        h-16
-                        w-16
-                        shrink-0
-                        overflow-hidden
-                        rounded-xl
-                        border
-                        border-slate-200
-                        bg-white
-                        shadow-sm
-                      "
-                    >
-                      {isImage ? (
-                        <img
-                          src={
-                            preview.url
-                          }
-                          alt={
-                            file.name
-                          }
-                          className="
-                            h-full
-                            w-full
-                            object-cover
-                          "
-                        />
-                      ) : isVideo ? (
-                        <video
-                          src={preview.url}
-                          muted
-                          playsInline
-                          className="
-                            h-full
-                            w-full
-                            object-cover
-                          "
-                        />
-                      ) : (
-                        <div
-                          className="
-                            flex
-                            h-full
-                            w-full
-                            flex-col
-                            items-center
-                            justify-center
-                            gap-1
-                            p-1
-                          "
-                        >
-                          <FileText
-                            size={
-                              20
-                            }
-                            className="
-                              text-slate-500
-                            "
-                          />
-
-                          <span
-                            className="
-                              max-w-full
-                              truncate
-                              px-1
-                              text-[9px]
-                              text-slate-500
-                            "
-                          >
-                            {
-                              file.name
-                            }
-                          </span>
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeSelectedFile(
-                            index
-                          )
-                        }
-                        className="
-                          absolute
-                          right-1
-                          top-1
-                          flex
-                          h-5
-                          w-5
-                          items-center
-                          justify-center
-                          rounded-full
-                          bg-slate-900/70
-                          text-white
-                          transition
-                          hover:bg-slate-900
-                        "
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X
-                          size={12}
-                        />
-                      </button>
+                      <span className="max-w-full truncate px-1 text-[9px] text-slate-500">
+                        {file.name}
+                      </span>
                     </div>
-                  );
-                }
-              )}
-            </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => removeSelectedFile(index)}
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/70 text-white transition hover:bg-slate-900"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
 
       {/* =================================================
           COMPOSER
@@ -2637,41 +1661,18 @@ const ConversationWindow = ({
           onChange={handleFilesSelected}
         />
 
-        {/* Composer row */}
         <div className="flex w-full items-end gap-2">
           {/* Attachment button + floating menu */}
-          <div
-            ref={attachmentMenuRef}
-            className="relative shrink-0"
-          >
+          <div ref={attachmentMenuRef} className="relative shrink-0">
             <button
               type="button"
-              onClick={() =>
-                setShowAttachmentMenu(
-                  (current) => !current
-                )
-              }
-              disabled={
-                sending ||
-                selectedFiles.length >= MAX_ATTACHMENTS
-              }
-              className={`
-                flex
-                h-10
-                w-10
-                items-center
-                justify-center
-                rounded-full
-                transition-all
-                duration-200
-                disabled:cursor-not-allowed
-                disabled:opacity-40
-                ${
-                  showAttachmentMenu
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-blue-600"
-                }
-              `}
+              onClick={() => setShowAttachmentMenu((current) => !current)}
+              disabled={sending || selectedFiles.length >= MAX_ATTACHMENTS}
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+                showAttachmentMenu
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+              }`}
               aria-label="Attach files"
               aria-haspopup="menu"
               aria-expanded={showAttachmentMenu}
@@ -2679,44 +1680,18 @@ const ConversationWindow = ({
             >
               <Paperclip
                 size={20}
-                className={`
-                  transition-transform
-                  duration-200
-                  ${
-                    showAttachmentMenu
-                      ? "rotate-45"
-                      : ""
-                  }
-                `}
+                className={`transition-transform duration-200 ${
+                  showAttachmentMenu ? "rotate-45" : ""
+                }`}
               />
             </button>
 
             {showAttachmentMenu && (
               <div
-                className="
-                  absolute
-                  bottom-12
-                  left-0
-                  z-50
-                  w-72
-                  overflow-hidden
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  bg-white
-                  shadow-xl
-                  shadow-slate-300/30
-                "
+                className="absolute bottom-12 left-0 z-50 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-300/30"
                 role="menu"
               >
-                <div
-                  className="
-                    border-b
-                    border-slate-100
-                    px-4
-                    py-3
-                  "
-                >
+                <div className="border-b border-slate-100 px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-800">
@@ -2742,35 +1717,11 @@ const ConversationWindow = ({
                         key={option.id}
                         type="button"
                         role="menuitem"
-                        onClick={() =>
-                          openFilePicker(option.id)
-                        }
-                        className="
-                          flex
-                          w-full
-                          items-center
-                          gap-3
-                          rounded-xl
-                          px-3
-                          py-3
-                          text-left
-                          transition-colors
-                          hover:bg-slate-50
-                          focus:bg-slate-50
-                          focus:outline-none
-                        "
+                        onClick={() => openFilePicker(option.id)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
                       >
                         <span
-                          className={`
-                            flex
-                            h-10
-                            w-10
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-xl
-                            ${option.iconClass}
-                          `}
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${option.iconClass}`}
                         >
                           <Icon size={20} />
                         </span>
@@ -2788,15 +1739,7 @@ const ConversationWindow = ({
                   })}
                 </div>
 
-                <div
-                  className="
-                    border-t
-                    border-slate-100
-                    bg-slate-50
-                    px-4
-                    py-2
-                  "
-                >
+                <div className="border-t border-slate-100 bg-slate-50 px-4 py-2">
                   <p className="text-[10px] text-slate-400">
                     Maximum file size: 10 MB each
                   </p>
@@ -2805,7 +1748,7 @@ const ConversationWindow = ({
             )}
           </div>
 
-          {/* Message input area */}
+          {/* Message input */}
           <div className="min-w-0 flex-1">
             <textarea
               value={composerText}
@@ -2814,32 +1757,7 @@ const ConversationWindow = ({
               rows={1}
               placeholder="Type a message..."
               disabled={sending}
-              className="
-                block
-                max-h-32
-                min-h-[40px]
-                w-full
-                resize-none
-                overflow-y-auto
-                rounded-2xl
-                border
-                border-slate-200
-                bg-slate-50
-                px-4
-                py-2.5
-                text-sm
-                leading-5
-                text-slate-900
-                outline-none
-                transition-all
-                placeholder:text-slate-400
-                focus:border-blue-400
-                focus:bg-white
-                focus:ring-2
-                focus:ring-blue-100
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-              "
+              className="block max-h-32 min-h-[40px] w-full resize-none overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm leading-5 text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
@@ -2848,33 +1766,9 @@ const ConversationWindow = ({
             type="button"
             onClick={handleSend}
             disabled={
-              sending ||
-              (!composerText.trim() &&
-                selectedFiles.length === 0)
+              sending || (!composerText.trim() && selectedFiles.length === 0)
             }
-            className="
-              flex
-              h-10
-              w-10
-              shrink-0
-              items-center
-              justify-center
-              rounded-full
-              bg-gradient-to-br
-              from-blue-600
-              to-indigo-600
-              text-white
-              shadow-sm
-              transition-all
-              hover:from-blue-700
-              hover:to-indigo-700
-              hover:shadow-md
-              active:scale-95
-              disabled:cursor-not-allowed
-              disabled:bg-slate-300
-              disabled:bg-none
-              disabled:shadow-none
-            "
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-sm transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:bg-none disabled:shadow-none"
             aria-label="Send message"
             title="Send message"
           >
@@ -2923,81 +1817,22 @@ const ConversationWindow = ({
       ================================================== */}
 
       {activeThread && (
-        <div
-          className="
-            absolute
-            inset-y-0
-            right-0
-            z-30
-            flex
-            w-full
-            max-w-[420px]
-            flex-col
-            border-l
-            border-slate-200
-            bg-white
-            shadow-2xl
-          "
-        >
+        <div className="absolute inset-y-0 right-0 z-30 flex w-full max-w-[420px] flex-col border-l border-slate-200 bg-white shadow-2xl">
           {/* THREAD HEADER */}
 
-          <div
-            className="
-              flex
-              shrink-0
-              items-center
-              gap-3
-              border-b
-              border-slate-200
-              bg-white
-              px-4
-              py-3
-            "
-          >
-            <div
-              className="
-                flex
-                h-9
-                w-9
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-blue-50
-                text-blue-600
-              "
-            >
-              <MessageCircle
-                size={18}
-              />
+          <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <MessageCircle size={18} />
             </div>
 
             <div className="min-w-0 flex-1">
-              <p
-                className="
-                  text-sm
-                  font-semibold
-                  text-slate-900
-                "
-              >
-                Thread
-              </p>
+              <p className="text-sm font-semibold text-slate-900">Thread</p>
 
-              <p
-                className="
-                  truncate
-                  text-xs
-                  text-slate-400
-                "
-              >
-                {Array.isArray(
-                  activeThread.replies
-                )
+              <p className="truncate text-xs text-slate-400">
+                {Array.isArray(activeThread.replies)
                   ? activeThread.replies.length
                   : 0}{" "}
-                {Array.isArray(
-                  activeThread.replies
-                ) &&
+                {Array.isArray(activeThread.replies) &&
                 activeThread.replies.length === 1
                   ? "reply"
                   : "replies"}
@@ -3006,22 +1841,8 @@ const ConversationWindow = ({
 
             <button
               type="button"
-              onClick={() =>
-                setActiveThread(null)
-              }
-              className="
-                flex
-                h-8
-                w-8
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                text-slate-400
-                transition
-                hover:bg-slate-100
-                hover:text-slate-700
-              "
+              onClick={() => setActiveThread(null)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               aria-label="Close thread"
             >
               <X size={18} />
@@ -3030,61 +1851,18 @@ const ConversationWindow = ({
 
           {/* THREAD CONTENT */}
 
-          <div
-            className="
-              min-h-0
-              flex-1
-              overflow-y-auto
-              bg-slate-50
-              px-3
-              py-4
-            "
-          >
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-3 py-4">
             {threadLoading ? (
-              <div
-                className="
-                  flex
-                  h-full
-                  items-center
-                  justify-center
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    text-sm
-                    text-slate-400
-                  "
-                >
-                  <Loader2
-                    size={18}
-                    className="animate-spin"
-                  />
-
+              <div className="flex h-full items-center justify-center">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Loader2 size={18} className="animate-spin" />
                   Loading thread...
                 </div>
               </div>
             ) : threadError ? (
-              <div
-                className="
-                  flex
-                  h-full
-                  items-center
-                  justify-center
-                  px-6
-                  text-center
-                "
-              >
+              <div className="flex h-full items-center justify-center px-6 text-center">
                 <div>
-                  <p
-                    className="
-                      text-sm
-                      font-medium
-                      text-red-500
-                    "
-                  >
+                  <p className="text-sm font-medium text-red-500">
                     {threadError}
                   </p>
 
@@ -3096,17 +1874,7 @@ const ConversationWindow = ({
                         id: activeThread.messageId,
                       })
                     }
-                    className="
-                      mt-3
-                      rounded-lg
-                      bg-blue-600
-                      px-3
-                      py-2
-                      text-xs
-                      font-medium
-                      text-white
-                      hover:bg-blue-700
-                    "
+                    className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
                   >
                     Try again
                   </button>
@@ -3118,27 +1886,13 @@ const ConversationWindow = ({
 
                 {activeThread.parent && (
                   <div>
-                    <p
-                      className="
-                        mb-2
-                        px-1
-                        text-[11px]
-                        font-semibold
-                        uppercase
-                        tracking-wide
-                        text-slate-400
-                      "
-                    >
+                    <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                       Original message
                     </p>
 
                     <ThreadMessage
-                      message={
-                        activeThread.parent
-                      }
-                      currentUserId={
-                        currentUserId
-                      }
+                      message={activeThread.parent}
+                      currentUserId={currentUserId}
                     />
                   </div>
                 )}
@@ -3146,55 +1900,23 @@ const ConversationWindow = ({
                 {/* REPLIES */}
 
                 <div>
-                  <p
-                    className="
-                      mb-2
-                      px-1
-                      text-[11px]
-                      font-semibold
-                      uppercase
-                      tracking-wide
-                      text-slate-400
-                    "
-                  >
+                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                     Replies
                   </p>
 
                   {activeThread.replies?.length ? (
                     <div className="space-y-2">
-                      {activeThread.replies.map(
-                        (reply) => (
-                          <ThreadMessage
-                            key={getMessageId(
-                              reply
-                            )}
-                            message={reply}
-                            currentUserId={
-                              currentUserId
-                            }
-                          />
-                        )
-                      )}
+                      {activeThread.replies.map((reply) => (
+                        <ThreadMessage
+                          key={getMessageId(reply)}
+                          message={reply}
+                          currentUserId={currentUserId}
+                        />
+                      ))}
                     </div>
                   ) : (
-                    <div
-                      className="
-                        rounded-xl
-                        border
-                        border-dashed
-                        border-slate-200
-                        bg-white
-                        px-4
-                        py-6
-                        text-center
-                      "
-                    >
-                      <p
-                        className="
-                          text-sm
-                          text-slate-400
-                        "
-                      >
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center">
+                      <p className="text-sm text-slate-400">
                         No replies yet.
                       </p>
                     </div>
@@ -3211,24 +1933,14 @@ const ConversationWindow = ({
       ================================================== */}
 
       <ForwardMessageModal
-        open={
-          showForwardModal
-        }
-        conversations={
-          conversations
-        }
-        onClose={
-          closeForwardModal
-        }
-        onForward={
-          handleForward
-        }
-        processing={
-            processingSelection
-          }
-        />
-      </div>
-    );
-  };
+        open={showForwardModal}
+        conversations={conversations}
+        onClose={closeForwardModal}
+        onForward={handleForward}
+        processing={processingSelection}
+      />
+    </div>
+  );
+};
 
-  export default ConversationWindow;
+export default ConversationWindow;

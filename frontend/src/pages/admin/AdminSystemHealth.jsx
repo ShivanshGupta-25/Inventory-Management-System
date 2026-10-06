@@ -35,14 +35,14 @@ import SystemHealthInfrastructure from "../../components/admin/systemHealth/Syst
 // ------------------------------------------------------------
 
 const REFRESH_OPTIONS = [
+  { label: "0.5 seconds", value: 500 },
+  { label: "1 seconds", value: 1000 },
   { label: "5 seconds", value: 5000 },
   { label: "10 seconds", value: 10000 },
-  { label: "30 seconds", value: 30000 },
   { label: "1 minute", value: 60000 },
-  { label: "5 minutes", value: 300000 },
 ];
 
-const DEFAULT_REFRESH_INTERVAL = 10000;
+const DEFAULT_REFRESH_INTERVAL = 1000;
 const HISTORY_LIMIT = 30;
 const MAX_BACKOFF_MULTIPLIER = 8;
 const STORAGE_KEY = "adminSystemHealth:prefs";
