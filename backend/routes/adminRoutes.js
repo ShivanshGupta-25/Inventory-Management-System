@@ -15,6 +15,10 @@ const {
   changePassword,
 } = require("../controllers/adminController");
 
+const {
+  getAdminReports,
+} = require("../controllers/adminReportController");
+
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 const { systemHealth } = require("../controllers/systemHealthController");
@@ -127,6 +131,15 @@ router.patch(
 router.get(
   "/system-health",
   systemHealth
+);
+
+// --------------------------------------------------
+// ADMIN REPORTS
+// --------------------------------------------------
+
+router.get(
+  "/reports",
+  getAdminReports
 );
 
 module.exports = router;

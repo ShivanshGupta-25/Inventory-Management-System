@@ -1,32 +1,65 @@
 const mongoose = require("mongoose");
+const os = require("os");
 
-const getSystemHealth = async () => {
-  const checkedAt = new Date();
 
-  // ------------------------------------------------------------
-  // DATABASE HEALTH
-  // ------------------------------------------------------------
+const {
+  getSecurityHealth,
+} = require("./securityEventService");
 
+
+/*
+|--------------------------------------------------------------------------
+| DATABASE HEALTH
+|--------------------------------------------------------------------------
+*/
+
+const getDatabaseHealth = async () => {
   let database = {
     status: "critical",
     latency: null,
     state: "disconnected",
     databaseName: null,
+    collections: null,
+    dataSize: null,
+    storageSize: null,
   };
 
   try {
+    if (!mongoose.connection.db) {
+      return database;
+    }
+
     const start = Date.now();
 
-    // Ping MongoDB
     await mongoose.connection.db.admin().ping();
 
     const latency = Date.now() - start;
 
+    const stats =
+      await mongoose.connection.db.stats();
+
+    const collections = stats.collections ?? 0;
+    const dataSize = stats.dataSize ?? 0;
+    const storageSize = stats.storageSize ?? 0;
+
+    let status = "healthy";
+
+    if (latency > 500) {
+      status = "warning";
+    }
+
+    if (latency > 1500) {
+      status = "critical";
+    }
+
     database = {
-      status: "healthy",
+      status,
       latency,
       state: mongoose.connection.readyState,
       databaseName: mongoose.connection.name,
+      collections,
+      dataSize,
+      storageSize,
     };
   } catch (error) {
     console.error(
@@ -35,18 +68,95 @@ const getSystemHealth = async () => {
     );
   }
 
-  // ------------------------------------------------------------
-  // SERVER HEALTH
-  // ------------------------------------------------------------
+  return database;
+};
 
+/*
+|--------------------------------------------------------------------------
+| SERVER / INFRASTRUCTURE HEALTH
+|--------------------------------------------------------------------------
+*/
+
+const getServerHealth = () => {
   const memoryUsage = process.memoryUsage();
 
-  const server = {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const usedMemory = totalMemory - freeMemory;
+
+  const memoryPercentage =
+    totalMemory > 0
+      ? Number(
+          ((usedMemory / totalMemory) * 100).toFixed(2)
+        )
+      : 0;
+
+  const loadAverage = os.loadavg();
+
+  /*
+   * Important:
+   *
+   * The API server has successfully reached this function,
+   * therefore the server/process itself is operational.
+   *
+   * Resource pressure is tracked separately.
+   */
+
+  let resourceStatus = "healthy";
+
+  if (memoryPercentage >= 80) {
+    resourceStatus = "warning";
+  }
+
+  if (memoryPercentage >= 90) {
+    resourceStatus = "critical";
+  }
+
+  return {
+    /*
+     * API/process availability
+     */
     status: "healthy",
-    uptime: Math.floor(process.uptime()),
+
+    /*
+     * Infrastructure/resource condition
+     */
+    resources: {
+      status: resourceStatus,
+
+      memory: {
+        total: totalMemory,
+        free: freeMemory,
+        used: usedMemory,
+        percentage: memoryPercentage,
+      },
+
+      cpu: {
+        cores: os.cpus().length,
+        loadAverage: loadAverage.map(
+          (value) =>
+            Number(value.toFixed(2))
+        ),
+      },
+    },
+
+    uptime: Math.floor(
+      process.uptime()
+    ),
+
     nodeVersion: process.version,
+
     environment:
-      process.env.NODE_ENV || "development",
+      process.env.NODE_ENV ||
+      "development",
+
+    platform: process.platform,
+
+    architecture: process.arch,
+
+    /*
+     * Node.js process memory
+     */
     memory: {
       rss: memoryUsage.rss,
       heapTotal: memoryUsage.heapTotal,
@@ -54,49 +164,95 @@ const getSystemHealth = async () => {
       external: memoryUsage.external,
     },
   };
+};
 
-  // ------------------------------------------------------------
-  // AUTHENTICATION
-  // ------------------------------------------------------------
+/*
+|--------------------------------------------------------------------------
+| SYSTEM HEALTH
+|--------------------------------------------------------------------------
+*/
 
-  /*
-   * Authentication is part of the same API process.
-   *
-   * A deeper authentication probe can be added later.
-   * For now, the API being operational means the auth
-   * service is available.
-   */
+const getSystemHealth = async () => {
+  const checkedAt = new Date();
+
+  const database =
+    await getDatabaseHealth();
+
+  const server =
+    getServerHealth();
+
+  const security =
+    await getSecurityHealth();
+
   const authentication = {
-    status: "healthy",
+    status: process.env.JWT_SECRET
+        ? "healthy"
+        : "critical",
+
     provider: "JWT",
+
+    secretConfigured:
+        Boolean(process.env.JWT_SECRET),
   };
 
-  // ------------------------------------------------------------
-  // RATE LIMITING
-  // ------------------------------------------------------------
-
-  /*
-   * Your application already uses rateLimit middleware.
-   *
-   * At this stage we report whether the protection is
-   * configured rather than inventing a request count.
-   */
   const rateLimiting = {
     status: "configured",
   };
 
-  // ------------------------------------------------------------
-  // OVERALL STATUS
-  // ------------------------------------------------------------
+  /*
+   * Overall system status
+   *
+   * Resource pressure is intentionally NOT treated
+   * as API availability.
+   */
 
-  const overallStatus =
-    database.status === "critical"
-      ? "critical"
-      : "healthy";
+  let overallStatus = "healthy";
 
-  // ------------------------------------------------------------
-  // RETURN HEALTH DATA
-  // ------------------------------------------------------------
+    const criticalServices = [
+    database.status,
+    server.status,
+    authentication.status,
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Core service health
+    |--------------------------------------------------------------------------
+    |
+    | Actual service failures are critical.
+    |
+    */
+
+    if (
+    criticalServices.includes("critical")
+    ) {
+    overallStatus = "critical";
+    } else if (
+    criticalServices.includes("warning")
+    ) {
+    overallStatus = "warning";
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Infrastructure / resource health
+    |--------------------------------------------------------------------------
+    |
+    | High resource usage should degrade the system,
+    | but should not falsely report a service as unavailable.
+    |
+    */
+
+    if (
+        server.resources.status === "critical"
+    ) {
+        overallStatus = "critical";
+    } else if (
+        server.resources.status === "warning" &&
+        overallStatus === "healthy"
+    ) {
+        overallStatus = "warning";
+    }
 
   return {
     status: overallStatus,
@@ -110,6 +266,8 @@ const getSystemHealth = async () => {
     authentication,
 
     rateLimiting,
+
+    security,
   };
 };
 

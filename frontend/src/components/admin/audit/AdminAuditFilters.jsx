@@ -33,10 +33,10 @@ const ACTION_OPTIONS = [
     value: "USER_DELETED",
     label: "User deleted",
   },
-  {
-    value: "PASSWORD_CHANGED",
-    label: "Password changed",
-  },
+//   {
+//     value: "PASSWORD_CHANGED",
+//     label: "Password changed",
+//   },
 ];
 
 const AdminAuditFilters = ({

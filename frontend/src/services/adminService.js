@@ -307,3 +307,28 @@ export const getAdminSystemHealth = async () =>
   apiRequest("/admin/system-health", {
     method: "GET",
   });
+
+// ==================================================
+// GET ADMIN REPORTS
+// ==================================================
+export const getAdminReports = async ({
+  from = "",
+  to = "",
+} = {}) => {
+  const params = new URLSearchParams();
+
+  if (from) {
+    params.set("from", from);
+  }
+
+  if (to) {
+    params.set("to", to);
+  }
+
+  return apiRequest(
+    `/admin/reports?${params.toString()}`,
+    {
+      method: "GET",
+    }
+  );
+};

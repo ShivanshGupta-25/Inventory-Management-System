@@ -1,98 +1,102 @@
 import {
-  Activity,
-  AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock3,
-  Info,
+  ShieldAlert,
+  UserCheck,
 } from "lucide-react";
-
-const eventIcons = {
-  success: CheckCircle2,
-  warning: AlertCircle,
-  error: AlertCircle,
-  info: Info,
-};
-
-const eventClasses = {
-  success: "bg-emerald-50 text-emerald-600",
-  warning: "bg-amber-50 text-amber-600",
-  error: "bg-red-50 text-red-600",
-  info: "bg-sky-50 text-sky-600",
-};
 
 const SystemHealthEvents = ({
   events = [],
 }) => {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+      <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
         <div>
           <h2 className="text-sm font-bold text-slate-900">
             Recent System Events
           </h2>
 
           <p className="mt-1 text-xs text-slate-500">
-            Recent events related to system availability.
+            Recent authentication and security activity.
           </p>
         </div>
-
-        <Activity
-          size={17}
-          className="text-slate-300"
-        />
       </div>
 
       {events.length === 0 ? (
-        <div className="p-8 text-center">
-          <Activity
-            size={22}
-            className="mx-auto text-slate-300"
-          />
+        <div className="flex min-h-32 items-center justify-center px-5 py-8">
+          <div className="text-center">
+            <CheckCircle2
+              size={20}
+              className="mx-auto text-emerald-500"
+            />
 
-          <p className="mt-3 text-sm font-medium text-slate-600">
-            No recent system events
-          </p>
+            <p className="mt-2 text-xs font-semibold text-slate-700">
+              No recent security events
+            </p>
 
-          <p className="mt-1 text-xs text-slate-400">
-            System events will appear here when monitoring
-            is available.
-          </p>
+            <p className="mt-1 text-[10px] text-slate-400">
+              No authentication activity requires attention.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
           {events.map((event) => {
+            const config =
+              getEventConfig(event.type);
+
             const Icon =
-              eventIcons[event.type] ||
-              Info;
+              config.icon;
 
             return (
               <div
-                key={event.id}
+                key={event._id}
                 className="flex items-start gap-3 px-5 py-4 sm:px-6"
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                    eventClasses[event.type] ||
-                    eventClasses.info
-                  }`}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.iconContainer}`}
                 >
                   <Icon size={14} />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-slate-800">
-                    {event.title}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold text-slate-800">
+                      {config.label}
+                    </p>
+
+                    <span
+                      className={`rounded-full border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${getSeverityClass(
+                        event.severity
+                      )}`}
+                    >
+                      {event.severity}
+                    </span>
+                  </div>
+
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                    {event.description}
                   </p>
 
-                  {event.description && (
-                    <p className="mt-1 text-[10px] leading-4 text-slate-400">
-                      {event.description}
-                    </p>
-                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[9px] text-slate-400">
+                    {event.email && (
+                      <span>
+                        {event.email}
+                      </span>
+                    )}
 
-                  <div className="mt-2 flex items-center gap-1 text-[9px] text-slate-400">
-                    <Clock3 size={10} />
-                    {event.time || "Unknown"}
+                    {event.ipAddress && (
+                      <span>
+                        IP {event.ipAddress}
+                      </span>
+                    )}
+
+                    <span>
+                      {formatEventTime(
+                        event.createdAt
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -101,6 +105,94 @@ const SystemHealthEvents = ({
         </div>
       )}
     </section>
+  );
+};
+
+const getEventConfig = (
+  type
+) => {
+  switch (type) {
+    case "LOGIN_SUCCESS":
+      return {
+        label: "Successful Login",
+        icon: UserCheck,
+        iconContainer:
+          "bg-emerald-50 text-emerald-600",
+      };
+
+    case "LOGIN_FAILED":
+      return {
+        label: "Failed Login",
+        icon: AlertTriangle,
+        iconContainer:
+          "bg-amber-50 text-amber-600",
+      };
+
+    case "SUSPICIOUS_ACTIVITY":
+      return {
+        label: "Suspicious Activity",
+        icon: ShieldAlert,
+        iconContainer:
+          "bg-red-50 text-red-600",
+      };
+
+    case "RATE_LIMIT_TRIGGERED":
+      return {
+        label: "Rate Limit Triggered",
+        icon: ShieldAlert,
+        iconContainer:
+          "bg-violet-50 text-violet-600",
+      };
+
+    default:
+      return {
+        label: "Security Event",
+        icon: Clock3,
+        iconContainer:
+          "bg-slate-100 text-slate-600",
+      };
+  }
+};
+
+const getSeverityClass = (
+  severity
+) => {
+  switch (severity) {
+    case "critical":
+      return "border-red-100 bg-red-50 text-red-700";
+
+    case "warning":
+      return "border-amber-100 bg-amber-50 text-amber-700";
+
+    case "info":
+      return "border-sky-100 bg-sky-50 text-sky-700";
+
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
+};
+
+const formatEventTime = (
+  value
+) => {
+  if (!value) {
+    return "Unknown time";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown time";
+  }
+
+  return date.toLocaleString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
   );
 };
 

@@ -79,6 +79,13 @@ const login = async (req, res) => {
       await loginUser({
         email,
         password,
+
+        // Security monitoring metadata
+        ipAddress:
+          req.ip || null,
+
+        userAgent:
+          req.get("user-agent") || null,
       });
 
     return res.status(200).json({

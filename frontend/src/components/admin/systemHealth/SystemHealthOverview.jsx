@@ -25,7 +25,7 @@ const SystemHealthOverview = ({
     warning: {
       label: "System Degraded",
       description:
-        "One or more services require attention.",
+        "One or more services or infrastructure resources require attention.",
       icon: CircleAlert,
       container:
         "border-amber-200 bg-amber-50",
@@ -36,37 +36,51 @@ const SystemHealthOverview = ({
     },
 
     critical: {
-      label: "System Critical",
+        label: "System Critical",
+        description:
+            "One or more critical services or infrastructure resources require immediate attention.",
+        icon: XCircle,
+        container:
+            "border-red-200 bg-red-50",
+        iconContainer:
+            "bg-red-100 text-red-600",
+        title: "text-red-900",
+        text: "text-red-700",
+        },
+
+    unknown: {
+      label: "Monitoring Unavailable",
       description:
-        "One or more critical services are unavailable.",
-      icon: XCircle,
+        "System health data could not be fully determined.",
+      icon: CircleAlert,
       container:
-        "border-red-200 bg-red-50",
+        "border-slate-200 bg-slate-100",
       iconContainer:
-        "bg-red-100 text-red-600",
-      title: "text-red-900",
-      text: "text-red-700",
+        "bg-slate-200 text-slate-600",
+      title: "text-slate-900",
+      text: "text-slate-600",
     },
   };
 
   const current =
-    config[status] || config.healthy;
+    config[status] || config.unknown;
 
   const Icon = current.icon;
 
   return (
     <section
-      className={`rounded-2xl border p-5 shadow-sm sm:p-6 ${current.container}`}
+    //   className={`rounded-2xl border p-5 shadow-sm sm:p-6 ${current.container}`}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        
         <div className="flex items-start gap-4">
           <div
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${current.iconContainer}`}
           >
-            <Icon size={24} />
+            <Icon size={24} strokeWidth={2} />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2
                 className={`text-base font-bold ${current.title}`}
@@ -99,7 +113,7 @@ const SystemHealthOverview = ({
             {lastChecked || "Not checked yet"}
           </p>
         </div>
-      </div>
+      </div> */}
     </section>
   );
 };

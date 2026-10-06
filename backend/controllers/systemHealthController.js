@@ -6,13 +6,8 @@ const systemHealth = async (req, res) => {
   try {
     const health = await getSystemHealth();
 
-    const httpStatus =
-      health.status === "critical"
-        ? 503
-        : 200;
-
-    return res.status(httpStatus).json({
-      success: health.status !== "critical",
+    return res.status(200).json({
+      success: true,
       health,
     });
   } catch (error) {
@@ -23,8 +18,7 @@ const systemHealth = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to retrieve system health.",
+      message: "Unable to retrieve system health.",
     });
   }
 };

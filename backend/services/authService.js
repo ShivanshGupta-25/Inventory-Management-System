@@ -2,6 +2,13 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+
+const {
+  recordFailedLogin,
+  recordSecurityEvent,
+} = require("./securityEventService");
+
+
 // --------------------------------------------------
 // GENERATE JWT
 // --------------------------------------------------
@@ -94,13 +101,15 @@ const registerUser = async ({
   };
 };
 
-// --------------------------------------------------
+//--------------------------------------------------
 // LOGIN USER
 // --------------------------------------------------
 
 const loginUser = async ({
   email,
   password,
+  ipAddress = null,
+  userAgent = null,
 }) => {
   const normalizedEmail = email
     .trim()
@@ -110,22 +119,48 @@ const loginUser = async ({
     email: normalizedEmail,
   });
 
+  // ------------------------------------------------
+  // USER NOT FOUND
+  // ------------------------------------------------
+
   if (!user) {
+    await recordFailedLogin({
+      email: normalizedEmail,
+      ipAddress,
+      userAgent,
+      reason:
+        "Invalid email or password",
+    });
+
     throw new Error(
       "Invalid email or password"
     );
   }
 
-  // Existing users created before the status field
-  // was introduced are treated as active.
+  // ------------------------------------------------
+  // DISABLED ACCOUNT
+  // ------------------------------------------------
+
   const userStatus =
     user.status || "active";
 
   if (userStatus === "disabled") {
+    await recordFailedLogin({
+      email: normalizedEmail,
+      ipAddress,
+      userAgent,
+      reason:
+        "Login attempted on disabled account",
+    });
+
     throw new Error(
       "Your account has been disabled. Please contact an administrator."
     );
   }
+
+  // ------------------------------------------------
+  // PASSWORD VALIDATION
+  // ------------------------------------------------
 
   const isPasswordValid =
     await bcrypt.compare(
@@ -134,12 +169,45 @@ const loginUser = async ({
     );
 
   if (!isPasswordValid) {
+    await recordFailedLogin({
+      email: normalizedEmail,
+      ipAddress,
+      userAgent,
+      reason:
+        "Invalid email or password",
+    });
+
     throw new Error(
       "Invalid email or password"
     );
   }
 
+  // ------------------------------------------------
+  // SUCCESSFUL LOGIN
+  // ------------------------------------------------
+
   const token = generateToken(user);
+
+  await recordSecurityEvent({
+    type: "LOGIN_SUCCESS",
+
+    severity: "info",
+
+    user: user._id,
+
+    email: normalizedEmail,
+
+    ipAddress,
+
+    userAgent,
+
+    description:
+      "Successful login",
+
+    metadata: {
+      role: user.role,
+    },
+  });
 
   return {
     token,

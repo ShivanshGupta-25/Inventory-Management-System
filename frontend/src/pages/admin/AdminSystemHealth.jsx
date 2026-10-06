@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -26,6 +27,7 @@ import SystemHealthSecurity from "../../components/admin/systemHealth/SystemHeal
 import SystemHealthEvents from "../../components/admin/systemHealth/SystemHealthEvents";
 import SystemHealthSkeleton from "../../components/admin/systemHealth/SystemHealthSkeleton";
 import SystemHealthError from "../../components/admin/systemHealth/SystemHealthError";
+import SystemHealthInfrastructure from "../../components/admin/systemHealth/SystemHealthInfrastructure";
 
 const AdminSystemHealth = () => {
   const [health, setHealth] = useState(null);
@@ -34,56 +36,85 @@ const AdminSystemHealth = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
+  const pollingRef = useRef(false);
+
   // ------------------------------------------------------------
   // LOAD REAL SYSTEM HEALTH
   // ------------------------------------------------------------
 
   const loadHealth = useCallback(
-    async ({ initial = false } = {}) => {
-      try {
+    async ({ initial = false, silent = false } = {}) => {
+        try {
         if (initial) {
-          setLoading(true);
-        } else {
-          setRefreshing(true);
+            setLoading(true);
+        } else if (!silent) {
+            setRefreshing(true);
         }
 
         setError("");
 
-        const response =
-          await getAdminSystemHealth();
+        const response = await getAdminSystemHealth();
 
         const healthData =
-          response?.health ||
-          response?.data?.health ||
-          response?.data ||
-          response;
+            response?.health ||
+            response?.data?.health ||
+            response?.data ||
+            response;
 
         setHealth(healthData || null);
-      } catch (err) {
+        } catch (err) {
         console.error(
-          "Failed to load system health:",
-          err
+            "Failed to load system health:",
+            err
         );
 
         setError(
-          err?.message ||
+            err?.message ||
             "Unable to retrieve system health."
         );
-      } finally {
+        } finally {
         setLoading(false);
-        setRefreshing(false);
-      }
+
+        if (!silent) {
+            setRefreshing(false);
+        }
+        }
     },
     []
-  );
+    );
 
   // ------------------------------------------------------------
   // INITIAL LOAD
   // ------------------------------------------------------------
 
   useEffect(() => {
+    // Initial request
     loadHealth({ initial: true });
-  }, [loadHealth]);
+
+    // Refresh every 200ms
+    const intervalId = setInterval(async () => {
+        // Prevent overlapping API requests
+        if (pollingRef.current) {
+        return;
+        }
+
+        pollingRef.current = true;
+
+        try {
+        await loadHealth({
+            initial: false,
+            silent: true,
+        });
+        } finally {
+        pollingRef.current = false;
+        }
+    }, 500);
+
+    return () => {
+        clearInterval(intervalId);
+        pollingRef.current = false;
+    };
+    }, [loadHealth]);
 
   // ------------------------------------------------------------
   // FORMAT HELPERS
@@ -255,21 +286,39 @@ const AdminSystemHealth = () => {
   // SECURITY DATA
   // ------------------------------------------------------------
 
-  const security = useMemo(() => {
+    const security = useMemo(() => {
     return {
-      authentication:
+        authentication:
         health?.authentication?.status ||
         "unknown",
 
-      rateLimiting:
+        authenticationSecretConfigured:
+        Boolean(
+            health?.authentication
+            ?.secretConfigured
+        ),
+
+        rateLimiting:
         health?.rateLimiting?.status ||
         "unknown",
 
-      failedLogins: null,
+        failedLogins:
+        health?.security
+            ?.failedLogins ?? null,
 
-      suspiciousEvents: null,
+        suspiciousEvents:
+        health?.security
+            ?.suspiciousEvents ?? null,
+
+        status:
+        health?.security?.status ||
+        "unknown",
+
+        recentEvents:
+        health?.security
+            ?.recentEvents || [],
     };
-  }, [health]);
+    }, [health]);
 
   // ------------------------------------------------------------
   // LOADING
@@ -438,21 +487,45 @@ const AdminSystemHealth = () => {
 
           <SystemHealthDatabase
             database={{
-              status:
+                status:
                 health?.database?.status ||
                 "unknown",
 
-              latency:
+                latency:
                 health?.database?.latency ??
                 null,
 
-              collections: null,
+                state:
+                health?.database?.state ??
+                null,
 
-              size: null,
+                databaseName:
+                health?.database?.databaseName ||
+                null,
+
+                collections:
+                health?.database?.collections ??
+                null,
+
+                dataSize:
+                health?.database?.dataSize ??
+                null,
+
+                storageSize:
+                health?.database?.storageSize ??
+                null,
             }}
-          />
+            />
 
         </div>
+
+        {/* ====================================================
+            INFRASTRUCTURE HEALTH
+        ==================================================== */}
+
+        <SystemHealthInfrastructure
+        server={health?.server}
+        />
 
         {/* ====================================================
             SECURITY + SERVER INFORMATION
@@ -530,8 +603,11 @@ const AdminSystemHealth = () => {
         ==================================================== */}
 
         <SystemHealthEvents
-          events={[]}
-        />
+            events={
+                health?.security?.recentEvents ||
+                []
+            }
+            />
 
         {/* ====================================================
             ERROR AFTER SUCCESSFUL LOAD
