@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   ArrowLeft,
@@ -16,6 +20,8 @@ import ConversationList from "./ConversationList";
 import ConversationWindow from "./ConversationWindow";
 import EmptyConversation from "./EmptyConversation";
 import NewConversation from "./NewConversation";
+import GroupInfo from "./GroupInfo";
+import DirectInfo from "./DirectInfo";
 
 /* =========================================================
    CONSTANTS
@@ -79,6 +85,108 @@ const CommunicationLayout = () => {
     String(user?.role || "").toLowerCase();
 
   /* =========================================================
+     GROUP INFO
+  ========================================================= */
+
+  /*
+   * Conversation currently displayed in the
+   * Group Info drawer.
+   */
+  const [
+    groupInfoConversation,
+    setGroupInfoConversation,
+  ] = useState(null);
+
+  /*
+   * Optional action that should be opened
+   * when Group Info is opened.
+   *
+   * Example:
+   * "exit-delete"
+   */
+  const [
+    groupInfoInitialAction,
+    setGroupInfoInitialAction,
+  ] = useState(null);
+
+  /*
+   * Open Group Info for a conversation.
+   *
+   * This is passed down:
+   *
+   * CommunicationLayout
+   *      ↓
+   * ConversationList
+   *      ↓
+   * ConversationActionMenu
+   */
+  const handleOpenGroupInfo = (
+    conversation,
+    options = {}
+  ) => {
+    if (!conversation) {
+      return;
+    }
+
+    setGroupInfoConversation(
+      conversation
+    );
+
+    setGroupInfoInitialAction(
+      options?.openExitDelete
+        ? "exit-delete"
+        : null
+    );
+  };
+
+  /*
+   * Close Group Info.
+   */
+  const handleCloseGroupInfo = () => {
+    setGroupInfoConversation(null);
+    setGroupInfoInitialAction(null);
+  };
+
+  /* =========================================================
+   DIRECT INFO
+========================================================= */
+
+/*
+ * Conversation currently displayed in the
+ * Direct Info floating window.
+ */
+const [
+  directInfoConversation,
+  setDirectInfoConversation,
+] = useState(null);
+
+/*
+ * Open Direct Info.
+ */
+const handleOpenDirectInfo = (
+  conversation
+) => {
+  if (!conversation) {
+    return;
+  }
+
+  if (conversation.type !== "direct") {
+    return;
+  }
+
+  setDirectInfoConversation(
+    conversation
+  );
+};
+
+/*
+ * Close Direct Info.
+ */
+const handleCloseDirectInfo = () => {
+  setDirectInfoConversation(null);
+};
+
+  /* =========================================================
      NEW CONVERSATION
   ========================================================= */
 
@@ -106,7 +214,6 @@ const CommunicationLayout = () => {
    *
    * This remains inside the communication workspace.
    */
-
   const [
     replyingTo,
     setReplyingTo,
@@ -188,6 +295,7 @@ const CommunicationLayout = () => {
 
     /*
      * Close the current conversation.
+     *
      * CommunicationLayout will automatically
      * reveal the conversation list.
      */
@@ -204,9 +312,7 @@ const CommunicationLayout = () => {
     /*
      * Only allow the primary pointer button.
      */
-    if (
-      event.button !== 0
-    ) {
+    if (event.button !== 0) {
       return;
     }
 
@@ -228,6 +334,7 @@ const CommunicationLayout = () => {
 
     /*
      * Capture pointer when possible.
+     *
      * This makes dragging more reliable when
      * the cursor temporarily leaves the handle.
      */
@@ -250,9 +357,7 @@ const CommunicationLayout = () => {
     const handlePointerMove = (
       event
     ) => {
-      if (
-        !isResizingRef.current
-      ) {
+      if (!isResizingRef.current) {
         return;
       }
 
@@ -275,17 +380,13 @@ const CommunicationLayout = () => {
     };
 
     const stopResize = () => {
-      if (
-        !isResizingRef.current
-      ) {
+      if (!isResizingRef.current) {
         return;
       }
 
-      isResizingRef.current =
-        false;
+      isResizingRef.current = false;
 
-      document.body.style.cursor =
-        "";
+      document.body.style.cursor = "";
 
       document.body.style.userSelect =
         "";
@@ -322,8 +423,7 @@ const CommunicationLayout = () => {
         stopResize
       );
 
-      document.body.style.cursor =
-        "";
+      document.body.style.cursor = "";
 
       document.body.style.userSelect =
         "";
@@ -336,9 +436,7 @@ const CommunicationLayout = () => {
 
   const resetConversationListWidth =
     () => {
-      if (
-        isResizingRef.current
-      ) {
+      if (isResizingRef.current) {
         return;
       }
 
@@ -418,9 +516,7 @@ const CommunicationLayout = () => {
                   active:scale-95
                 "
               >
-                <ArrowLeft
-                  size={18}
-                />
+                <ArrowLeft size={18} />
               </button>
             )}
 
@@ -748,6 +844,15 @@ const CommunicationLayout = () => {
               onDeleteConversation={
                 deleteConversationForMe
               }
+
+              /*
+               * IMPORTANT:
+               * Pass Group Info handler down
+               * to ConversationActionMenu.
+               */
+              onOpenGroupInfo={
+                handleOpenGroupInfo
+              }
             />
           </aside>
 
@@ -765,11 +870,9 @@ const CommunicationLayout = () => {
             aria-valuemax={
               MAX_CONVERSATION_LIST_WIDTH
             }
-            aria-valuenow={
-              Math.round(
-                conversationListWidth
-              )
-            }
+            aria-valuenow={Math.round(
+              conversationListWidth
+            )}
             tabIndex={0}
             onPointerDown={
               handleResizeStart
@@ -809,8 +912,7 @@ const CommunicationLayout = () => {
               }
 
               if (
-                event.key ===
-                "Home"
+                event.key === "Home"
               ) {
                 event.preventDefault();
 
@@ -820,8 +922,7 @@ const CommunicationLayout = () => {
               }
 
               if (
-                event.key ===
-                "End"
+                event.key === "End"
               ) {
                 event.preventDefault();
 
@@ -892,9 +993,7 @@ const CommunicationLayout = () => {
                 conversation={
                   activeConversation
                 }
-                messages={
-                  messages
-                }
+                messages={messages}
                 currentUserId={
                   currentUserId
                 }
@@ -904,15 +1003,18 @@ const CommunicationLayout = () => {
                 loading={
                   loadingMessages
                 }
-                onSend={
-                  sendMessage
-                }
+                onSend={sendMessage}
                 onTypingStart={
                   startTyping
                 }
                 onTypingStop={
                   stopTyping
                 }
+
+                onOpenGroupInfo={handleOpenGroupInfo}
+
+                onOpenDirectInfo={handleOpenDirectInfo}
+
                 onReply={
                   setReplyingTo
                 }
@@ -920,9 +1022,7 @@ const CommunicationLayout = () => {
                   replyingTo
                 }
                 onCancelReply={() =>
-                  setReplyingTo(
-                    null
-                  )
+                  setReplyingTo(null)
                 }
                 onBack={
                   handleBackToConversations
@@ -950,7 +1050,7 @@ const CommunicationLayout = () => {
             loadingUsers
           }
 
-          /* NEW: authenticated user's role */
+          
           currentUserRole={
             currentUserRole
           }
@@ -960,11 +1060,52 @@ const CommunicationLayout = () => {
               false
             )
           }
+
           onCreateDirect={
             createDirectConversation
           }
+
           onCreateGroup={
             createGroupConversation
+          }
+        />
+      )}
+
+      {/* =====================================================
+          GROUP INFO DRAWER
+      ====================================================== */}
+
+      {groupInfoConversation && (
+        <GroupInfo
+          conversation={
+            groupInfoConversation
+          }
+          currentUserId={
+            currentUserId
+          }
+          initialAction={
+            groupInfoInitialAction
+          }
+          onClose={
+            handleCloseGroupInfo
+          }
+        />
+      )}
+
+      {/* =====================================================
+          DIRECT INFO FLOATING WINDOW
+      ====================================================== */}
+
+      {directInfoConversation && (
+        <DirectInfo
+          conversation={
+            directInfoConversation
+          }
+          currentUserId={
+            currentUserId
+          }
+          onClose={
+            handleCloseDirectInfo
           }
         />
       )}

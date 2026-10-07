@@ -11,6 +11,7 @@ import communicationService from "../services/communicationService";
 import useCommunicationSocket from "../hooks/useCommunicationSocket";
 import { useAuth } from "../hooks/useAuth";
 
+// Communication Context
 const CommunicationContext = createContext(null);
 
 /* =====================================================
@@ -32,10 +33,15 @@ const createDeletedForEveryoneMessage = (
   deletedAt = null
 ) => ({
   ...message,
+
   text: "",
+
   attachments: [],
+
   reactions: [],
+
   deletedForEveryone: true,
+
   deletedAt:
     deletedAt ||
     message?.deletedAt ||
@@ -46,9 +52,13 @@ const createDeletedForMeReply = (
   replyTo
 ) => ({
   ...replyTo,
+
   text: "",
+
   attachments: [],
+
   reactions: [],
+
   deletedForMe: true,
 });
 
@@ -64,16 +74,20 @@ export const CommunicationProvider = ({
   const token =
     localStorage.getItem("token");
 
-  const [conversations, setConversations] =
-    useState([]);
+  const [
+    conversations,
+    setConversations,
+  ] = useState([]);
 
   const [
     activeConversationId,
     setActiveConversationId,
   ] = useState(null);
 
-  const [messages, setMessages] =
-    useState([]);
+  const [
+    messages,
+    setMessages,
+  ] = useState([]);
 
   const [
     messageSearchResults,
@@ -102,11 +116,15 @@ export const CommunicationProvider = ({
     setLoadingMessages,
   ] = useState(false);
 
-  const [typingUsers, setTypingUsers] =
-    useState([]);
+  const [
+    typingUsers,
+    setTypingUsers,
+  ] = useState([]);
 
-  const [replyingTo, setReplyingTo] =
-    useState(null);
+  const [
+    replyingTo,
+    setReplyingTo,
+  ] = useState(null);
 
   /* =====================================================
      LOAD CONVERSATIONS
@@ -161,7 +179,7 @@ export const CommunicationProvider = ({
   );
 
   /* =====================================================
-    DELETE CONVERSATION FOR ME
+     DELETE CONVERSATION FOR ME
   ===================================================== */
 
   const deleteConversationForMe =
@@ -187,9 +205,9 @@ export const CommunicationProvider = ({
             );
 
           /*
-          * Remove the conversation immediately
-          * from the local conversation list.
-          */
+           * Remove the conversation immediately
+           * from the local conversation list.
+           */
           setConversations((current) =>
             current.filter(
               (conversation) =>
@@ -203,20 +221,26 @@ export const CommunicationProvider = ({
           );
 
           /*
-          * If the deleted conversation is currently
-          * open, close it completely.
-          */
+           * If the deleted conversation is currently
+           * open, close it completely.
+           */
           if (
             String(
               activeConversationId
             ) === deletedConversationId
           ) {
             setActiveConversationId(null);
+
             setMessages([]);
+
             setReplyingTo(null);
+
             setTypingUsers([]);
+
             setMessageSearchResults([]);
+
             setMessageSearchError("");
+
             setMessageSearchLoading(false);
           }
 
@@ -230,12 +254,9 @@ export const CommunicationProvider = ({
           throw error;
         }
       },
-      [
-        activeConversationId,
-      ]
+      [activeConversationId]
     );
 
-    
   /* =====================================================
      LOAD MESSAGES
   ====================================================== */
@@ -306,8 +327,9 @@ export const CommunicationProvider = ({
         setMessages((current) => {
           const exists = current.some(
             (item) =>
-              String(getMessageId(item)) ===
-              String(messageId)
+              String(
+                getMessageId(item)
+              ) === String(messageId)
           );
 
           if (exists) {
@@ -331,21 +353,31 @@ export const CommunicationProvider = ({
   ====================================================== */
 
   const searchMessages = useCallback(
-    async (conversationId, search = "") => {
+    async (
+      conversationId,
+      search = ""
+    ) => {
       const trimmedSearch =
         typeof search === "string"
           ? search.trim()
           : "";
 
-      if (!conversationId || !trimmedSearch) {
+      if (
+        !conversationId ||
+        !trimmedSearch
+      ) {
         setMessageSearchResults([]);
+
         setMessageSearchError("");
+
         setMessageSearchLoading(false);
+
         return [];
       }
 
       try {
         setMessageSearchLoading(true);
+
         setMessageSearchError("");
 
         const response =
@@ -360,7 +392,9 @@ export const CommunicationProvider = ({
         const results =
           response.data || [];
 
-        setMessageSearchResults(results);
+        setMessageSearchResults(
+          results
+        );
 
         return results;
       } catch (error) {
@@ -370,6 +404,7 @@ export const CommunicationProvider = ({
         );
 
         setMessageSearchResults([]);
+
         setMessageSearchError(
           error?.message ||
             "Failed to search messages"
@@ -391,17 +426,23 @@ export const CommunicationProvider = ({
     useCallback(
       async (conversationId) => {
         setTypingUsers([]);
+
         setReplyingTo(null);
 
         setMessageSearchResults([]);
+
         setMessageSearchError("");
+
         setMessageSearchLoading(false);
 
         setConversations((current) =>
           current.map((conversation) =>
             String(
-              getConversationId(conversation)
-            ) === String(conversationId)
+              getConversationId(
+                conversation
+              )
+            ) ===
+            String(conversationId)
               ? {
                   ...conversation,
                   unreadCount: 0,
@@ -506,8 +547,14 @@ export const CommunicationProvider = ({
   ====================================================== */
 
   const getMessageThread = useCallback(
-    async (conversationId, messageId) => {
-      if (!conversationId || !messageId) {
+    async (
+      conversationId,
+      messageId
+    ) => {
+      if (
+        !conversationId ||
+        !messageId
+      ) {
         return null;
       }
 
@@ -549,462 +596,495 @@ export const CommunicationProvider = ({
       []
     );
 
-  const handleReaction = useCallback(
-    (reactionData) => {
-      if (!reactionData?.messageId) {
-        return;
-      }
-
-      setMessages((current) =>
-        current.map((message) =>
-          String(
-            getMessageId(message)
-          ) ===
-          String(
-            reactionData.messageId
-          )
-            ? {
-                ...message,
-                reactions:
-                  reactionData.reactions ||
-                  [],
-              }
-            : message
-        )
-      );
-
-      setReplyingTo((current) => {
+  const handleReaction =
+    useCallback(
+      (reactionData) => {
         if (
-          !current ||
-          String(
-            getMessageId(current)
-          ) !==
+          !reactionData?.messageId
+        ) {
+          return;
+        }
+
+        setMessages((current) =>
+          current.map((message) =>
+            String(
+              getMessageId(message)
+            ) ===
             String(
               reactionData.messageId
             )
-        ) {
-          return current;
-        }
+              ? {
+                  ...message,
+                  reactions:
+                    reactionData.reactions ||
+                    [],
+                }
+              : message
+          )
+        );
 
-        return {
-          ...current,
-          reactions:
-            reactionData.reactions ||
-            [],
-        };
-      });
-    },
-    []
-  );
+        setReplyingTo((current) => {
+          if (
+            !current ||
+            String(
+              getMessageId(current)
+            ) !==
+              String(
+                reactionData.messageId
+              )
+          ) {
+            return current;
+          }
+
+          return {
+            ...current,
+            reactions:
+              reactionData.reactions ||
+              [],
+          };
+        });
+      },
+      []
+    );
 
   /* =====================================================
      SINGLE DELETE FOR ME
   ====================================================== */
 
   const handleMessageDeletedForMe =
-    useCallback((deletionData) => {
-      if (!deletionData?.messageId) {
-        return;
-      }
-
-      const deletedMessageId =
-        String(deletionData.messageId);
-
-      setMessages((current) =>
-        current
-          .filter(
-            (message) =>
-              String(
-                getMessageId(message)
-              ) !== deletedMessageId
-          )
-          .map((message) => {
-            const replyTo =
-              message.replyTo;
-
-            if (
-              !replyTo ||
-              String(
-                getMessageId(replyTo)
-              ) !== deletedMessageId
-            ) {
-              return message;
-            }
-
-            return {
-              ...message,
-              replyTo:
-                createDeletedForMeReply(
-                  replyTo
-                ),
-            };
-          })
-      );
-
-      setReplyingTo((current) => {
+    useCallback(
+      (deletionData) => {
         if (
-          !current ||
-          String(
-            getMessageId(current)
-          ) !== deletedMessageId
+          !deletionData?.messageId
         ) {
-          return current;
+          return;
         }
 
-        return null;
-      });
-    }, []);
+        const deletedMessageId =
+          String(
+            deletionData.messageId
+          );
+
+        setMessages((current) =>
+          current
+            .filter(
+              (message) =>
+                String(
+                  getMessageId(message)
+                ) !== deletedMessageId
+            )
+            .map((message) => {
+              const replyTo =
+                message.replyTo;
+
+              if (
+                !replyTo ||
+                String(
+                  getMessageId(replyTo)
+                ) !== deletedMessageId
+              ) {
+                return message;
+              }
+
+              return {
+                ...message,
+                replyTo:
+                  createDeletedForMeReply(
+                    replyTo
+                  ),
+              };
+            })
+        );
+
+        setReplyingTo((current) => {
+          if (
+            !current ||
+            String(
+              getMessageId(current)
+            ) !== deletedMessageId
+          ) {
+            return current;
+          }
+
+          return null;
+        });
+      },
+      []
+    );
 
   /* =====================================================
      BULK DELETE FOR ME SOCKET
   ====================================================== */
 
   const handleMessagesDeletedForMe =
-    useCallback((deletionData) => {
-      const messageIds =
-        Array.isArray(
-          deletionData?.messageIds
-        )
-          ? deletionData.messageIds
-          : [];
-
-      if (!messageIds.length) {
-        return;
-      }
-
-      const deletedIds =
-        new Set(
-          messageIds.map(String)
-        );
-
-      setMessages((current) =>
-        current
-          .filter(
-            (message) =>
-              !deletedIds.has(
-                String(
-                  getMessageId(message)
-                )
-              )
+    useCallback(
+      (deletionData) => {
+        const messageIds =
+          Array.isArray(
+            deletionData?.messageIds
           )
-          .map((message) => {
-            const replyTo =
-              message.replyTo;
+            ? deletionData.messageIds
+            : [];
 
-            if (
-              !replyTo ||
-              !deletedIds.has(
-                String(
-                  getMessageId(replyTo)
-                )
-              )
-            ) {
-              return message;
-            }
-
-            return {
-              ...message,
-              replyTo:
-                createDeletedForMeReply(
-                  replyTo
-                ),
-            };
-          })
-      );
-
-      setReplyingTo((current) => {
-        if (
-          !current ||
-          !deletedIds.has(
-            String(
-              getMessageId(current)
-            )
-          )
-        ) {
-          return current;
+        if (!messageIds.length) {
+          return;
         }
 
-        return null;
-      });
-    }, []);
+        const deletedIds =
+          new Set(
+            messageIds.map(String)
+          );
+
+        setMessages((current) =>
+          current
+            .filter(
+              (message) =>
+                !deletedIds.has(
+                  String(
+                    getMessageId(message)
+                  )
+                )
+            )
+            .map((message) => {
+              const replyTo =
+                message.replyTo;
+
+              if (
+                !replyTo ||
+                !deletedIds.has(
+                  String(
+                    getMessageId(replyTo)
+                  )
+                )
+              ) {
+                return message;
+              }
+
+              return {
+                ...message,
+                replyTo:
+                  createDeletedForMeReply(
+                    replyTo
+                  ),
+              };
+            })
+        );
+
+        setReplyingTo((current) => {
+          if (
+            !current ||
+            !deletedIds.has(
+              String(
+                getMessageId(current)
+              )
+            )
+          ) {
+            return current;
+          }
+
+          return null;
+        });
+      },
+      []
+    );
 
   /* =====================================================
      SINGLE DELETE FOR EVERYONE
   ====================================================== */
 
   const handleMessageDeleted =
-    useCallback((deletionData) => {
-      if (!deletionData?.messageId) {
-        return;
-      }
+    useCallback(
+      (deletionData) => {
+        if (
+          !deletionData?.messageId
+        ) {
+          return;
+        }
 
-      const deletedMessageId =
-        String(deletionData.messageId);
+        const deletedMessageId =
+          String(
+            deletionData.messageId
+          );
 
-      setMessages((current) =>
-        current.map((message) => {
+        setMessages((current) =>
+          current.map((message) => {
+            if (
+              String(
+                getMessageId(message)
+              ) === deletedMessageId
+            ) {
+              return createDeletedForEveryoneMessage(
+                message,
+                deletionData.deletedAt
+              );
+            }
+
+            const replyTo =
+              message.replyTo;
+
+            if (
+              replyTo &&
+              String(
+                getMessageId(replyTo)
+              ) === deletedMessageId
+            ) {
+              return {
+                ...message,
+                replyTo:
+                  createDeletedForEveryoneMessage(
+                    replyTo,
+                    deletionData.deletedAt
+                  ),
+              };
+            }
+
+            return message;
+          })
+        );
+
+        setReplyingTo((current) => {
           if (
+            !current ||
             String(
-              getMessageId(message)
-            ) === deletedMessageId
+              getMessageId(current)
+            ) !== deletedMessageId
           ) {
-            return createDeletedForEveryoneMessage(
-              message,
-              deletionData.deletedAt
-            );
+            return current;
           }
 
-          const replyTo =
-            message.replyTo;
+          return createDeletedForEveryoneMessage(
+            current,
+            deletionData.deletedAt
+          );
+        });
 
-          if (
-            replyTo &&
-            String(
-              getMessageId(replyTo)
-            ) === deletedMessageId
-          ) {
+        setConversations((current) =>
+          current.map((conversation) => {
+            if (
+              String(
+                getConversationId(
+                  conversation
+                )
+              ) !==
+              String(
+                deletionData.conversationId
+              )
+            ) {
+              return conversation;
+            }
+
+            const lastMessage =
+              conversation.lastMessage;
+
+            if (
+              !lastMessage ||
+              String(
+                getMessageId(lastMessage)
+              ) !== deletedMessageId
+            ) {
+              return conversation;
+            }
+
             return {
-              ...message,
-              replyTo:
+              ...conversation,
+              lastMessage:
                 createDeletedForEveryoneMessage(
-                  replyTo,
+                  lastMessage,
                   deletionData.deletedAt
                 ),
             };
-          }
-
-          return message;
-        })
-      );
-
-      setReplyingTo((current) => {
-        if (
-          !current ||
-          String(
-            getMessageId(current)
-          ) !== deletedMessageId
-        ) {
-          return current;
-        }
-
-        return createDeletedForEveryoneMessage(
-          current,
-          deletionData.deletedAt
+          })
         );
-      });
-
-      setConversations((current) =>
-        current.map((conversation) => {
-          if (
-            String(
-              getConversationId(
-                conversation
-              )
-            ) !==
-            String(
-              deletionData.conversationId
-            )
-          ) {
-            return conversation;
-          }
-
-          const lastMessage =
-            conversation.lastMessage;
-
-          if (
-            !lastMessage ||
-            String(
-              getMessageId(lastMessage)
-            ) !== deletedMessageId
-          ) {
-            return conversation;
-          }
-
-          return {
-            ...conversation,
-            lastMessage:
-              createDeletedForEveryoneMessage(
-                lastMessage,
-                deletionData.deletedAt
-              ),
-          };
-        })
-      );
-    }, []);
+      },
+      []
+    );
 
   /* =====================================================
      BULK DELETE FOR EVERYONE SOCKET
   ====================================================== */
 
   const handleMessagesDeleted =
-    useCallback((deletionData) => {
-      const messageIds =
-        Array.isArray(
-          deletionData?.messageIds
-        )
-          ? deletionData.messageIds
-          : [];
+    useCallback(
+      (deletionData) => {
+        const messageIds =
+          Array.isArray(
+            deletionData?.messageIds
+          )
+            ? deletionData.messageIds
+            : [];
 
-      if (!messageIds.length) {
-        return;
-      }
+        if (!messageIds.length) {
+          return;
+        }
 
-      const deletedIds =
-        new Set(
-          messageIds.map(String)
-        );
-
-      const deletedAt =
-        deletionData?.deletedAt || null;
-
-      setMessages((current) =>
-        current.map((message) => {
-          const messageId = String(
-            getMessageId(message)
+        const deletedIds =
+          new Set(
+            messageIds.map(String)
           );
 
-          if (
-            deletedIds.has(messageId)
-          ) {
-            return createDeletedForEveryoneMessage(
-              message,
-              deletedAt
-            );
-          }
+        const deletedAt =
+          deletionData?.deletedAt ||
+          null;
 
-          const replyTo =
-            message.replyTo;
-
-          if (
-            replyTo &&
-            deletedIds.has(
+        setMessages((current) =>
+          current.map((message) => {
+            const messageId =
               String(
-                getMessageId(replyTo)
+                getMessageId(message)
+              );
+
+            if (
+              deletedIds.has(messageId)
+            ) {
+              return createDeletedForEveryoneMessage(
+                message,
+                deletedAt
+              );
+            }
+
+            const replyTo =
+              message.replyTo;
+
+            if (
+              replyTo &&
+              deletedIds.has(
+                String(
+                  getMessageId(replyTo)
+                )
+              )
+            ) {
+              return {
+                ...message,
+                replyTo:
+                  createDeletedForEveryoneMessage(
+                    replyTo,
+                    deletedAt
+                  ),
+              };
+            }
+
+            return message;
+          })
+        );
+
+        setReplyingTo((current) => {
+          if (
+            !current ||
+            !deletedIds.has(
+              String(
+                getMessageId(current)
               )
             )
           ) {
-            return {
-              ...message,
-              replyTo:
-                createDeletedForEveryoneMessage(
-                  replyTo,
-                  deletedAt
-                ),
-            };
+            return current;
           }
 
-          return message;
-        })
-      );
+          return createDeletedForEveryoneMessage(
+            current,
+            deletedAt
+          );
+        });
 
-      setReplyingTo((current) => {
-        if (
-          !current ||
-          !deletedIds.has(
-            String(
-              getMessageId(current)
-            )
+        /*
+         * Backend returns recalculated
+         * conversation previews after
+         * bulk deletion.
+         */
+        const conversationUpdates =
+          Array.isArray(
+            deletionData?.conversationUpdates
           )
+            ? deletionData.conversationUpdates
+            : [];
+
+        if (
+          conversationUpdates.length
         ) {
-          return current;
+          setConversations((current) =>
+            current.map((conversation) => {
+              const conversationId =
+                String(
+                  getConversationId(
+                    conversation
+                  )
+                );
+
+              const update =
+                conversationUpdates.find(
+                  (item) =>
+                    String(
+                      item.conversationId
+                    ) === conversationId
+                );
+
+              if (!update) {
+                return conversation;
+              }
+
+              return {
+                ...conversation,
+
+                ...(update.lastMessage
+                  ? {
+                      lastMessage:
+                        update.lastMessage,
+                    }
+                  : {}),
+
+                ...(update.lastMessageAt
+                  ? {
+                      lastMessageAt:
+                        update.lastMessageAt,
+                    }
+                  : {}),
+              };
+            })
+          );
+
+          return;
         }
 
-        return createDeletedForEveryoneMessage(
-          current,
-          deletedAt
-        );
-      });
-
-      /*
-       * Backend returns recalculated conversation
-       * previews after bulk deletion.
-       */
-      const conversationUpdates =
-        Array.isArray(
-          deletionData?.conversationUpdates
-        )
-          ? deletionData.conversationUpdates
-          : [];
-
-      if (conversationUpdates.length) {
-        setConversations((current) =>
-          current.map((conversation) => {
-            const conversationId =
+        /*
+         * Fallback for older socket payloads.
+         */
+        if (
+          deletionData?.conversationId
+        ) {
+          setConversations((current) =>
+            current.map((conversation) =>
               String(
                 getConversationId(
                   conversation
                 )
-              );
-
-            const update =
-              conversationUpdates.find(
-                (item) =>
-                  String(
-                    item.conversationId
-                  ) === conversationId
-              );
-
-            if (!update) {
-              return conversation;
-            }
-
-            return {
-              ...conversation,
-              ...(update.lastMessage
-                ? {
-                    lastMessage:
-                      update.lastMessage,
-                  }
-                : {}),
-              ...(update.lastMessageAt
-                ? {
-                    lastMessageAt:
-                      update.lastMessageAt,
-                  }
-                : {}),
-            };
-          })
-        );
-
-        return;
-      }
-
-      /*
-       * Fallback for older socket payloads.
-       */
-      if (
-        deletionData?.conversationId
-      ) {
-        setConversations((current) =>
-          current.map((conversation) =>
-            String(
-              getConversationId(
-                conversation
+              ) ===
+              String(
+                deletionData.conversationId
               )
-            ) ===
-            String(
-              deletionData.conversationId
+                ? {
+                    ...conversation,
+
+                    ...(deletionData.lastMessage
+                      ? {
+                          lastMessage:
+                            deletionData.lastMessage,
+
+                          lastMessageAt:
+                            deletionData
+                              .lastMessage
+                              .createdAt,
+                        }
+                      : {}),
+                  }
+                : conversation
             )
-              ? {
-                  ...conversation,
-                  ...(deletionData.lastMessage
-                    ? {
-                        lastMessage:
-                          deletionData.lastMessage,
-                        lastMessageAt:
-                          deletionData.lastMessage
-                            .createdAt,
-                      }
-                    : {}),
-                }
-              : conversation
-          )
-        );
-      }
-    }, []);
+          );
+        }
+      },
+      []
+    );
 
   /* =====================================================
-     DELETE SINGLE
+     DELETE SINGLE MESSAGE
   ====================================================== */
 
   const deleteMessageForMe =
@@ -1024,6 +1104,7 @@ export const CommunicationProvider = ({
               result?.messageId ||
               result?.id ||
               messageId,
+
             conversationId:
               result?.conversationId,
           });
@@ -1058,8 +1139,10 @@ export const CommunicationProvider = ({
               result?.messageId ||
               result?.id ||
               messageId,
+
             conversationId:
               result?.conversationId,
+
             deletedAt:
               result?.deletedAt ||
               null,
@@ -1105,6 +1188,7 @@ export const CommunicationProvider = ({
             messageIds:
               result?.messageIds ||
               messageIds,
+
             conversationIds:
               result?.conversationIds ||
               [],
@@ -1150,12 +1234,15 @@ export const CommunicationProvider = ({
             messageIds:
               result?.messageIds ||
               messageIds,
+
             conversationIds:
               result?.conversationIds ||
               [],
+
             deletedAt:
               result?.deletedAt ||
               null,
+
             conversationUpdates:
               result?.conversationUpdates ||
               [],
@@ -1289,6 +1376,7 @@ export const CommunicationProvider = ({
 
         setConversations((current) => [
           conversation,
+
           ...current.filter(
             (item) =>
               String(
@@ -1307,6 +1395,7 @@ export const CommunicationProvider = ({
         );
 
         setMessages([]);
+
         setReplyingTo(null);
 
         return conversation;
@@ -1314,65 +1403,70 @@ export const CommunicationProvider = ({
       []
     );
 
-
   /* =====================================================
-    ADD GROUP MEMBERS
-  ===================================================== */
+     ADD GROUP MEMBERS
+  ====================================================== */
 
-  const addGroupMembers = useCallback(
-    async (
-      conversationId,
-      memberIds
-    ) => {
-      if (
-        !conversationId ||
-        !Array.isArray(memberIds) ||
-        !memberIds.length
-      ) {
-        return null;
-      }
-
-      try {
-        const response =
-          await communicationService.addGroupMembers(
-            conversationId,
-            memberIds
-          );
-
-        const updatedConversation =
-          response.data;
-
-        if (updatedConversation) {
-          setConversations((current) =>
-            current.map((conversation) =>
-              String(
-                getConversationId(
-                  conversation
-                )
-              ) ===
-              String(conversationId)
-                ? updatedConversation
-                : conversation
-            )
-          );
+  const addGroupMembers =
+    useCallback(
+      async (
+        conversationId,
+        memberIds
+      ) => {
+        if (
+          !conversationId ||
+          !Array.isArray(memberIds) ||
+          !memberIds.length
+        ) {
+          return null;
         }
 
-        return updatedConversation;
-      } catch (error) {
-        console.error(
-          "Failed to add group members:",
-          error
-        );
+        try {
+          const response =
+            await communicationService.addGroupMembers(
+              conversationId,
+              memberIds
+            );
 
-        throw error;
-      }
-    },
-    []
-  );
+          const updatedConversation =
+            response.data;
+
+          if (
+            updatedConversation
+          ) {
+            setConversations((current) =>
+              current.map(
+                (conversation) =>
+                  String(
+                    getConversationId(
+                      conversation
+                    )
+                  ) ===
+                  String(
+                    conversationId
+                  )
+                    ? updatedConversation
+                    : conversation
+              )
+            );
+          }
+
+          return updatedConversation;
+        } catch (error) {
+          console.error(
+            "Failed to add group members:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      []
+    );
 
   /* =====================================================
-    EXIT GROUP
-  ===================================================== */
+     EXIT GROUP
+  ====================================================== */
 
   const exitGroup = useCallback(
     async (conversationId) => {
@@ -1386,35 +1480,70 @@ export const CommunicationProvider = ({
             conversationId
           );
 
-        const result = response.data;
+        const result =
+          response.data;
 
         /*
-        * Remove the conversation from the
-        * current user's conversation list.
-        */
+         * IMPORTANT:
+         *
+         * Do NOT remove the conversation from
+         * the local conversation list.
+         *
+         * The user has left the group, but the
+         * conversation can still remain visible
+         * until the user explicitly deletes it.
+         */
         setConversations((current) =>
-          current.filter(
-            (conversation) =>
+          current.map((conversation) => {
+            if (
               String(
                 getConversationId(
                   conversation
                 )
               ) !==
               String(conversationId)
-          )
+            ) {
+              return conversation;
+            }
+
+            return {
+              ...conversation,
+
+              /*
+               * Used by ConversationActionMenu
+               * and GroupInfo to identify that
+               * the current user has left.
+               */
+              isLeft: true,
+            };
+          })
         );
 
         /*
-        * If the user was viewing this group,
-        * clear the active conversation.
-        */
+         * A user who has left the group should
+         * no longer remain inside the active chat.
+         */
         if (
-          String(activeConversationId) ===
+          String(
+            activeConversationId
+          ) ===
           String(conversationId)
         ) {
-          setActiveConversationId(null);
+          setActiveConversationId(
+            null
+          );
+
           setMessages([]);
+
           setReplyingTo(null);
+
+          setTypingUsers([]);
+
+          setMessageSearchResults([]);
+
+          setMessageSearchError("");
+
+          setMessageSearchLoading(false);
         }
 
         return result;
@@ -1430,187 +1559,265 @@ export const CommunicationProvider = ({
     [activeConversationId]
   );
 
+  /* =====================================================
+     EXIT AND DELETE GROUP
+  ====================================================== */
+
+  const exitAndDeleteGroup =
+    useCallback(
+      async (conversationId) => {
+        if (!conversationId) {
+          return null;
+        }
+
+        try {
+          /*
+           * Step 1:
+           * Leave the group.
+           */
+          await exitGroup(
+            conversationId
+          );
+
+          /*
+           * Step 2:
+           * Delete the conversation from
+           * the current user's sidebar.
+           *
+           * deleteConversationForMe()
+           * already handles:
+           * - removing it locally
+           * - clearing active conversation
+           * - clearing messages/state
+           */
+          const result =
+            await deleteConversationForMe(
+              conversationId
+            );
+
+          return result;
+        } catch (error) {
+          console.error(
+            "Failed to exit and delete group:",
+            error
+          );
+
+          throw error;
+        }
+      },
+      [
+        exitGroup,
+        deleteConversationForMe,
+      ]
+    );
 
   /* =====================================================
      SOCKET MESSAGE
   ====================================================== */
 
-  const handleMessage = useCallback(
-    (message) => {
-      if (!message?.conversationId) {
-        return;
-      }
-
-      const conversationId =
-        String(message.conversationId);
-
-      const messageId =
-        getMessageId(message);
-
-      const isActive =
-        conversationId ===
-        String(activeConversationId);
-
-      const isOwnMessage =
-        String(
-          message.sender?.id ||
-            message.sender?._id ||
-            message.senderId
-        ) === String(user?.id);
-
-      setMessages((current) => {
-        if (!isActive) {
-          return current;
-        }
-
+  const handleMessage =
+    useCallback(
+      (message) => {
         if (
-          messageId &&
-          current.some(
-            (item) =>
-              String(
-                getMessageId(item)
-              ) === String(messageId)
-          )
+          !message?.conversationId
         ) {
-          return current;
+          return;
         }
 
-        return [
-          ...current,
-          message,
-        ];
-      });
-
-      setConversations((current) => {
-        const existing =
-          current.find(
-            (conversation) =>
-              String(
-                getConversationId(
-                  conversation
-                )
-              ) === conversationId
+        const conversationId =
+          String(
+            message.conversationId
           );
 
-        if (!existing) {
-          return current;
-        }
+        const messageId =
+          getMessageId(message);
 
-        const updatedConversation = {
-          ...existing,
-          lastMessage: message,
-          lastMessageAt:
-            message.createdAt,
-          updatedAt:
-            message.createdAt,
-          unreadCount:
-            isActive || isOwnMessage
-              ? 0
-              : Number(
-                  existing.unreadCount ||
-                    0
-                ) + 1,
-        };
+        const isActive =
+          conversationId ===
+          String(
+            activeConversationId
+          );
 
-        return [
-          updatedConversation,
-          ...current.filter(
-            (conversation) =>
-              String(
-                getConversationId(
-                  conversation
-                )
-              ) !== conversationId
-          ),
-        ];
-      });
-    },
-    [
-      activeConversationId,
-      user?.id,
-    ]
-  );
+        const isOwnMessage =
+          String(
+            message.sender?.id ||
+              message.sender?._id ||
+              message.senderId
+          ) === String(user?.id);
+
+        setMessages((current) => {
+          if (!isActive) {
+            return current;
+          }
+
+          if (
+            messageId &&
+            current.some(
+              (item) =>
+                String(
+                  getMessageId(item)
+                ) ===
+                String(messageId)
+            )
+          ) {
+            return current;
+          }
+
+          return [
+            ...current,
+            message,
+          ];
+        });
+
+        setConversations((current) => {
+          const existing =
+            current.find(
+              (conversation) =>
+                String(
+                  getConversationId(
+                    conversation
+                  )
+                ) === conversationId
+            );
+
+          if (!existing) {
+            return current;
+          }
+
+          const updatedConversation =
+            {
+              ...existing,
+
+              lastMessage:
+                message,
+
+              lastMessageAt:
+                message.createdAt,
+
+              updatedAt:
+                message.createdAt,
+
+              unreadCount:
+                isActive ||
+                isOwnMessage
+                  ? 0
+                  : Number(
+                      existing.unreadCount ||
+                        0
+                    ) + 1,
+            };
+
+          return [
+            updatedConversation,
+
+            ...current.filter(
+              (conversation) =>
+                String(
+                  getConversationId(
+                    conversation
+                  )
+                ) !== conversationId
+            ),
+          ];
+        });
+      },
+      [
+        activeConversationId,
+        user?.id,
+      ]
+    );
 
   /* =====================================================
      NEW CONVERSATION
   ====================================================== */
 
   const handleConversationNew =
-    useCallback((conversation) => {
-      if (!conversation?.id) {
-        return;
-      }
-
-      setConversations((current) => {
-        const exists = current.some(
-          (item) =>
-            String(
-              getConversationId(item)
-            ) ===
-            String(
-              getConversationId(
-                conversation
-              )
-            )
-        );
-
-        if (exists) {
-          return current;
+    useCallback(
+      (conversation) => {
+        if (!conversation?.id) {
+          return;
         }
 
-        return [
-          conversation,
-          ...current,
-        ];
-      });
-    }, []);
+        setConversations((current) => {
+          const exists = current.some(
+            (item) =>
+              String(
+                getConversationId(item)
+              ) ===
+              String(
+                getConversationId(
+                  conversation
+                )
+              )
+          );
+
+          if (exists) {
+            return current;
+          }
+
+          return [
+            conversation,
+            ...current,
+          ];
+        });
+      },
+      []
+    );
 
   /* =====================================================
      CONVERSATION UPDATED
   ====================================================== */
 
   const handleConversationUpdated =
-    useCallback((payload) => {
-      if (!payload?.conversationId) {
-        return;
-      }
+    useCallback(
+      (payload) => {
+        if (
+          !payload?.conversationId
+        ) {
+          return;
+        }
 
-      setConversations((current) =>
-        current.map(
-          (conversation) =>
-            String(
-              getConversationId(
-                conversation
+        setConversations((current) =>
+          current.map(
+            (conversation) =>
+              String(
+                getConversationId(
+                  conversation
+                )
+              ) ===
+              String(
+                payload.conversationId
               )
-            ) ===
-            String(
-              payload.conversationId
-            )
-              ? {
-                  ...conversation,
-                  ...(payload.lastMessage
-                    ? {
-                        lastMessage:
-                          payload.lastMessage,
-                      }
-                    : {}),
-                  ...(payload.lastMessageAt
-                    ? {
-                        lastMessageAt:
-                          payload.lastMessageAt,
-                      }
-                    : payload.lastMessage
-                    ? {
-                        lastMessageAt:
-                          payload.lastMessage
-                            .createdAt,
-                      }
-                    : {}),
-                }
-              : conversation
-        )
-      );
-    }, []);
+                ? {
+                    ...conversation,
+
+                    ...(payload.lastMessage
+                      ? {
+                          lastMessage:
+                            payload.lastMessage,
+                        }
+                      : {}),
+
+                    ...(payload.lastMessageAt
+                      ? {
+                          lastMessageAt:
+                            payload.lastMessageAt,
+                        }
+                      : payload.lastMessage
+                      ? {
+                          lastMessageAt:
+                            payload
+                              .lastMessage
+                              .createdAt,
+                        }
+                      : {}),
+                  }
+                : conversation
+          )
+        );
+      },
+      []
+    );
 
   /* =====================================================
      READ
@@ -1630,7 +1837,9 @@ export const CommunicationProvider = ({
           String(
             payload.conversationId
           ) !==
-          String(activeConversationId)
+          String(
+            activeConversationId
+          )
         ) {
           return;
         }
@@ -1763,7 +1972,9 @@ export const CommunicationProvider = ({
     conversations.find(
       (conversation) =>
         String(
-          getConversationId(conversation)
+          getConversationId(
+            conversation
+          )
         ) ===
         String(
           activeConversationId
@@ -1777,21 +1988,31 @@ export const CommunicationProvider = ({
   const value = useMemo(
     () => ({
       conversations,
+
       deleteConversationForMe,
+
       activeConversation,
+
       activeConversationId,
+
       messages,
 
       messageSearchResults,
+
       messageSearchLoading,
+
       messageSearchError,
 
       users,
+
       typingUsers,
+
       loadingConversations,
+
       loadingMessages,
 
       replyingTo,
+
       setReplyingTo,
 
       connected:
@@ -1803,17 +2024,25 @@ export const CommunicationProvider = ({
       setActiveConversationId,
 
       selectConversation,
+
       searchUsers,
+
       searchMessages,
+
       loadMessageFromSearchResult,
 
       createDirectConversation,
+
       createGroupConversation,
 
       addGroupMembers,
+
       exitGroup,
 
+      exitAndDeleteGroup,
+
       sendMessage,
+
       sendReply,
 
       getMessageThread,
@@ -1821,9 +2050,11 @@ export const CommunicationProvider = ({
       toggleMessageReaction,
 
       deleteMessageForMe,
+
       deleteMessageForEveryone,
 
       deleteMessagesForMe,
+
       deleteMessagesForEveryone,
 
       forwardMessages,
@@ -1839,38 +2070,59 @@ export const CommunicationProvider = ({
     }),
     [
       conversations,
+
       deleteConversationForMe,
+
       activeConversation,
+
       activeConversationId,
+
       messages,
 
       messageSearchResults,
+
       messageSearchLoading,
+
       messageSearchError,
 
       users,
+
       typingUsers,
+
       loadingConversations,
+
       loadingMessages,
+
       replyingTo,
 
       socket.connected,
+
       socket.connectionStatus,
+
       socket.startTyping,
+
       socket.stopTyping,
 
       selectConversation,
+
       searchUsers,
+
       searchMessages,
+
       loadMessageFromSearchResult,
 
       createDirectConversation,
+
       createGroupConversation,
 
       addGroupMembers,
+
       exitGroup,
 
+      exitAndDeleteGroup,
+
       sendMessage,
+
       sendReply,
 
       getMessageThread,
@@ -1878,9 +2130,11 @@ export const CommunicationProvider = ({
       toggleMessageReaction,
 
       deleteMessageForMe,
+
       deleteMessageForEveryone,
 
       deleteMessagesForMe,
+
       deleteMessagesForEveryone,
 
       forwardMessages,

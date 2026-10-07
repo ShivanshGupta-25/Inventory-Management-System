@@ -2843,6 +2843,7 @@ const getConversations = async (userId) => {
       continue;
     }
 
+    // Get the latest message visible to this user
     const lastVisibleMessage = await Message.findOne({
       conversationId: conversation._id,
       deletedFor: {
@@ -2862,12 +2863,20 @@ const getConversations = async (userId) => {
       })
       .lean();
 
-    const conversationParticipants = await ConversationParticipant.find({
-      conversationId: conversation._id,
-      deletedAt: null,
-    })
-      .populate("userId", "_id name email role")
-      .lean();
+    /*
+     * Get active conversation participants.
+     *
+     * A participant who has left the group is excluded
+     * from the active participants list.
+     */
+    const conversationParticipants =
+      await ConversationParticipant.find({
+        conversationId: conversation._id,
+        deletedAt: null,
+        leftAt: null,
+      })
+        .populate("userId", "_id name email role")
+        .lean();
 
     let lastMessage = null;
 
@@ -2882,6 +2891,18 @@ const getConversations = async (userId) => {
       };
     }
 
+    /*
+     * The current user's participant record tells us
+     * whether they have left the group.
+     *
+     * leftAt !== null
+     *     => user has left the group
+     *
+     * deletedAt === null
+     *     => conversation is still visible to the user
+     */
+    const isLeft = Boolean(participant.leftAt);
+
     conversations.push({
       id: conversation._id,
       type: conversation.type,
@@ -2889,8 +2910,10 @@ const getConversations = async (userId) => {
       createdBy: conversation.createdBy,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
+
       lastMessageAt: lastVisibleMessage?.createdAt || null,
       lastMessage,
+
       participants: conversationParticipants
         .filter((item) => item.userId)
         .map((item) => ({
@@ -2902,11 +2925,19 @@ const getConversations = async (userId) => {
           joinedAt: item.joinedAt,
           lastReadAt: item.lastReadAt,
         })),
+
       currentUserParticipant: {
         role: participant.role,
         joinedAt: participant.joinedAt,
         lastReadAt: participant.lastReadAt,
+
+        // New fields
+        leftAt: participant.leftAt,
+        deletedAt: participant.deletedAt,
       },
+
+      // Convenient frontend flag
+      isLeft,
     });
   }
 
@@ -3024,161 +3055,345 @@ const deleteConversationForMe = async (conversationId, userId) => {
     deletedAt: participant.deletedAt,
   };
 };
-
 /* =====================================================
    ADD MEMBERS TO GROUP
 ===================================================== */
 
-const addGroupMembers = async (conversationId, currentUserId, memberIds = []) => {
+const addGroupMembers = async (
+  conversationId,
+  currentUserId,
+  memberIds = []
+) => {
   if (!isValidObjectId(conversationId)) {
-    throw createServiceError("Invalid conversation ID");
+    throw createServiceError(
+      "Invalid conversation ID"
+    );
   }
 
   if (!Array.isArray(memberIds)) {
-    throw createServiceError("Member IDs must be an array");
+    throw createServiceError(
+      "Member IDs must be an array"
+    );
   }
 
   if (memberIds.length === 0) {
-    throw createServiceError("At least one member is required");
+    throw createServiceError(
+      "At least one member is required"
+    );
   }
 
-  const conversation = await Conversation.findById(conversationId);
+  const conversation =
+    await Conversation.findById(
+      conversationId
+    );
 
   if (!conversation) {
-    throw createServiceError("Conversation not found", 404);
+    throw createServiceError(
+      "Conversation not found",
+      404
+    );
   }
 
   if (conversation.type !== "group") {
-    throw createServiceError("Members can only be added to group conversations");
+    throw createServiceError(
+      "Members can only be added to group conversations"
+    );
   }
 
-  const currentParticipant = await ConversationParticipant.findOne({
-    conversationId,
-    userId: currentUserId,
-    deletedAt: null,
-  });
+  /*
+   * The current user must be an active group member.
+   *
+   * A user who has left the group must not be
+   * allowed to add members.
+   */
+  const currentParticipant =
+    await ConversationParticipant.findOne({
+      conversationId,
+      userId: currentUserId,
+      deletedAt: null,
+      leftAt: null,
+    });
 
   if (!currentParticipant) {
-    throw createServiceError("You are not an active member of this group", 403);
+    throw createServiceError(
+      "You are not an active member of this group",
+      403
+    );
   }
 
   if (currentParticipant.role !== "admin") {
-    throw createServiceError("Only group admins can add members", 403);
+    throw createServiceError(
+      "Only group admins can add members",
+      403
+    );
   }
 
+  /*
+   * Remove duplicate IDs and prevent the current
+   * user from adding themselves.
+   */
   const uniqueIds = [
     ...new Set(
       memberIds
         .map(String)
-        .filter((id) => String(id) !== String(currentUserId))
+        .filter(
+          (id) =>
+            String(id) !==
+            String(currentUserId)
+        )
     ),
   ];
 
   if (uniqueIds.length === 0) {
-    throw createServiceError("You are already a member of this group");
+    throw createServiceError(
+      "You are already a member of this group"
+    );
   }
 
+  /*
+   * Validate all member IDs before doing any
+   * database updates.
+   */
   for (const id of uniqueIds) {
     if (!isValidObjectId(id)) {
-      throw createServiceError("One or more member IDs are invalid");
+      throw createServiceError(
+        "One or more member IDs are invalid"
+      );
     }
   }
 
-  const users = await User.find({ _id: { $in: uniqueIds } })
+  /*
+   * Make sure all requested users exist.
+   */
+  const users = await User.find({
+    _id: {
+      $in: uniqueIds,
+    },
+  })
     .select("_id name email role")
     .lean();
 
   if (users.length !== uniqueIds.length) {
-    throw createServiceError("One or more users were not found");
+    throw createServiceError(
+      "One or more users were not found"
+    );
   }
 
-  const existingParticipants = await ConversationParticipant.find({
-    conversationId,
-    userId: { $in: uniqueIds },
-  });
+  /*
+   * Find existing participant records.
+   *
+   * Because the schema has a unique index on:
+   *
+   *     conversationId + userId
+   *
+   * an existing record may represent:
+   *
+   * 1. Active member
+   * 2. User who left
+   * 3. User who deleted the conversation
+   * 4. User who both left and deleted it
+   *
+   * We reactivate the existing record instead
+   * of creating a duplicate.
+   */
+  const existingParticipants =
+    await ConversationParticipant.find({
+      conversationId,
+      userId: {
+        $in: uniqueIds,
+      },
+    });
 
   const existingMap = new Map(
-    existingParticipants.map((participant) => [
-      String(participant.userId),
-      participant,
-    ])
+    existingParticipants.map(
+      (participant) => [
+        String(participant.userId),
+        participant,
+      ]
+    )
   );
 
   const addedUsers = [];
   const restoredUsers = [];
 
   for (const userId of uniqueIds) {
-    const existing = existingMap.get(String(userId));
+    const existing =
+      existingMap.get(
+        String(userId)
+      );
 
+    /*
+     * Existing participant record.
+     */
     if (existing) {
-      if (existing.deletedAt) {
+      /*
+       * If the user previously left the group
+       * or deleted the conversation, restore
+       * their membership.
+       *
+       * IMPORTANT:
+       *
+       * Check BOTH leftAt and deletedAt.
+       *
+       * This is the fix for Staff 2.
+       */
+      if (
+        existing.leftAt ||
+        existing.deletedAt
+      ) {
+        existing.leftAt = null;
         existing.deletedAt = null;
-        existing.joinedAt = new Date();
+
+        /*
+         * Treat this as a fresh membership.
+         */
+        existing.joinedAt =
+          new Date();
+
+        /*
+         * Reset read state so the restored
+         * member can receive the current
+         * conversation state normally.
+         */
         existing.lastReadAt = null;
+
+        /*
+         * A user re-added to the group is
+         * restored as a normal member.
+         *
+         * Existing active admins are not
+         * modified because this block only
+         * executes for left/deleted records.
+         */
+        existing.role = "member";
+
         await existing.save();
 
         restoredUsers.push(userId);
       }
+
+      /*
+       * Already an active participant.
+       *
+       * Do not create another participant
+       * record and do not add them to the
+       * restored list.
+       */
       continue;
     }
 
+    /*
+     * Completely new participant.
+     */
     await ConversationParticipant.create({
       conversationId,
       userId,
       role: "member",
+      deletedAt: null,
+      leftAt: null,
     });
 
     addedUsers.push(userId);
   }
 
-  const updatedConversation = await getConversation(
-    conversationId,
-    currentUserId
-  );
+  /*
+   * Fetch the updated conversation so the
+   * frontend receives the latest participant
+   * information.
+   */
+  const updatedConversation =
+    await getConversation(
+      conversationId,
+      currentUserId
+    );
 
   return {
-    conversation: updatedConversation,
-    addedUserIds: addedUsers,
-    restoredUserIds: restoredUsers,
+    conversation:
+      updatedConversation,
+
+    addedUserIds:
+      addedUsers,
+
+    restoredUserIds:
+      restoredUsers,
   };
 };
+
 
 /* =====================================================
    EXIT GROUP
 ===================================================== */
 
-const exitGroupConversation = async (conversationId, userId) => {
+const exitGroupConversation = async (
+  conversationId,
+  userId
+) => {
   if (!isValidObjectId(conversationId)) {
-    throw createServiceError("Invalid conversation ID");
+    throw createServiceError(
+      "Invalid conversation ID"
+    );
   }
 
-  const conversation = await Conversation.findById(conversationId);
+  const conversation =
+    await Conversation.findById(
+      conversationId
+    );
 
   if (!conversation) {
-    throw createServiceError("Conversation not found", 404);
+    throw createServiceError(
+      "Conversation not found",
+      404
+    );
   }
 
   if (conversation.type !== "group") {
-    throw createServiceError("You can only exit a group conversation");
+    throw createServiceError(
+      "You can only exit a group conversation"
+    );
   }
 
-  const participant = await ConversationParticipant.findOne({
-    conversationId,
-    userId,
-    deletedAt: null,
-  });
+  /*
+   * The user must currently be an active
+   * participant.
+   *
+   * leftAt must be null because a user who
+   * already left cannot leave again.
+   *
+   * deletedAt must also be null.
+   */
+  const participant =
+    await ConversationParticipant.findOne({
+      conversationId,
+      userId,
+      deletedAt: null,
+      leftAt: null,
+    });
 
   if (!participant) {
-    throw createServiceError("You are not an active member of this group", 403);
+    throw createServiceError(
+      "You are not an active member of this group",
+      403
+    );
   }
 
+  /*
+   * Prevent the last admin from leaving.
+   */
   if (participant.role === "admin") {
-    const otherAdmin = await ConversationParticipant.findOne({
-      conversationId,
-      userId: { $ne: userId },
-      role: "admin",
-      deletedAt: null,
-    });
+    const otherAdmin =
+      await ConversationParticipant.findOne({
+        conversationId,
+
+        userId: {
+          $ne: userId,
+        },
+
+        role: "admin",
+
+        deletedAt: null,
+
+        leftAt: null,
+      });
 
     if (!otherAdmin) {
       throw createServiceError(
@@ -3188,15 +3403,36 @@ const exitGroupConversation = async (conversationId, userId) => {
     }
   }
 
-  participant.deletedAt = new Date();
+  const now = new Date();
+
+  /*
+   * IMPORTANT:
+   *
+   * Leaving a group is represented ONLY by
+   * leftAt.
+   *
+   * Do NOT set deletedAt here.
+   *
+   * deletedAt is reserved for:
+   * "Delete this conversation from my
+   * conversation list."
+   */
+  participant.leftAt = now;
+
+  /*
+   * Keep deletedAt untouched.
+   *
+   * Normally it will already be null.
+   */
   await participant.save();
 
   return {
     conversationId,
     userId,
-    exitedAt: participant.deletedAt,
+    exitedAt: now,
   };
 };
+
 
 /* =====================================================
    SEND MESSAGE

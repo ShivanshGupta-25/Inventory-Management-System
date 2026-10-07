@@ -2723,6 +2723,9 @@ const ConversationWindow = ({
 
   onBack,
 
+  onOpenGroupInfo,
+  onOpenDirectInfo,
+
   onReply,
   replyingTo,
   onCancelReply,
@@ -3724,9 +3727,9 @@ const ConversationWindow = ({
           }
           onBack={onBack}
 
-          onOpenGroupInfo={() =>
-            setGroupInfoOpen(true)
-          }
+          onOpenGroupInfo={onOpenGroupInfo}
+
+          onOpenDirectInfo={onOpenDirectInfo}
 
           messageSearchOpen={
             messageSearchOpen

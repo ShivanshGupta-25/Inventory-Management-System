@@ -85,7 +85,9 @@ const getConversationName = (
   const otherParticipant =
     participants.find((participant) => {
       const user =
-        getParticipantUser(participant);
+        getParticipantUser(
+          participant
+        );
 
       const participantId =
         getId(user) ||
@@ -257,6 +259,34 @@ const formatTime = (value) => {
 };
 
 /* =========================================================
+   LEFT GROUP HELPERS
+========================================================= */
+
+const isGroupConversation = (
+  conversation
+) => {
+  return (
+    conversation?.type === "group"
+  );
+};
+
+const hasLeftConversation = (
+  conversation
+) => {
+  if (
+    !isGroupConversation(
+      conversation
+    )
+  ) {
+    return false;
+  }
+
+  return (
+    conversation?.isLeft === true
+  );
+};
+
+/* =========================================================
    COMPONENT
 ========================================================= */
 
@@ -270,15 +300,24 @@ const ConversationList = ({
 
   /*
    * Conversation actions.
-   *
-   * These are intentionally optional for now.
-   * We will connect them to the backend
-   * conversation-management APIs next.
    */
   onMarkUnread,
   onTogglePin,
   onToggleMute,
   onDeleteConversation,
+
+  /*
+   * Opens GroupInfo from the
+   * ConversationActionMenu.
+   *
+   * Signature:
+   *
+   * onOpenGroupInfo(
+   *   conversation,
+   *   options
+   * )
+   */
+  onOpenGroupInfo,
 }) => {
   const [search, setSearch] =
     useState("");
@@ -292,8 +331,10 @@ const ConversationList = ({
   /*
    * Mobile action sheet.
    */
-  const [mobileActionConversation, setMobileActionConversation] =
-    useState(null);
+  const [
+    mobileActionConversation,
+    setMobileActionConversation,
+  ] = useState(null);
 
   /*
    * Long-press timer.
@@ -440,11 +481,13 @@ const ConversationList = ({
   ) => {
     clearLongPress();
 
-    longPressTriggered.current = false;
+    longPressTriggered.current =
+      false;
 
     longPressTimer.current =
       window.setTimeout(() => {
-        longPressTriggered.current = true;
+        longPressTriggered.current =
+          true;
 
         setMobileActionConversation(
           conversation
@@ -489,21 +532,86 @@ const ConversationList = ({
   ====================================================== */
 
   const handleConversationClick = (
-    conversationId
+    conversation
   ) => {
     /*
      * If the interaction was a mobile
      * long press, don't also open the chat.
      */
-    if (longPressTriggered.current) {
-      longPressTriggered.current = false;
+    if (
+      longPressTriggered.current
+    ) {
+      longPressTriggered.current =
+        false;
+
+      return;
+    }
+
+    if (!conversation) {
+      return;
+    }
+
+    const conversationId =
+      getId(conversation);
+
+    if (!conversationId) {
+      return;
+    }
+
+    /*
+     * A user who has left a group should
+     * not be able to reopen the chat.
+     *
+     * The conversation remains visible so
+     * the user can access Group Info and
+     * delete it.
+     */
+    if (
+      hasLeftConversation(
+        conversation
+      )
+    ) {
       return;
     }
 
     closeContextMenu();
+
     closeMobileActionMenu();
 
-    onSelect(conversationId);
+    onSelect?.(conversationId);
+  };
+
+  /* =====================================================
+     GROUP INFO HANDLER
+  ====================================================== */
+
+  /*
+   * This wrapper makes sure the correct
+   * conversation is passed back to
+   * CommunicationLayout.
+   *
+   * ConversationActionMenu can call:
+   *
+   * onOpenGroupInfo({
+   *   openExitDelete: true
+   * })
+   */
+  const handleOpenGroupInfo = (
+    conversation,
+    options = {}
+  ) => {
+    if (!conversation) {
+      return;
+    }
+
+    closeContextMenu();
+
+    closeMobileActionMenu();
+
+    onOpenGroupInfo?.(
+      conversation,
+      options
+    );
   };
 
   /* =====================================================
@@ -512,12 +620,14 @@ const ConversationList = ({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
+
       {/* =====================================================
           HEADER
       ====================================================== */}
 
       <div className="shrink-0 border-b border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
+
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-900">
               Conversations
@@ -543,6 +653,7 @@ const ConversationList = ({
               size={17}
             />
           </button>
+
         </div>
 
         {/* =================================================
@@ -572,16 +683,8 @@ const ConversationList = ({
           CONVERSATION SCROLL AREA
       ====================================================== */}
 
-      <div
-        className="
-          min-h-0
-          min-w-0
-          flex-1
-          overflow-x-hidden
-          overflow-y-auto
-          overscroll-contain
-        "
-      >
+      <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+
         {loading ? (
           <div className="p-3">
             {[
@@ -596,6 +699,7 @@ const ConversationList = ({
                 className="mb-1 animate-pulse"
               >
                 <div className="flex min-w-0 gap-3 rounded-xl p-3">
+
                   <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100" />
 
                   <div className="min-w-0 flex-1">
@@ -603,6 +707,7 @@ const ConversationList = ({
 
                     <div className="mt-2 h-3 w-24 rounded bg-slate-100" />
                   </div>
+
                 </div>
               </div>
             ))}
@@ -610,6 +715,7 @@ const ConversationList = ({
         ) : filteredConversations.length ===
           0 ? (
           <div className="flex min-h-full flex-col items-center justify-center px-6 py-10 text-center">
+
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100">
               <MessageSquarePlus
                 size={21}
@@ -628,14 +734,18 @@ const ConversationList = ({
 
             <button
               type="button"
-              onClick={onNewConversation}
+              onClick={
+                onNewConversation
+              }
               className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800"
             >
               New conversation
             </button>
+
           </div>
         ) : (
           <div className="w-full min-w-0 p-2">
+
             {filteredConversations.map(
               (conversation) => {
                 const conversationId =
@@ -654,6 +764,11 @@ const ConversationList = ({
                   ) ===
                   String(
                     activeConversationId
+                  );
+
+                const isLeft =
+                  hasLeftConversation(
+                    conversation
                   );
 
                 const lastMessage =
@@ -675,7 +790,7 @@ const ConversationList = ({
                     key={conversationId}
                     onClick={() =>
                       handleConversationClick(
-                        conversationId
+                        conversation
                       )
                     }
                     onContextMenu={(event) =>
@@ -698,20 +813,38 @@ const ConversationList = ({
                     onTouchCancel={
                       cancelLongPress
                     }
-                    className={`mb-1 flex w-full min-w-0 touch-pan-y items-center gap-3 rounded-xl p-3 text-left transition ${
-                      active
-                        ? "bg-blue-50"
-                        : "hover:bg-slate-50"
-                    }`}
+                    className={`
+                      mb-1 flex w-full min-w-0
+                      touch-pan-y items-center gap-3
+                      rounded-xl p-3 text-left
+                      transition
+                      ${
+                        active
+                          ? "bg-blue-50"
+                          : isLeft
+                          ? "bg-slate-50 hover:bg-slate-100"
+                          : "hover:bg-slate-50"
+                      }
+                    `}
                   >
-                    {/* AVATAR */}
+
+                    {/* =================================================
+                        AVATAR
+                    ================================================= */}
 
                     <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                        active
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
+                      className={`
+                        flex h-10 w-10 shrink-0
+                        items-center justify-center
+                        rounded-full text-xs font-semibold
+                        ${
+                          active
+                            ? "bg-blue-100 text-blue-700"
+                            : isLeft
+                            ? "bg-slate-200 text-slate-400"
+                            : "bg-slate-100 text-slate-600"
+                        }
+                      `}
                     >
                       {conversation.type ===
                       "group" ? (
@@ -723,16 +856,26 @@ const ConversationList = ({
                       )}
                     </div>
 
-                    {/* CONTENT */}
+                    {/* =================================================
+                        CONTENT
+                    ================================================= */}
 
                     <div className="min-w-0 flex-1">
+
                       <div className="flex min-w-0 items-center justify-between gap-2">
+
                         <p
-                          className={`min-w-0 flex-1 truncate text-sm font-medium ${
-                            active
-                              ? "text-blue-900"
-                              : "text-slate-800"
-                          }`}
+                          className={`
+                            min-w-0 flex-1 truncate
+                            text-sm font-medium
+                            ${
+                              active
+                                ? "text-blue-900"
+                                : isLeft
+                                ? "text-slate-500"
+                                : "text-slate-800"
+                            }
+                          `}
                         >
                           {name}
                         </p>
@@ -744,36 +887,55 @@ const ConversationList = ({
                             )}
                           </span>
                         )}
+
                       </div>
 
-                      <div className="mt-1 flex min-w-0 items-center gap-1">
-                        {messageType ===
-                          "image" && (
-                          <ImageIcon
-                            size={12}
-                            className="shrink-0 text-slate-400"
-                          />
-                        )}
+                      {/* =================================================
+                          LEFT GROUP STATUS
+                      ================================================= */}
 
-                        {messageType ===
-                          "file" && (
-                          <Paperclip
-                            size={12}
-                            className="shrink-0 text-slate-400"
-                          />
-                        )}
+                      {isLeft ? (
+                        <div className="mt-1 flex min-w-0 items-center">
+                          <p className="truncate text-xs font-medium text-slate-400">
+                            You left this group
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-1 flex min-w-0 items-center gap-1">
 
-                        <p className="min-w-0 truncate text-xs text-slate-400">
-                          {preview}
-                        </p>
-                      </div>
+                          {messageType ===
+                            "image" && (
+                            <ImageIcon
+                              size={12}
+                              className="shrink-0 text-slate-400"
+                            />
+                          )}
+
+                          {messageType ===
+                            "file" && (
+                            <Paperclip
+                              size={12}
+                              className="shrink-0 text-slate-400"
+                            />
+                          )}
+
+                          <p className="min-w-0 truncate text-xs text-slate-400">
+                            {preview}
+                          </p>
+
+                        </div>
+                      )}
+
                     </div>
+
                   </button>
                 );
               }
             )}
+
           </div>
         )}
+
       </div>
 
       {/* =====================================================
@@ -785,20 +947,47 @@ const ConversationList = ({
           conversation={
             contextMenu.conversation
           }
+
+          /*
+           * Allows the action menu to determine
+           * whether the current user has already
+           * left a group.
+           */
+          currentUserId={
+            currentUserId
+          }
+
           x={contextMenu.x}
           y={contextMenu.y}
+
           onMarkUnread={
             onMarkUnread
           }
+
           onTogglePin={
             onTogglePin
           }
+
           onToggleMute={
             onToggleMute
           }
+
           onDelete={
             onDeleteConversation
           }
+
+          /*
+           * Opens GroupInfo from the action menu.
+           */
+          onOpenGroupInfo={(
+            options
+          ) =>
+            handleOpenGroupInfo(
+              contextMenu.conversation,
+              options
+            )
+          }
+
           onClose={
             closeContextMenu
           }
@@ -814,24 +1003,53 @@ const ConversationList = ({
           conversation={
             mobileActionConversation
           }
+
+          /*
+           * Allows the action menu to determine
+           * whether the current user has already
+           * left a group.
+           */
+          currentUserId={
+            currentUserId
+          }
+
           mobile
+
           onMarkUnread={
             onMarkUnread
           }
+
           onTogglePin={
             onTogglePin
           }
+
           onToggleMute={
             onToggleMute
           }
+
           onDelete={
             onDeleteConversation
           }
+
+          /*
+           * Opens GroupInfo from the mobile
+           * action sheet as well.
+           */
+          onOpenGroupInfo={(
+            options
+          ) =>
+            handleOpenGroupInfo(
+              mobileActionConversation,
+              options
+            )
+          }
+
           onClose={
             closeMobileActionMenu
           }
         />
       )}
+
     </div>
   );
 };

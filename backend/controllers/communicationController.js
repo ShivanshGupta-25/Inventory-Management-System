@@ -306,14 +306,9 @@ const createGroupConversation =
    ADD MEMBERS TO GROUP
 ===================================================== */
 
-const addGroupMembers = async (
-  req,
-  res
-) => {
+const addGroupMembers = async (req, res) => {
   try {
-    const {
-      memberIds,
-    } = req.body;
+    const { memberIds } = req.body;
 
     const result =
       await communicationService.addGroupMembers(
@@ -326,9 +321,13 @@ const addGroupMembers = async (
 
     if (io) {
       /*
-       * Users who were either:
-       * - newly added
-       * - restored after previously leaving
+       * Users who were:
+       *
+       * - newly added to the group
+       * - restored after previously leaving the group
+       *
+       * Both types of users need to receive the
+       * conversation:added event.
        */
       const affectedUserIds = [
         ...(result.addedUserIds || []),
@@ -336,7 +335,8 @@ const addGroupMembers = async (
       ];
 
       /*
-       * Avoid duplicate notifications.
+       * Avoid sending the same notification twice
+       * if a user appears in both arrays.
        */
       const uniqueAffectedUserIds = [
         ...new Set(
@@ -346,22 +346,24 @@ const addGroupMembers = async (
 
       /*
        * Notify newly added/restored users.
+       *
+       * This is particularly important when a user
+       * who previously left the group is added again.
+       *
+       * The frontend can then refresh/update the
+       * conversation and remove the "You left this
+       * group" state.
        */
-      for (
-        const userId of
-        uniqueAffectedUserIds
-      ) {
-        io.to(
-          `user:${userId}`
-        ).emit(
+      for (const userId of uniqueAffectedUserIds) {
+        io.to(`user:${userId}`).emit(
           "conversation:added",
           result.conversation
         );
       }
 
       /*
-       * Notify all currently connected
-       * members of the group.
+       * Notify all currently connected members
+       * that the group's participant list changed.
        */
       io.to(
         `conversation:${req.params.id}`
@@ -375,8 +377,7 @@ const addGroupMembers = async (
       success: true,
       message:
         "Group members updated successfully",
-      data:
-        result.conversation,
+      data: result.conversation,
     });
   } catch (error) {
     console.error(
@@ -395,14 +396,12 @@ const addGroupMembers = async (
   }
 };
 
+
 /* =====================================================
    EXIT GROUP
 ===================================================== */
 
-const exitGroup = async (
-  req,
-  res
-) => {
+const exitGroup = async (req, res) => {
   try {
     const result =
       await communicationService.exitGroupConversation(
@@ -414,8 +413,26 @@ const exitGroup = async (
 
     if (io) {
       /*
-       * Tell the exiting user to remove
-       * the group from their conversation list.
+       * Notify the exiting user that their membership
+       * state has changed.
+       *
+       * IMPORTANT:
+       *
+       * Leaving a group is no longer the same as
+       * deleting the conversation.
+       *
+       * The backend service should set:
+       *
+       *     leftAt = current date
+       *
+       * and should NOT use deletedAt for this action.
+       *
+       * The frontend can use this event to mark the
+       * conversation as:
+       *
+       *     isLeft: true
+       *
+       * rather than deleting it completely.
        */
       io.to(
         `user:${req.user.userId}`
@@ -431,8 +448,8 @@ const exitGroup = async (
       );
 
       /*
-       * Tell remaining group members
-       * that the membership list changed.
+       * Notify the remaining members that the
+       * participant list has changed.
        */
       io.to(
         `conversation:${result.conversationId}`
