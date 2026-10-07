@@ -11,6 +11,8 @@ const {
   getMessageThreadController,
   createDirectConversation,
   createGroupConversation,
+  addGroupMembers,
+  exitGroup,
   sendMessage,
   markConversationRead,
   toggleReaction,
@@ -56,6 +58,38 @@ router.post(
   "/conversations/group",
   createGroupConversation
 );
+
+/* =====================================================
+   GROUP MEMBERS
+===================================================== */
+
+/*
+ * Add one or more members to a group.
+ *
+ * Body:
+ * {
+ *   "memberIds": ["userId1", "userId2"]
+ * }
+ */
+router.post(
+  "/conversations/:id/members",
+  addGroupMembers
+);
+
+/*
+ * Exit the current group.
+ *
+ * Uses DELETE because the current user is removing
+ * their own active membership from the group.
+ */
+router.delete(
+  "/conversations/:id/leave",
+  exitGroup
+);
+
+/* =====================================================
+   SINGLE CONVERSATION
+===================================================== */
 
 router.get(
   "/conversations/:id",
@@ -141,7 +175,10 @@ router.delete(
  * Body:
  * {
  *   "messageIds": ["id1", "id2"],
- *   "conversationIds": ["conversation1", "conversation2"]
+ *   "conversationIds": [
+ *     "conversation1",
+ *     "conversation2"
+ *   ]
  * }
  */
 router.post(

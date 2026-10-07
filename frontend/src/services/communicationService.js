@@ -271,6 +271,38 @@ const communicationService = {
   },
 
   /* =====================================================
+    GROUP MEMBERS
+  ===================================================== */
+
+  addGroupMembers: async (
+    conversationId,
+    memberIds
+  ) => {
+    return apiRequest(
+      `/communication/conversations/${conversationId}/members`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          memberIds,
+        }),
+      }
+    );
+  },
+
+  /* =====================================================
+    EXIT GROUP
+  ===================================================== */
+
+  exitGroup: async (conversationId) => {
+    return apiRequest(
+      `/communication/conversations/${conversationId}/leave`,
+      {
+        method: "DELETE",
+      }
+    );
+  },
+
+  /* =====================================================
      FORWARD MESSAGES
   ===================================================== */
 

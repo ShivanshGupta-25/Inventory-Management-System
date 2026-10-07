@@ -1314,6 +1314,123 @@ export const CommunicationProvider = ({
       []
     );
 
+
+  /* =====================================================
+    ADD GROUP MEMBERS
+  ===================================================== */
+
+  const addGroupMembers = useCallback(
+    async (
+      conversationId,
+      memberIds
+    ) => {
+      if (
+        !conversationId ||
+        !Array.isArray(memberIds) ||
+        !memberIds.length
+      ) {
+        return null;
+      }
+
+      try {
+        const response =
+          await communicationService.addGroupMembers(
+            conversationId,
+            memberIds
+          );
+
+        const updatedConversation =
+          response.data;
+
+        if (updatedConversation) {
+          setConversations((current) =>
+            current.map((conversation) =>
+              String(
+                getConversationId(
+                  conversation
+                )
+              ) ===
+              String(conversationId)
+                ? updatedConversation
+                : conversation
+            )
+          );
+        }
+
+        return updatedConversation;
+      } catch (error) {
+        console.error(
+          "Failed to add group members:",
+          error
+        );
+
+        throw error;
+      }
+    },
+    []
+  );
+
+  /* =====================================================
+    EXIT GROUP
+  ===================================================== */
+
+  const exitGroup = useCallback(
+    async (conversationId) => {
+      if (!conversationId) {
+        return null;
+      }
+
+      try {
+        const response =
+          await communicationService.exitGroup(
+            conversationId
+          );
+
+        const result = response.data;
+
+        /*
+        * Remove the conversation from the
+        * current user's conversation list.
+        */
+        setConversations((current) =>
+          current.filter(
+            (conversation) =>
+              String(
+                getConversationId(
+                  conversation
+                )
+              ) !==
+              String(conversationId)
+          )
+        );
+
+        /*
+        * If the user was viewing this group,
+        * clear the active conversation.
+        */
+        if (
+          String(activeConversationId) ===
+          String(conversationId)
+        ) {
+          setActiveConversationId(null);
+          setMessages([]);
+          setReplyingTo(null);
+        }
+
+        return result;
+      } catch (error) {
+        console.error(
+          "Failed to exit group:",
+          error
+        );
+
+        throw error;
+      }
+    },
+    [activeConversationId]
+  );
+
+
   /* =====================================================
      SOCKET MESSAGE
   ====================================================== */
@@ -1693,6 +1810,9 @@ export const CommunicationProvider = ({
       createDirectConversation,
       createGroupConversation,
 
+      addGroupMembers,
+      exitGroup,
+
       sendMessage,
       sendReply,
 
@@ -1746,6 +1866,9 @@ export const CommunicationProvider = ({
 
       createDirectConversation,
       createGroupConversation,
+
+      addGroupMembers,
+      exitGroup,
 
       sendMessage,
       sendReply,

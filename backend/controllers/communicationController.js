@@ -102,10 +102,6 @@ const getConversation = async (req, res) => {
    GET MESSAGES
 ===================================================== */
 
-/* =====================================================
-   GET MESSAGES
-===================================================== */
-
 const getMessages = async (
   req,
   res
@@ -116,14 +112,9 @@ const getMessages = async (
         req.params.id,
         req.user.userId,
         {
-          limit:
-            req.query.limit,
-
-          before:
-            req.query.before,
-
-          search:
-            req.query.search,
+          limit: req.query.limit,
+          before: req.query.before,
+          search: req.query.search,
         }
       );
 
@@ -152,154 +143,244 @@ const getMessages = async (
    GET MESSAGE THREAD
 ===================================================== */
 
-const getMessageThreadController = async (
-  req,
-  res
-) => {
-  try {
-    const {
-      conversationId,
-      messageId,
-    } = req.params;
-
-    const thread =
-      await communicationService.getMessageThread(
+const getMessageThreadController =
+  async (req, res) => {
+    try {
+      const {
         conversationId,
         messageId,
-        req.user.userId
+      } = req.params;
+
+      const thread =
+        await communicationService.getMessageThread(
+          conversationId,
+          messageId,
+          req.user.userId
+        );
+
+      return res.status(200).json({
+        success: true,
+        data: thread,
+      });
+    } catch (error) {
+      console.error(
+        "Get message thread error:",
+        error
       );
 
-    return res.status(200).json({
-      success: true,
-      data: thread,
-    });
-  } catch (error) {
-    console.error(
-      "Get message thread error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to load message thread",
-    });
-  }
-};
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to load message thread",
+      });
+    }
+  };
 
 /* =====================================================
    CREATE DIRECT CONVERSATION
 ===================================================== */
 
-const createDirectConversation = async (
-  req,
-  res
-) => {
-  try {
-    const { userId } = req.body;
+const createDirectConversation =
+  async (req, res) => {
+    try {
+      const { userId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Target user ID is required",
+        });
+      }
+
+      const conversation =
+        await communicationService.createDirectConversation(
+          req.user.userId,
+          userId
+        );
+
+      const io = req.app.get("io");
+
+      if (io) {
+        io.to(
+          `user:${userId}`
+        ).emit(
+          "conversation:new",
+          conversation
+        );
+
+        io.to(
+          `user:${req.user.userId}`
+        ).emit(
+          "conversation:new",
+          conversation
+        );
+      }
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Direct conversation created successfully",
+        data: conversation,
+      });
+    } catch (error) {
+      console.error(
+        "Create direct conversation error:",
+        error
+      );
+
+      return res.status(
+        error.statusCode || 500
+      ).json({
         success: false,
-        message: "Target user ID is required",
+        message:
+          error.message ||
+          "Failed to create direct conversation",
       });
     }
-
-    const conversation =
-      await communicationService.createDirectConversation(
-        req.user.userId,
-        userId
-      );
-
-    const io = req.app.get("io");
-
-    if (io) {
-      io.to(`user:${userId}`).emit(
-        "conversation:new",
-        conversation
-      );
-
-      io.to(
-        `user:${req.user.userId}`
-      ).emit(
-        "conversation:new",
-        conversation
-      );
-    }
-
-    return res.status(201).json({
-      success: true,
-      message:
-        "Direct conversation created successfully",
-      data: conversation,
-    });
-  } catch (error) {
-    console.error(
-      "Create direct conversation error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to create direct conversation",
-    });
-  }
-};
+  };
 
 /* =====================================================
    CREATE GROUP
 ===================================================== */
 
-const createGroupConversation = async (
+const createGroupConversation =
+  async (req, res) => {
+    try {
+      const {
+        name,
+        participantIds,
+      } = req.body;
+
+      const conversation =
+        await communicationService.createGroupConversation(
+          req.user.userId,
+          {
+            name,
+            participantIds,
+          }
+        );
+
+      const io = req.app.get("io");
+
+      if (io) {
+        conversation.participants.forEach(
+          (participant) => {
+            io.to(
+              `user:${participant.id}`
+            ).emit(
+              "conversation:new",
+              conversation
+            );
+          }
+        );
+      }
+
+      return res.status(201).json({
+        success: true,
+        message:
+          "Group conversation created successfully",
+        data: conversation,
+      });
+    } catch (error) {
+      console.error(
+        "Create group conversation error:",
+        error
+      );
+
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to create group conversation",
+      });
+    }
+  };
+
+/* =====================================================
+   ADD MEMBERS TO GROUP
+===================================================== */
+
+const addGroupMembers = async (
   req,
   res
 ) => {
   try {
     const {
-      name,
-      participantIds,
+      memberIds,
     } = req.body;
 
-    const conversation =
-      await communicationService.createGroupConversation(
+    const result =
+      await communicationService.addGroupMembers(
+        req.params.id,
         req.user.userId,
-        {
-          name,
-          participantIds,
-        }
+        memberIds
       );
 
     const io = req.app.get("io");
 
     if (io) {
-      conversation.participants.forEach(
-        (participant) => {
-          io.to(
-            `user:${participant.id}`
-          ).emit(
-            "conversation:new",
-            conversation
-          );
-        }
+      /*
+       * Users who were either:
+       * - newly added
+       * - restored after previously leaving
+       */
+      const affectedUserIds = [
+        ...(result.addedUserIds || []),
+        ...(result.restoredUserIds || []),
+      ];
+
+      /*
+       * Avoid duplicate notifications.
+       */
+      const uniqueAffectedUserIds = [
+        ...new Set(
+          affectedUserIds.map(String)
+        ),
+      ];
+
+      /*
+       * Notify newly added/restored users.
+       */
+      for (
+        const userId of
+        uniqueAffectedUserIds
+      ) {
+        io.to(
+          `user:${userId}`
+        ).emit(
+          "conversation:added",
+          result.conversation
+        );
+      }
+
+      /*
+       * Notify all currently connected
+       * members of the group.
+       */
+      io.to(
+        `conversation:${req.params.id}`
+      ).emit(
+        "conversation:membersUpdated",
+        result.conversation
       );
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       message:
-        "Group conversation created successfully",
-      data: conversation,
+        "Group members updated successfully",
+      data:
+        result.conversation,
     });
   } catch (error) {
     console.error(
-      "Create group conversation error:",
+      "Add group members error:",
       error
     );
 
@@ -309,11 +390,86 @@ const createGroupConversation = async (
       success: false,
       message:
         error.message ||
-        "Failed to create group conversation",
+        "Failed to add group members",
     });
   }
 };
 
+/* =====================================================
+   EXIT GROUP
+===================================================== */
+
+const exitGroup = async (
+  req,
+  res
+) => {
+  try {
+    const result =
+      await communicationService.exitGroupConversation(
+        req.params.id,
+        req.user.userId
+      );
+
+    const io = req.app.get("io");
+
+    if (io) {
+      /*
+       * Tell the exiting user to remove
+       * the group from their conversation list.
+       */
+      io.to(
+        `user:${req.user.userId}`
+      ).emit(
+        "conversation:exited",
+        {
+          conversationId:
+            result.conversationId,
+
+          userId:
+            result.userId,
+        }
+      );
+
+      /*
+       * Tell remaining group members
+       * that the membership list changed.
+       */
+      io.to(
+        `conversation:${result.conversationId}`
+      ).emit(
+        "conversation:memberExited",
+        {
+          conversationId:
+            result.conversationId,
+
+          userId:
+            result.userId,
+        }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "You have exited the group",
+      data: result,
+    });
+  } catch (error) {
+    console.error(
+      "Exit group error:",
+      error
+    );
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to exit group",
+    });
+  }
+};
 
 /* =====================================================
    DELETE CONVERSATION FOR ME
@@ -443,61 +599,76 @@ const sendMessage = async (
    MARK READ
 ===================================================== */
 
-const markConversationRead = async (
-  req,
-  res
-) => {
-  try {
-    const result =
-      await communicationService.markConversationRead(
-        req.params.id,
-        req.user.userId
+const markConversationRead =
+  async (req, res) => {
+    try {
+      const result =
+        await communicationService.markConversationRead(
+          req.params.id,
+          req.user.userId
+        );
+
+      const io =
+        req.app.get("io");
+
+      if (io) {
+        io.to(
+          `conversation:${req.params.id}`
+        ).emit(
+          "message:read",
+          {
+            conversationId:
+              req.params.id,
+
+            userId:
+              req.user.userId,
+
+            lastReadAt:
+              result.lastReadAt,
+          }
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error(
+        "Mark conversation read error:",
+        error
       );
 
-    const io = req.app.get("io");
-
-    if (io) {
-      io.to(
-        `conversation:${req.params.id}`
-      ).emit("message:read", {
-        conversationId:
-          req.params.id,
-        userId: req.user.userId,
-        lastReadAt: result.lastReadAt,
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to mark conversation as read",
       });
     }
-
-    return res.status(200).json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    console.error(
-      "Mark conversation read error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to mark conversation as read",
-    });
-  }
-};
+  };
 
 /* =====================================================
    TOGGLE MESSAGE REACTION
 ===================================================== */
 
-const toggleReaction = async (req, res) => {
+const toggleReaction = async (
+  req,
+  res
+) => {
   try {
-    const { id: messageId } = req.params;
-    const { emoji } = req.body;
+    const {
+      id: messageId,
+    } = req.params;
 
-    const userId = req.user.userId;
+    const {
+      emoji,
+    } = req.body;
+
+    const userId =
+      req.user.userId;
 
     const message =
       await communicationService.toggleMessageReaction({
@@ -511,23 +682,35 @@ const toggleReaction = async (req, res) => {
     if (io) {
       io.to(
         `conversation:${message.conversationId}`
-      ).emit("message:reaction", {
-        messageId: message.id,
-        conversationId:
-          message.conversationId,
-        reactions: message.reactions,
-      });
+      ).emit(
+        "message:reaction",
+        {
+          messageId:
+            message.id,
+
+          conversationId:
+            message.conversationId,
+
+          reactions:
+            message.reactions,
+        }
+      );
     }
 
     return res.status(200).json({
       success: true,
       message:
         "Reaction updated successfully",
+
       data: {
-        messageId: message.id,
+        messageId:
+          message.id,
+
         conversationId:
           message.conversationId,
-        reactions: message.reactions,
+
+        reactions:
+          message.reactions,
       },
     });
   } catch (error) {
@@ -551,249 +734,279 @@ const toggleReaction = async (req, res) => {
    DELETE MESSAGE FOR ME
 ===================================================== */
 
-const deleteMessageForMe = async (req, res) => {
-  try {
-    const message =
-      await communicationService.deleteMessageForMe({
-        messageId: req.params.id,
-        userId: req.user.userId,
-      });
+const deleteMessageForMe =
+  async (req, res) => {
+    try {
+      const message =
+        await communicationService.deleteMessageForMe(
+          {
+            messageId:
+              req.params.id,
 
-    const io = req.app.get("io");
+            userId:
+              req.user.userId,
+          }
+        );
 
-    if (io) {
-      io.to(`user:${req.user.userId}`).emit(
-        "message:deletedForMe",
-        {
-          messageId: message.id,
+      const io = req.app.get("io");
+
+      if (io) {
+        io.to(
+          `user:${req.user.userId}`
+        ).emit(
+          "message:deletedForMe",
+          {
+            messageId:
+              message.id,
+
+            conversationId:
+              message.conversationId,
+          }
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Message deleted for you",
+
+        data: {
+          messageId:
+            message.id,
+
           conversationId:
             message.conversationId,
-        }
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Delete message for me error:",
+        error
       );
+
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to delete message",
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Message deleted for you",
-      data: {
-        messageId: message.id,
-        conversationId:
-          message.conversationId,
-      },
-    });
-  } catch (error) {
-    console.error(
-      "Delete message for me error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to delete message",
-    });
-  }
-};
+  };
 
 /* =====================================================
    DELETE MESSAGE FOR EVERYONE
 ===================================================== */
 
-const deleteMessageForEveryone = async (
-  req,
-  res
-) => {
-  try {
-    const message =
-      await communicationService.deleteMessageForEveryone({
-        messageId: req.params.id,
-        userId: req.user.userId,
+const deleteMessageForEveryone =
+  async (req, res) => {
+    try {
+      const message =
+        await communicationService.deleteMessageForEveryone(
+          {
+            messageId:
+              req.params.id,
+
+            userId:
+              req.user.userId,
+          }
+        );
+
+      const io = req.app.get("io");
+
+      if (io) {
+        io.to(
+          `conversation:${message.conversationId}`
+        ).emit(
+          "message:deleted",
+          {
+            messageId:
+              message.id,
+
+            conversationId:
+              message.conversationId,
+
+            deletedForEveryone:
+              message.deletedForEveryone,
+
+            deletedAt:
+              message.deletedAt,
+          }
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Message deleted for everyone",
+        data: message,
       });
+    } catch (error) {
+      console.error(
+        "Delete message for everyone error:",
+        error
+      );
 
-    const io = req.app.get("io");
-
-    if (io) {
-      io.to(
-        `conversation:${message.conversationId}`
-      ).emit("message:deleted", {
-        messageId: message.id,
-        conversationId:
-          message.conversationId,
-        deletedForEveryone:
-          message.deletedForEveryone,
-        deletedAt: message.deletedAt,
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to delete message",
       });
     }
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "Message deleted for everyone",
-      data: message,
-    });
-  } catch (error) {
-    console.error(
-      "Delete message for everyone error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to delete message",
-    });
-  }
-};
+  };
 
 /* =====================================================
    BULK DELETE MESSAGE FOR ME
 ===================================================== */
 
-const deleteMessagesForMe = async (
-  req,
-  res
-) => {
-  try {
-    const { messageIds } =
-      req.body;
-
-    const result =
-      await communicationService.deleteMessagesForMe({
+const deleteMessagesForMe =
+  async (req, res) => {
+    try {
+      const {
         messageIds,
-        userId: req.user.userId,
-      });
+      } = req.body;
 
-    const io = req.app.get("io");
-
-    if (io) {
-      /*
-       * Emit one event per affected conversation.
-       *
-       * This lets clients update only the
-       * conversation that is currently relevant.
-       */
-      for (const conversationId of
-        result.conversationIds) {
-        const conversationMessageIds =
-          result.messageIds;
-
-        io.to(
-          `user:${req.user.userId}`
-        ).emit(
-          "messages:deletedForMe",
+      const result =
+        await communicationService.deleteMessagesForMe(
           {
-            messageIds:
-              conversationMessageIds,
-            conversationId,
+            messageIds,
+            userId:
+              req.user.userId,
           }
         );
+
+      const io = req.app.get("io");
+
+      if (io) {
+        for (
+          const conversationId of
+          result.conversationIds
+        ) {
+          io.to(
+            `user:${req.user.userId}`
+          ).emit(
+            "messages:deletedForMe",
+            {
+              messageIds:
+                result.messageIds,
+
+              conversationId,
+            }
+          );
+        }
       }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Messages deleted for you",
+        data: result,
+      });
+    } catch (error) {
+      console.error(
+        "Bulk delete messages for me error:",
+        error
+      );
+
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to delete messages",
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "Messages deleted for you",
-      data: result,
-    });
-  } catch (error) {
-    console.error(
-      "Bulk delete messages for me error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to delete messages",
-    });
-  }
-};
+  };
 
 /* =====================================================
    BULK DELETE MESSAGE FOR EVERYONE
 ===================================================== */
 
-const deleteMessagesForEveryone = async (
-  req,
-  res
-) => {
-  try {
-    const { messageIds } =
-      req.body;
-
-    const result =
-      await communicationService.deleteMessagesForEveryone({
+const deleteMessagesForEveryone =
+  async (req, res) => {
+    try {
+      const {
         messageIds,
-        userId: req.user.userId,
+      } = req.body;
+
+      const result =
+        await communicationService.deleteMessagesForEveryone(
+          {
+            messageIds,
+            userId:
+              req.user.userId,
+          }
+        );
+
+      const io = req.app.get("io");
+
+      if (io) {
+        for (
+          const conversationId of
+          result.conversationIds
+        ) {
+          io.to(
+            `conversation:${conversationId}`
+          ).emit(
+            "messages:deleted",
+            {
+              messageIds:
+                result.messageIds,
+
+              conversationId,
+
+              deletedAt:
+                result.deletedAt,
+            }
+          );
+        }
+
+        for (
+          const update of
+          result.conversationUpdates
+        ) {
+          io.to(
+            `conversation:${update.conversationId}`
+          ).emit(
+            "conversation:updated",
+            {
+              conversationId:
+                update.conversationId,
+
+              lastMessage:
+                update.lastMessage,
+            }
+          );
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Messages deleted for everyone",
+        data: result,
       });
+    } catch (error) {
+      console.error(
+        "Bulk delete messages for everyone error:",
+        error
+      );
 
-    const io = req.app.get("io");
-
-    if (io) {
-      for (const conversationId of
-        result.conversationIds) {
-        io.to(
-          `conversation:${conversationId}`
-        ).emit(
-          "messages:deleted",
-          {
-            messageIds:
-              result.messageIds,
-            conversationId,
-            deletedAt:
-              result.deletedAt,
-          }
-        );
-      }
-
-      for (const update of
-        result.conversationUpdates) {
-        io.to(
-          `conversation:${update.conversationId}`
-        ).emit(
-          "conversation:updated",
-          {
-            conversationId:
-              update.conversationId,
-            lastMessage:
-              update.lastMessage,
-          }
-        );
-      }
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to delete messages",
+      });
     }
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "Messages deleted for everyone",
-      data: result,
-    });
-  } catch (error) {
-    console.error(
-      "Bulk delete messages for everyone error:",
-      error
-    );
-
-    return res.status(
-      error.statusCode || 500
-    ).json({
-      success: false,
-      message:
-        error.message ||
-        "Failed to delete messages for everyone",
-    });
-  }
-};
+  };
 
 /* =====================================================
    FORWARD MESSAGES
@@ -813,21 +1026,26 @@ const forwardMessages = async (
       await communicationService.forwardMessages({
         messageIds,
         conversationIds,
-        userId: req.user.userId,
+        userId:
+          req.user.userId,
       });
 
     const io = req.app.get("io");
 
     if (io) {
-      for (const conversation of
-        result.conversations) {
+      for (
+        const conversation of
+        result.conversations
+      ) {
         const {
           conversationId,
           messages,
           lastMessage,
         } = conversation;
 
-        for (const message of messages) {
+        for (
+          const message of messages
+        ) {
           io.to(
             `conversation:${conversationId}`
           ).emit(
@@ -879,19 +1097,38 @@ const forwardMessages = async (
 
 module.exports = {
   getUsers,
+
   getConversations,
+
   getConversation,
+
   deleteConversationForMe,
+
   getMessages,
+
   getMessageThreadController,
+
   createDirectConversation,
+
   createGroupConversation,
+
+  addGroupMembers,
+
+  exitGroup,
+
   sendMessage,
+
   markConversationRead,
+
   toggleReaction,
+
   deleteMessageForMe,
+
   deleteMessageForEveryone,
+
   deleteMessagesForMe,
+
   deleteMessagesForEveryone,
+
   forwardMessages,
 };

@@ -1,64 +1,147 @@
-import { useEffect, useRef } from "react";
+import {
+  useEffect,
+} from "react";
+
 import MessageItem from "./MessageItem";
 
 const MessageList = ({
   messages,
   currentUserId,
   loading,
-  typingUsers,
-}) => {
-  const bottomRef = useRef(null);
 
+  // Scroll
+  messagesContainerRef,
+  messagesContentRef,
+  onScroll,
+
+  // Message actions
+  onReply,
+  onOpenThread,
+
+  // Selection
+  selectionMode,
+  selectedMessageIds,
+  onToggleSelect,
+  onEnterSelectionMode,
+  onClearSelection,
+
+  // Message action menu
+  activeMenuMessageId,
+  onMenuOpenChange,
+}) => {
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages.length]);
+    // Intentionally kept lightweight.
+    // ConversationWindow owns the scroll-to-bottom
+    // behavior because it coordinates search/navigation.
+  }, [messages]);
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-gray-500">
-        Loading messages...
+      <div
+        ref={
+          messagesContainerRef
+        }
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 px-3 py-4 sm:px-5"
+      >
+        <div className="flex h-full items-center justify-center">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-400 shadow-sm">
+            Loading messages...
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-gray-50 px-4 py-5">
-      {messages.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <p className="font-medium text-gray-700">
+    <div
+      ref={
+        messagesContainerRef
+      }
+      onScroll={onScroll}
+      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50 px-3 py-4 sm:px-5"
+    >
+      {messages?.length ? (
+        <div
+          ref={
+            messagesContentRef
+          }
+          className="flex flex-col gap-3"
+        >
+          {messages.map(
+            (message) => {
+              const messageId =
+                message?.id ||
+                message?._id;
+
+              const senderId =
+                message?.sender?.id ||
+                message?.sender?._id ||
+                message?.senderId;
+
+              const own =
+                String(senderId) ===
+                String(currentUserId);
+
+              return (
+                <div
+                  key={messageId}
+                  id={`message-${messageId}`}
+                  className="min-w-0"
+                >
+                  <MessageItem
+                    message={
+                      message
+                    }
+                    own={own}
+                    onReply={
+                      onReply
+                    }
+                    onOpenThread={
+                      onOpenThread
+                    }
+                    selectionMode={
+                      selectionMode
+                    }
+                    selected={
+                      selectedMessageIds.has(
+                        String(
+                          messageId
+                        )
+                      )
+                    }
+                    onToggleSelect={
+                      onToggleSelect
+                    }
+                    onEnterSelectionMode={
+                      onEnterSelectionMode
+                    }
+                    onClearSelection={
+                      onClearSelection
+                    }
+                    activeMenuMessageId={
+                      activeMenuMessageId
+                    }
+                    onMenuOpenChange={
+                      onMenuOpenChange
+                    }
+                  />
+                </div>
+              );
+            }
+          )}
+        </div>
+      ) : (
+        <div className="flex h-full items-center justify-center">
+          <div className="rounded-2xl border border-slate-200 bg-white px-8 py-7 text-center shadow-sm">
+            <p className="text-sm font-semibold text-slate-700">
               No messages yet
             </p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Send the first message.
+            <p className="mt-1 text-xs text-slate-400">
+              Send a message to start
+              the conversation.
             </p>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              own={
-                String(
-                  message.sender?.id
-                ) ===
-                String(currentUserId)
-              }
-            />
-          ))}
-
-          {typingUsers.length > 0 && (
-            <div className="px-2 text-xs italic text-gray-400">
-              Someone is typing...
-            </div>
-          )}
-
-          <div ref={bottomRef} />
         </div>
       )}
     </div>

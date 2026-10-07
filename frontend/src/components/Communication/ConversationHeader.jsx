@@ -1,62 +1,404 @@
+import {
+  ChevronDown,
+  ChevronUp,
+  Search,
+  X,
+} from "lucide-react";
+
 const ConversationHeader = ({
   conversation,
   currentUserId,
+  typingLabel,
+  onBack,
+  onOpenGroupInfo,
+
+  // Search
+  messageSearchOpen,
+  messageSearchText,
+  messageSearchFocused,
+  messageSearchInputRef,
+  messageSearchResults,
+  messageSearchLoading,
+  messageSearchError,
+  activeSearchResultIndex,
+  searchNavigationLoading,
+
+  onOpenMessageSearch,
+  onCloseMessageSearch,
+  onMessageSearchChange,
+  onSearchResultClick,
+  onNavigateSearchResult,
+  onSearchFocus,
+  onSearchBlur,
 }) => {
   if (!conversation) {
     return null;
   }
 
-  let title =
-    conversation.name;
+  const getConversationName = () => {
+    if (conversation.type === "direct") {
+      const other =
+        conversation.participants?.find(
+          (participant) =>
+            String(participant.id) !==
+            String(currentUserId)
+        );
 
-  let subtitle = "";
-
-  if (
-    conversation.type === "direct"
-  ) {
-    const other =
-      conversation.participants?.find(
-        (participant) =>
-          String(participant.id) !==
-          String(currentUserId)
+      return (
+        other?.name ||
+        other?.fullName ||
+        other?.email ||
+        "Unknown user"
       );
+    }
 
-    title =
-      other?.name ||
-      other?.email ||
-      "Unknown user";
+    return (
+      conversation.name ||
+      conversation.title ||
+      "Conversation"
+    );
+  };
 
-    subtitle =
-      other?.role || "";
-  } else {
-    subtitle = `${
-      conversation.participants
-        ?.length || 0
-    } participants`;
-  }
+  const conversationName = getConversationName();
+
+  const subtitle =
+    conversation.type === "group"
+      ? `${conversation.participants?.length || 0} participants`
+      : (() => {
+          const other =
+            conversation.participants?.find(
+              (participant) =>
+                String(participant.id) !==
+                String(currentUserId)
+            );
+
+          return other?.role || "";
+        })();
 
   return (
-    <header className="flex items-center justify-between border-b bg-white px-5 py-4">
-      <div className="min-w-0">
-        <h2 className="truncate text-base font-semibold text-gray-900">
-          {title || "Conversation"}
-        </h2>
+    <header className="relative z-20 flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 py-3">
 
-        <p className="mt-1 text-xs capitalize text-gray-500">
-          {conversation.type}
-          {subtitle
-            ? ` · ${subtitle}`
-            : ""}
-        </p>
+      {/* =================================================
+          MOBILE BACK
+      ================================================= */}
+
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 md:hidden"
+          aria-label="Back"
+          title="Back"
+        >
+          <span className="text-lg">
+            ←
+          </span>
+        </button>
+      )}
+
+      {/* =================================================
+          AVATAR
+      ================================================= */}
+
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-semibold text-white shadow-sm">
+        {conversationName
+          .charAt(0)
+          .toUpperCase()}
       </div>
 
-      {conversation.type ===
-        "group" && (
-        <div className="text-sm text-gray-400">
-          {conversation.participants
-            ?.length || 0}
+      {/* =================================================
+          CONVERSATION INFO
+
+          For groups, this entire area opens Group Info.
+      ================================================= */}
+
+      {conversation.type === "group" &&
+      onOpenGroupInfo ? (
+        <button
+          type="button"
+          onClick={onOpenGroupInfo}
+          className="
+            min-w-0
+            flex-1
+            rounded-lg
+            px-2
+            py-1
+            text-left
+            transition
+            hover:bg-slate-50
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-100
+          "
+          aria-label="Open group information"
+          title="Open group information"
+        >
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {conversationName}
+          </p>
+
+          {typingLabel ? (
+            <p className="truncate text-xs font-medium text-blue-600">
+              {typingLabel}
+            </p>
+          ) : (
+            <p className="truncate text-xs text-slate-400">
+              Group conversation
+            </p>
+          )}
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {conversationName}
+          </p>
+
+          {typingLabel ? (
+            <p className="truncate text-xs font-medium text-blue-600">
+              {typingLabel}
+            </p>
+          ) : (
+            <p className="truncate text-xs text-slate-400">
+              {conversation.type === "group"
+                ? "Group conversation"
+                : subtitle || "Conversation"}
+            </p>
+          )}
         </div>
       )}
+
+      {/* =================================================
+          MESSAGE SEARCH
+      ================================================= */}
+
+      <div className="relative z-50 shrink-0">
+        {messageSearchOpen ? (
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 shadow-sm">
+            <Search
+              size={17}
+              className="shrink-0 text-slate-400"
+            />
+
+            <input
+              ref={messageSearchInputRef}
+              type="text"
+              value={messageSearchText}
+              onChange={onMessageSearchChange}
+              onFocus={onSearchFocus}
+              onBlur={onSearchBlur}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  onCloseMessageSearch();
+                  return;
+                }
+
+                if (
+                  event.key === "ArrowDown" ||
+                  (event.key === "Enter" &&
+                    !event.shiftKey)
+                ) {
+                  if (
+                    messageSearchResults?.length
+                  ) {
+                    event.preventDefault();
+
+                    onNavigateSearchResult(1);
+                  }
+
+                  return;
+                }
+
+                if (
+                  event.key === "ArrowUp" ||
+                  (event.key === "Enter" &&
+                    event.shiftKey)
+                ) {
+                  if (
+                    messageSearchResults?.length
+                  ) {
+                    event.preventDefault();
+
+                    onNavigateSearchResult(-1);
+                  }
+                }
+              }}
+              placeholder="Search messages..."
+              className="w-28 bg-transparent px-1 text-xs text-slate-800 outline-none placeholder:text-slate-400 sm:w-40"
+              aria-label="Search messages"
+            />
+
+            {messageSearchText.trim() &&
+              messageSearchResults?.length > 0 && (
+                <>
+                  <span className="shrink-0 px-1 text-[10px] font-medium tabular-nums text-slate-400">
+                    {activeSearchResultIndex >= 0
+                      ? activeSearchResultIndex + 1
+                      : 0}
+                    /
+                    {
+                      messageSearchResults.length
+                    }
+                  </span>
+
+                  <button
+                    type="button"
+                    onMouseDown={(event) =>
+                      event.preventDefault()
+                    }
+                    onClick={() =>
+                      onNavigateSearchResult(-1)
+                    }
+                    disabled={
+                      searchNavigationLoading
+                    }
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Previous search match"
+                    title="Previous match"
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onMouseDown={(event) =>
+                      event.preventDefault()
+                    }
+                    onClick={() =>
+                      onNavigateSearchResult(1)
+                    }
+                    disabled={
+                      searchNavigationLoading
+                    }
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-200 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Next search match"
+                    title="Next match"
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                </>
+              )}
+
+            <button
+              type="button"
+              onMouseDown={(event) =>
+                event.preventDefault()
+              }
+              onClick={onCloseMessageSearch}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+              aria-label="Close message search"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenMessageSearch}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-blue-600"
+            aria-label="Search messages"
+            title="Search messages"
+          >
+            <Search size={19} />
+          </button>
+        )}
+
+        {/* =================================================
+            SEARCH RESULTS DROPDOWN
+
+            High z-index so it stays above messages/actions.
+        ================================================= */}
+
+        {messageSearchOpen &&
+          messageSearchFocused &&
+          messageSearchText.trim() && (
+            <div className="absolute right-0 top-[calc(100%+8px)] z-[100] w-[min(360px,calc(100vw-32px))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+              {messageSearchLoading ? (
+                <div className="px-4 py-4 text-xs text-slate-500">
+                  Searching messages...
+                </div>
+              ) : messageSearchError ? (
+                <div className="px-4 py-4 text-xs text-red-500">
+                  {messageSearchError}
+                </div>
+              ) : messageSearchResults?.length ? (
+                <div className="max-h-[360px] overflow-y-auto py-1">
+                  {messageSearchResults.map(
+                    (
+                      result,
+                      resultIndex
+                    ) => {
+                      const resultId =
+                        result?.id ||
+                        result?._id;
+
+                      const senderName =
+                        result?.sender?.name ||
+                        result?.sender?.fullName ||
+                        result?.senderName ||
+                        "Unknown user";
+
+                      const resultText =
+                        result?.text?.trim() ||
+                        (result?.attachments?.length
+                          ? "Attachment"
+                          : "Message");
+
+                      return (
+                        <button
+                          key={resultId}
+                          type="button"
+                          onMouseDown={(event) =>
+                            event.preventDefault()
+                          }
+                          onClick={() =>
+                            onSearchResultClick(
+                              result,
+                              resultIndex
+                            )
+                          }
+                          className={`block w-full border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-slate-50 ${
+                            activeSearchResultIndex ===
+                            resultIndex
+                              ? "bg-blue-50"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="truncate text-xs font-semibold text-slate-700">
+                              {senderName}
+                            </span>
+
+                            {result?.createdAt && (
+                              <span className="shrink-0 text-[10px] text-slate-400">
+                                {new Date(
+                                  result.createdAt
+                                ).toLocaleDateString(
+                                  [],
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                  }
+                                )}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-500">
+                            {resultText}
+                          </p>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              ) : (
+                <div className="px-4 py-5 text-center text-xs text-slate-400">
+                  No messages found
+                </div>
+              )}
+            </div>
+          )}
+      </div>
     </header>
   );
 };
