@@ -489,8 +489,9 @@ const changePassword = async (
 
 const updateTwoFactor = async (req, res) => {
   try {
-    const { enabled } = req.body;
+    const { enabled, currentPassword } = req.body;
 
+    // Validate enabled
     if (typeof enabled !== "boolean") {
       return res.status(400).json({
         success: false,
@@ -498,9 +499,21 @@ const updateTwoFactor = async (req, res) => {
       });
     }
 
+    // Validate password
+    if (
+      typeof currentPassword !== "string" ||
+      !currentPassword.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is required.",
+      });
+    }
+
     const user = await updateTwoFactorSettings({
       userId: req.user.userId,
       enabled,
+      currentPassword,
     });
 
     return res.status(200).json({

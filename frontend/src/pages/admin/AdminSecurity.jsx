@@ -40,7 +40,7 @@ const AdminSecurity = () => {
   ] = useState(false);
 
   // --------------------------------------------------
-  // LOAD ADMIN
+  // LOAD ADMIN PROFILE
   // --------------------------------------------------
 
   const loadProfile = useCallback(
@@ -59,6 +59,14 @@ const AdminSecurity = () => {
           response;
 
         setUser(profile || null);
+
+        // Keep localStorage user information in sync
+        if (profile) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify(profile)
+          );
+        }
       } catch (err) {
         console.error(
           "Failed to load admin security profile:",
@@ -84,18 +92,53 @@ const AdminSecurity = () => {
   // PASSWORD SUCCESS
   // --------------------------------------------------
 
-  const handlePasswordSuccess =
-    () => {
-      setSuccess(
-        "Password changed successfully."
-      );
+  const handlePasswordSuccess = () => {
+    setSuccess(
+      "Password changed successfully."
+    );
 
-      window.setTimeout(() => {
-        setSuccess("");
-      }, 3500);
-    };
+    window.setTimeout(() => {
+      setSuccess("");
+    }, 3500);
+  };
 
   // --------------------------------------------------
+  // TWO-FACTOR SUCCESS
+  // --------------------------------------------------
+
+const handleTwoFactorUpdated = (
+  updatedUser
+) => {
+  if (!updatedUser) {
+    return;
+  }
+
+  setUser((current) => {
+    const mergedUser = {
+      ...(current || {}),
+      ...updatedUser,
+    };
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify(mergedUser)
+    );
+
+    return mergedUser;
+  });
+
+  setSuccess(
+    updatedUser.twoFactorEnabled
+      ? "Two-factor authentication enabled successfully."
+      : "Two-factor authentication disabled successfully."
+  );
+
+  window.setTimeout(() => {
+    setSuccess("");
+  }, 3500);
+};
+
+//--------------------------------------------------
   // LOADING
   // --------------------------------------------------
 
@@ -154,6 +197,7 @@ const AdminSecurity = () => {
     <>
       <div className="min-h-full bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
+
           {/* PAGE HEADER */}
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -168,8 +212,8 @@ const AdminSecurity = () => {
 
               <p className="mt-1 max-w-2xl text-sm text-slate-500">
                 Protect your administrator account,
-                manage authentication, and review security
-                information.
+                manage authentication, and review
+                security information.
               </p>
             </div>
 
@@ -201,42 +245,44 @@ const AdminSecurity = () => {
           {/* MAIN CONTENT */}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
+
             <div className="min-w-0 space-y-6">
+
+              {/* PASSWORD */}
+
               <AdminPasswordCard
                 onChangePassword={() =>
                   setChangePasswordOpen(true)
                 }
               />
 
+              {/* TWO FACTOR AUTHENTICATION */}
+
               <TwoFactorSettings
                 user={user}
-                onUpdated={(updatedUser) => {
-                  setUser((current) => {
-                    const mergedUser = {
-                      ...current,
-                      ...updatedUser,
-                    };
-
-                    localStorage.setItem(
-                      "user",
-                      JSON.stringify(mergedUser)
-                    );
-
-                    return mergedUser;
-                  });
-                }}
+                onUpdated={
+                  handleTwoFactorUpdated
+                }
               />
+
+              {/* ACCOUNT SECURITY */}
 
               <AdminAccountSecurity
                 user={user}
               />
 
+              {/* SECURITY ACTIVITY */}
+
               <AdminSecurityActivity />
+
             </div>
+
+            {/* ACTIVE SESSIONS */}
 
             <div className="min-w-0">
               <AdminSessionCard />
             </div>
+
           </div>
 
           {/* FOOTER */}
@@ -253,10 +299,11 @@ const AdminSecurity = () => {
               </p>
             </div>
           </div>
+
         </div>
       </div>
 
-      {/* CHANGE PASSWORD */}
+      {/* CHANGE PASSWORD MODAL */}
 
       {changePasswordOpen && (
         <AdminChangePasswordModal

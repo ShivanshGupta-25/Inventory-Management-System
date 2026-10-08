@@ -98,13 +98,18 @@ export const resendEmailVerification = async ({
 // TWO-FACTOR AUTHENTICATION SETTINGS
 // --------------------------------------------------
 
-export const updateTwoFactorSettings = async ({ enabled }) =>
-  apiRequest("/auth/two-factor", {
+export const updateTwoFactorSettings = async ({
+  enabled,
+  currentPassword,
+}) => {
+  return apiRequest("/auth/two-factor", {
     method: "PATCH",
     body: JSON.stringify({
       enabled,
+      currentPassword,
     }),
   });
+};
 
 // =====================================================
 // CURRENT USER

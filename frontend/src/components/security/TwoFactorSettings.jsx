@@ -1,24 +1,59 @@
 import { useState } from "react";
+
 import {
   ShieldCheck,
   ShieldOff,
   Loader2,
   LockKeyhole,
   AlertTriangle,
+  Eye,
+  EyeOff,
   X,
 } from "lucide-react";
 
 import { updateTwoFactorSettings } from "../../services/authService";
 
-const TwoFactorSettings = ({ user, onUpdated }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [showDisableModal, setShowDisableModal] =
+const TwoFactorSettings = ({
+  user,
+  onUpdated,
+}) => {
+  const [loading, setLoading] =
     useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [
+    showPasswordModal,
+    setShowPasswordModal,
+  ] = useState(false);
+
+  const [
+    currentPassword,
+    setCurrentPassword,
+  ] = useState("");
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+  const [
+    targetState,
+    setTargetState,
+  ] = useState(false);
+
+  // --------------------------------------------------
+  // USER CHECK
+  // --------------------------------------------------
 
   if (!user) {
     return null;
   }
+
+  // --------------------------------------------------
+  // ROLE CHECK
+  // --------------------------------------------------
 
   const isAdminOrManager =
     user.role === "admin" ||
@@ -39,7 +74,8 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
             </h3>
 
             <p className="mt-1 text-sm text-gray-600">
-              Your email address has been verified successfully.
+              Your email address has been
+              verified successfully.
             </p>
           </div>
         </div>
@@ -47,41 +83,109 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
     );
   }
 
-  // Undefined is treated as enabled for existing accounts.
+  // --------------------------------------------------
+  // CURRENT 2FA STATE
+  // --------------------------------------------------
+
+  // Undefined is treated as enabled for
+  // existing accounts.
   const enabled =
     user.twoFactorEnabled !== false;
 
   const required =
     user.twoFactorRequired === true;
 
-  /*
-   * Actually update the 2FA setting.
-   *
-   * This is separated from handleToggle so that
-   * disabling can first go through the confirmation modal.
-   */
-  const updateTwoFactor = async (newValue) => {
+  // --------------------------------------------------
+  // OPEN PASSWORD MODAL
+  // --------------------------------------------------
+
+  const handleToggle = () => {
+    // Required 2FA cannot be changed.
+    if (required) {
+      return;
+    }
+
+    const newValue = !enabled;
+
+    setTargetState(newValue);
+
+    setCurrentPassword("");
+
+    setShowPassword(false);
+
     setError("");
+
+    setShowPasswordModal(true);
+  };
+
+  // --------------------------------------------------
+  // CLOSE PASSWORD MODAL
+  // --------------------------------------------------
+
+  const handleCloseModal = () => {
+    if (loading) {
+      return;
+    }
+
+    setShowPasswordModal(false);
+
+    setCurrentPassword("");
+
+    setShowPassword(false);
+
+    setError("");
+  };
+
+  // --------------------------------------------------
+  // UPDATE TWO FACTOR
+  // --------------------------------------------------
+
+  const updateTwoFactor = async () => {
+    if (!currentPassword.trim()) {
+      setError(
+        "Please enter your current password."
+      );
+
+      return;
+    }
+
+    setError("");
+
     setLoading(true);
 
     try {
       const response =
         await updateTwoFactorSettings({
-          enabled: newValue,
+          enabled: targetState,
+          currentPassword:
+            currentPassword.trim(),
         });
 
       const updatedUser =
-        response?.user || response?.data?.user;
+        response?.user ||
+        response?.data?.user;
 
       if (updatedUser && onUpdated) {
         onUpdated(updatedUser);
       }
 
-      // Close modal after successful update.
-      setShowDisableModal(false);
+      // Close modal
+      setShowPasswordModal(false);
+
+      // Clear sensitive state
+      setCurrentPassword("");
+
+      setShowPassword(false);
+
+      setError("");
     } catch (err) {
+      console.error(
+        "Two-factor authentication update error:",
+        err
+      );
+
       setError(
-        err.message ||
+        err?.message ||
           "Unable to update two-factor authentication."
       );
     } finally {
@@ -89,47 +193,38 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
     }
   };
 
-  const handleToggle = () => {
-    // Required 2FA cannot be changed.
-    if (required && enabled) {
-      return;
+  // --------------------------------------------------
+  // PASSWORD KEYBOARD HANDLER
+  // --------------------------------------------------
+
+  const handlePasswordKeyDown = (event) => {
+    if (
+      event.key === "Enter" &&
+      !loading
+    ) {
+      event.preventDefault();
+
+      updateTwoFactor();
     }
-
-    setError("");
-
-    /*
-     * If 2FA is currently enabled, the user is trying
-     * to disable it. Show confirmation first.
-     */
-    if (enabled) {
-      setShowDisableModal(true);
-      return;
-    }
-
-    /*
-     * Enabling 2FA does not require confirmation.
-     */
-    updateTwoFactor(true);
   };
 
-  const handleConfirmDisable = () => {
-    updateTwoFactor(false);
-  };
-
-  const handleCloseModal = () => {
-    if (loading) {
-      return;
-    }
-
-    setShowDisableModal(false);
-    setError("");
-  };
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
 
   return (
     <>
+      {/* ==================================================
+          TWO FACTOR CARD
+      ================================================== */}
+
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
+
+          {/* LEFT */}
+
           <div className="flex items-start gap-3">
+
             <div
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
                 enabled
@@ -150,11 +245,13 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
               </h3>
 
               <p className="mt-1 text-sm text-gray-600">
-                Add an additional security layer to your
-                account using email verification codes.
+                Add an additional security layer
+                to your account using email
+                verification codes.
               </p>
 
               <div className="mt-3 flex items-center gap-2">
+
                 <span
                   className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                     enabled
@@ -170,9 +267,12 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
                 <span className="text-xs text-gray-500">
                   Method: Email
                 </span>
+
               </div>
             </div>
           </div>
+
+          {/* TOGGLE */}
 
           <button
             type="button"
@@ -207,52 +307,79 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
           </button>
         </div>
 
+        {/* REQUIRED MESSAGE */}
+
         {required && (
           <div className="mt-4 flex items-start gap-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
             <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
 
             <p>
-              Two-factor authentication is required
-              for this account and cannot be disabled.
+              Two-factor authentication is
+              required for this account and
+              cannot be disabled.
             </p>
           </div>
         )}
 
-        {error && (
+        {/* CARD ERROR */}
+
+        {error && !showPasswordModal && (
           <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
             {error}
           </div>
         )}
       </div>
 
-      {/* ================================
-          DISABLE 2FA CONFIRMATION MODAL
-          ================================ */}
-      {showDisableModal && (
+      {/* ==================================================
+          PASSWORD VERIFICATION MODAL
+      ================================================== */}
+
+      {showPasswordModal && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
           onMouseDown={handleCloseModal}
         >
           <div
             className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
           >
-            {/* Modal Header */}
+
+            {/* ==========================================
+                HEADER
+            ========================================== */}
+
             <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                    targetState
+                      ? "bg-blue-100"
+                      : "bg-amber-100"
+                  }`}
+                >
+                  {targetState ? (
+                    <LockKeyhole className="h-5 w-5 text-blue-600" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  )}
                 </div>
 
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Disable Two-Factor Authentication?
+                    {targetState
+                      ? "Enable Two-Factor Authentication"
+                      : "Disable Two-Factor Authentication"}
                   </h2>
 
                   <p className="mt-1 text-sm text-gray-500">
-                    Security confirmation
+                    Password verification required
                   </p>
                 </div>
+
               </div>
 
               <button
@@ -264,43 +391,155 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
               >
                 <X className="h-5 w-5" />
               </button>
+
             </div>
 
-            {/* Modal Body */}
+            {/* ==========================================
+                BODY
+            ========================================== */}
+
             <div className="px-6 py-5">
+
               <p className="text-sm leading-6 text-gray-600">
-                You are about to disable email-based
-                two-factor authentication for your
-                account.
+                {targetState
+                  ? "To enable two-factor authentication, please verify your current account password."
+                  : "To disable two-factor authentication, please verify your current account password."}
               </p>
 
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <div className="flex items-start gap-3">
-                  <ShieldOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              {/* DISABLE WARNING */}
 
-                  <div>
-                    <p className="text-sm font-medium text-amber-800">
-                      This will reduce your account security.
-                    </p>
+              {!targetState && (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-start gap-3">
 
-                    <p className="mt-1 text-sm leading-5 text-amber-700">
-                      After disabling 2FA, you will no
-                      longer be asked for an email
-                      verification code when signing in.
-                    </p>
+                    <ShieldOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">
+                        This will reduce your account security.
+                      </p>
+
+                      <p className="mt-1 text-sm leading-5 text-amber-700">
+                        After disabling 2FA,
+                        you will no longer be
+                        asked for an email
+                        verification code when
+                        signing in.
+                      </p>
+                    </div>
+
                   </div>
                 </div>
+              )}
+
+              {/* ENABLE INFORMATION */}
+
+              {targetState && (
+                <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="flex items-start gap-3">
+
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">
+                        Your account security will be increased.
+                      </p>
+
+                      <p className="mt-1 text-sm leading-5 text-blue-700">
+                        After enabling 2FA,
+                        you will be asked for
+                        an email verification
+                        code when signing in.
+                      </p>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* PASSWORD */}
+
+              <div className="mt-5">
+
+                <label
+                  htmlFor="two-factor-current-password"
+                  className="mb-2 block text-sm font-semibold text-gray-700"
+                >
+                  Current Password
+                </label>
+
+                <div className="relative">
+
+                  <input
+                    id="two-factor-current-password"
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    value={currentPassword}
+                    onChange={(event) => {
+                      setCurrentPassword(
+                        event.target.value
+                      );
+
+                      if (error) {
+                        setError("");
+                      }
+                    }}
+                    onKeyDown={
+                      handlePasswordKeyDown
+                    }
+                    disabled={loading}
+                    autoFocus
+                    autoComplete="current-password"
+                    placeholder="Enter your current password"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 pr-11 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 disabled:cursor-not-allowed disabled:bg-gray-50"
+                  />
+
+                  {/* EYE BUTTON */}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword(
+                        (current) => !current
+                      )
+                    }
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+
+                </div>
               </div>
+
+              {/* ERROR */}
 
               {error && (
                 <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                   {error}
                 </div>
               )}
+
             </div>
 
-            {/* Modal Actions */}
+            {/* ==========================================
+                FOOTER
+            ========================================== */}
+
             <div className="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+
               <button
                 type="button"
                 onClick={handleCloseModal}
@@ -312,19 +551,34 @@ const TwoFactorSettings = ({ user, onUpdated }) => {
 
               <button
                 type="button"
-                onClick={handleConfirmDisable}
-                disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={updateTwoFactor}
+                disabled={
+                  loading ||
+                  !currentPassword.trim()
+                }
+                className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  targetState
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
               >
+
                 {loading && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
 
                 {loading
-                  ? "Disabling..."
-                  : "Disable 2FA"}
+                  ? targetState
+                    ? "Enabling..."
+                    : "Disabling..."
+                  : targetState
+                    ? "Verify & Enable"
+                    : "Verify & Disable"}
+
               </button>
+
             </div>
+
           </div>
         </div>
       )}

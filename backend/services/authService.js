@@ -626,40 +626,47 @@ const changeUserPassword = async (
 const updateTwoFactorSettings = async ({
   userId,
   enabled,
+  currentPassword,
 }) => {
   if (typeof enabled !== "boolean") {
-    throw new Error(
-      "Two-factor authentication setting must be true or false"
-    );
+    throw new Error("2FA enabled status must be a boolean.");
+  }
+
+  if (!currentPassword) {
+    throw new Error("Current password is required.");
   }
 
   const user = await User.findById(userId);
 
   if (!user) {
-    throw new Error("User not found");
+    throw new Error("User not found.");
   }
 
-  // Only admin and manager can control 2FA.
-  if (
-    user.role !== "admin" &&
-    user.role !== "manager"
-  ) {
+  // Only Admin and Manager can change 2FA
+  if (!["admin", "manager"].includes(user.role)) {
     throw new Error(
-      "Two-factor authentication settings are only available for administrators and managers."
+      "You are not authorized to change two-factor authentication settings."
     );
   }
 
-  // If 2FA has been enforced by the system,
-  // the user cannot disable it.
-  if (
-    user.twoFactorRequired === true &&
-    enabled === false
-  ) {
+  // Prevent disabling mandatory 2FA
+  if (user.twoFactorRequired === true && enabled === false) {
     throw new Error(
-      "Two-factor authentication is required for this account and cannot be disabled."
+      "Two-factor authentication is required for your account and cannot be disabled."
     );
   }
 
+  // Verify current password
+  const isPasswordValid = await bcrypt.compare(
+    currentPassword,
+    user.password
+  );
+
+  if (!isPasswordValid) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  // Update 2FA
   user.twoFactorEnabled = enabled;
   user.twoFactorMethod = "email";
 
@@ -670,14 +677,11 @@ const updateTwoFactorSettings = async ({
     name: user.name,
     email: user.email,
     role: user.role,
-    status: user.status || "active",
-
     emailVerified: user.emailVerified,
     emailVerifiedAt: user.emailVerifiedAt,
-
     twoFactorEnabled: user.twoFactorEnabled,
     twoFactorMethod: user.twoFactorMethod,
-    twoFactorRequired: user.twoFactorRequired || false,
+    twoFactorRequired: user.twoFactorRequired,
   };
 };
 
