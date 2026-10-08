@@ -211,18 +211,19 @@ const AdminSecurity = () => {
               <TwoFactorSettings
                 user={user}
                 onUpdated={(updatedUser) => {
-                  setUser((current) => ({
-                    ...current,
-                    ...updatedUser,
-                  }));
-
-                  localStorage.setItem(
-                    "user",
-                    JSON.stringify({
-                      ...user,
+                  setUser((current) => {
+                    const mergedUser = {
+                      ...current,
                       ...updatedUser,
-                    })
-                  );
+                    };
+
+                    localStorage.setItem(
+                      "user",
+                      JSON.stringify(mergedUser)
+                    );
+
+                    return mergedUser;
+                  });
                 }}
               />
 

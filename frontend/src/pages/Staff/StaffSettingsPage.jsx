@@ -388,6 +388,98 @@ const Settings = () => {
                 </button>
               </section>
 
+              {/* Email Verification */}
+              <div className="flex items-center justify-between px-6 py-5">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-medium text-slate-900">
+                    Email Verification
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Your email address is used for account communication and
+                    security verification.
+                  </p>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    {user?.emailVerified ? (
+                      <>
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
+                          <Check
+                            size={13}
+                            className="text-emerald-600"
+                          />
+                        </span>
+
+                        <span className="text-xs font-medium text-emerald-600">
+                          Email verified
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-amber-500" />
+
+                        <span className="text-xs font-medium text-amber-600">
+                          Email not verified
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Two Factor Authentication */}
+              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-5">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-medium text-slate-900">
+                    Two-Factor Authentication
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Add an additional layer of security using a verification
+                    code sent to your email.
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {user?.twoFactorEnabled ? (
+                      <>
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100">
+                          <Check
+                            size={13}
+                            className="text-emerald-600"
+                          />
+                        </span>
+
+                        <span className="text-xs font-medium text-emerald-600">
+                          2FA enabled
+                        </span>
+
+                        <span className="text-xs text-slate-400">
+                          • Email OTP
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-slate-400" />
+
+                        <span className="text-xs font-medium text-slate-500">
+                          2FA disabled
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <span
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                    user?.twoFactorEnabled
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {user?.twoFactorEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+
               {/* =================================================
                   NOTIFICATIONS
               ================================================== */}

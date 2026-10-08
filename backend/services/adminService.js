@@ -1141,9 +1141,7 @@ const deleteUser = async ({
 // ADMIN PROFILE
 // --------------------------------------------------
 
-const getAdminProfile = async (
-  adminId
-) => {
+const getAdminProfile = async (adminId) => {
   const user =
     await User.findById(adminId)
       .select("-password")
@@ -1166,12 +1164,38 @@ const getAdminProfile = async (
     name: user.name,
     email: user.email,
     role: user.role,
-    status:
-      user.status || "active",
+    status: user.status || "active",
+
+    // ------------------------------------------
+    // EMAIL VERIFICATION
+    // ------------------------------------------
+
+    emailVerified:
+      user.emailVerified || false,
+
+    emailVerifiedAt:
+      user.emailVerifiedAt || null,
+
+    // ------------------------------------------
+    // TWO-FACTOR AUTHENTICATION
+    // ------------------------------------------
+
+    // Legacy accounts without this field are
+    // treated as enabled for security.
+    twoFactorEnabled:
+      user.twoFactorEnabled !== false,
+
+    twoFactorMethod:
+      user.twoFactorMethod || "email",
+
+    twoFactorRequired:
+      user.twoFactorRequired || false,
+
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
 };
+
 
 // --------------------------------------------------
 // UPDATE ADMIN PROFILE

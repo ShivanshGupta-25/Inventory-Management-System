@@ -384,9 +384,10 @@ const auditLogs = async (req, res) => {
 
 const getAdminProfile = async (req, res) => {
   try {
-    const user = await getAdminProfileService(
-      req.user.userId
-    );
+    const user =
+      await getAdminProfileService(
+        req.user.userId
+      );
 
     return res.status(200).json({
       success: true,
@@ -398,11 +399,11 @@ const getAdminProfile = async (req, res) => {
       error
     );
 
-    return res.status(404).json({
+    return res.status(400).json({
       success: false,
       message:
         error.message ||
-        "Unable to retrieve admin profile",
+        "Unable to load admin profile",
     });
   }
 };

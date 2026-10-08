@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  ArrowLeft,
   X,
 } from "lucide-react";
 
@@ -176,7 +177,7 @@ const ConversationHeader = ({
           title="Back"
         >
           <span className="text-lg">
-            ←
+            <ArrowLeft size={18} />
           </span>
         </button>
       )}
