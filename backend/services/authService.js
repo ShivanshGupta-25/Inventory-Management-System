@@ -271,9 +271,18 @@ const loginUser = async ({
   // TWO-FACTOR AUTHENTICATION
   // ------------------------------------------------
 
-  const requiresTwoFactor =
+  const isTwoFactorRole =
     user.role === "admin" ||
     user.role === "manager";
+
+  // Existing admin/manager accounts that do not yet
+  // have this field should remain protected.
+  const twoFactorEnabled =
+    user.twoFactorEnabled !== false;
+
+  const requiresTwoFactor =
+    isTwoFactorRole &&
+    twoFactorEnabled;
 
   const safeUser = {
     id: user._id,
@@ -281,6 +290,10 @@ const loginUser = async ({
     email: user.email,
     role: user.role,
     status: userStatus,
+    emailVerified: user.emailVerified,
+    twoFactorEnabled,
+    twoFactorMethod: user.twoFactorMethod || "email",
+    twoFactorRequired: user.twoFactorRequired || false,
   };
 
   // ------------------------------------------------
@@ -410,6 +423,12 @@ const verifyTwoFactorOTP = async ({
   ) {
     throw new Error(
       "Two-factor authentication is not required for this account"
+    );
+  }
+
+  if (user.twoFactorEnabled === false) {
+    throw new Error(
+      "Two-factor authentication is disabled for this account"
     );
   }
 
@@ -601,6 +620,68 @@ const changeUserPassword = async (
 };
 
 // --------------------------------------------------
+// UPDATE TWO-FACTOR AUTHENTICATION SETTINGS
+// --------------------------------------------------
+
+const updateTwoFactorSettings = async ({
+  userId,
+  enabled,
+}) => {
+  if (typeof enabled !== "boolean") {
+    throw new Error(
+      "Two-factor authentication setting must be true or false"
+    );
+  }
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // Only admin and manager can control 2FA.
+  if (
+    user.role !== "admin" &&
+    user.role !== "manager"
+  ) {
+    throw new Error(
+      "Two-factor authentication settings are only available for administrators and managers."
+    );
+  }
+
+  // If 2FA has been enforced by the system,
+  // the user cannot disable it.
+  if (
+    user.twoFactorRequired === true &&
+    enabled === false
+  ) {
+    throw new Error(
+      "Two-factor authentication is required for this account and cannot be disabled."
+    );
+  }
+
+  user.twoFactorEnabled = enabled;
+  user.twoFactorMethod = "email";
+
+  await user.save();
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status || "active",
+
+    emailVerified: user.emailVerified,
+    emailVerifiedAt: user.emailVerifiedAt,
+
+    twoFactorEnabled: user.twoFactorEnabled,
+    twoFactorMethod: user.twoFactorMethod,
+    twoFactorRequired: user.twoFactorRequired || false,
+  };
+};
+
+// --------------------------------------------------
 // EXPORTS
 // --------------------------------------------------
 
@@ -608,6 +689,7 @@ module.exports = {
   registerUser,
   loginUser,
   verifyTwoFactorOTP,
+  updateTwoFactorSettings,
   getCurrentUser,
   updateUserProfile,
   changeUserPassword,

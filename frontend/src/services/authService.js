@@ -94,6 +94,18 @@ export const resendEmailVerification = async ({
   });
 };
 
+// --------------------------------------------------
+// TWO-FACTOR AUTHENTICATION SETTINGS
+// --------------------------------------------------
+
+export const updateTwoFactorSettings = async ({ enabled }) =>
+  apiRequest("/auth/two-factor", {
+    method: "PATCH",
+    body: JSON.stringify({
+      enabled,
+    }),
+  });
+
 // =====================================================
 // CURRENT USER
 // =====================================================

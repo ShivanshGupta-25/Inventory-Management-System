@@ -2768,7 +2768,7 @@ const createDirectConversation = async (currentUserId, recipientId) => {
   return getConversation(conversation._id, currentUserId);
 };
 
-const createGroupConversation = async (currentUserId, { name, memberIds = [] }) => {
+const createGroupConversation = async (currentUserId, { name, participantIds = [] }) => {
   const trimmedName = typeof name === "string" ? name.trim() : "";
   if (!trimmedName) {
     throw createServiceError("Group name is required");
@@ -2776,7 +2776,7 @@ const createGroupConversation = async (currentUserId, { name, memberIds = [] }) 
 
   const uniqueMemberIds = [
     ...new Set(
-      memberIds
+      participantIds
         .map(String)
         .filter((id) => String(id) !== String(currentUserId))
     ),

@@ -2,6 +2,7 @@ const {
   registerUser,
   loginUser,
   verifyTwoFactorOTP,
+  updateTwoFactorSettings,
   getCurrentUser,
   updateUserProfile,
   changeUserPassword,
@@ -481,6 +482,49 @@ const changePassword = async (
   }
 };
 
+
+// --------------------------------------------------
+// UPDATE TWO-FACTOR AUTHENTICATION
+// --------------------------------------------------
+
+const updateTwoFactor = async (req, res) => {
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "enabled must be a boolean value.",
+      });
+    }
+
+    const user = await updateTwoFactorSettings({
+      userId: req.user.userId,
+      enabled,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: enabled
+        ? "Two-factor authentication enabled successfully."
+        : "Two-factor authentication disabled successfully.",
+      user,
+    });
+  } catch (error) {
+    console.error(
+      "Update two-factor authentication error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to update two-factor authentication.",
+    });
+  }
+};
+
 // --------------------------------------------------
 // EXPORTS
 // --------------------------------------------------
@@ -492,6 +536,7 @@ module.exports = {
   login,
   verifyTwoFactor,
   resendTwoFactor,
+  updateTwoFactor,
   me,
   updateProfile,
   changePassword,

@@ -20,6 +20,7 @@ import AdminSessionCard from "../../components/admin/security/AdminSessionCard";
 import AdminSecurityActivity from "../../components/admin/security/AdminSecurityActivity";
 import AdminChangePasswordModal from "../../components/admin/security/AdminChangePasswordModal";
 import AdminSecuritySkeleton from "../../components/admin/security/AdminSecuritySkeleton";
+import TwoFactorSettings from "../../components/security/TwoFactorSettings";
 
 const AdminSecurity = () => {
   const [user, setUser] = useState(null);
@@ -205,6 +206,24 @@ const AdminSecurity = () => {
                 onChangePassword={() =>
                   setChangePasswordOpen(true)
                 }
+              />
+
+              <TwoFactorSettings
+                user={user}
+                onUpdated={(updatedUser) => {
+                  setUser((current) => ({
+                    ...current,
+                    ...updatedUser,
+                  }));
+
+                  localStorage.setItem(
+                    "user",
+                    JSON.stringify({
+                      ...user,
+                      ...updatedUser,
+                    })
+                  );
+                }}
               />
 
               <AdminAccountSecurity

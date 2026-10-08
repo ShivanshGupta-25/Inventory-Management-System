@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  MessageCircle,
   ShieldCheck,
   UserCog,
   Users,
@@ -112,7 +113,7 @@ const AdminSidebar = ({
         // },
         {
           label: "chat",
-          icon: ScrollText,
+          icon: MessageCircle,
           path: "/admin/communication",
         },
       ],

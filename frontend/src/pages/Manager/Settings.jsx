@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 
 import EditProfileModal from "../../components/profile/EditProfileModal";
 import ChangePasswordModal from "../../components/profile/ChangePasswordModal";
+import TwoFactorSettings from "../../components/security/TwoFactorSettings";
 
 const Settings = () => {
   const [user, setUser] = useState(null);
@@ -386,6 +387,24 @@ const Settings = () => {
                     className="shrink-0 text-slate-400"
                   />
                 </button>
+
+                <TwoFactorSettings
+                  user={user}
+                  onUpdated={(updatedUser) => {
+                    setUser((current) => ({
+                      ...current,
+                      ...updatedUser,
+                    }));
+
+                    localStorage.setItem(
+                      "user",
+                      JSON.stringify({
+                        ...user,
+                        ...updatedUser,
+                      })
+                    );
+                  }}
+                />
               </section>
 
               {/* =================================================

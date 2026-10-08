@@ -7,6 +7,7 @@ const {
   login,
   verifyTwoFactor,
   resendTwoFactor,
+  updateTwoFactor,
   me,
   updateProfile,
   changePassword,
@@ -42,6 +43,13 @@ router.post(
 );
 
 // Protected routes
+
+router.patch(
+  "/two-factor",
+  authMiddleware,
+  updateTwoFactor
+);
+
 router.get(
   "/me",
   authMiddleware,
