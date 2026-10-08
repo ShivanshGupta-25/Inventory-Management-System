@@ -69,6 +69,30 @@ export const registerUser = async (
   );
 };
 
+export const verifyEmail = async ({
+  verificationId,
+  otp,
+}) => {
+  return apiRequest("/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({
+      verificationId,
+      otp,
+    }),
+  });
+};
+
+export const resendEmailVerification = async ({
+  verificationId,
+}) => {
+  return apiRequest("/auth/resend-email-verification", {
+    method: "POST",
+    body: JSON.stringify({
+      verificationId,
+    }),
+  });
+};
+
 export const loginUser = async (
   credentials
 ) => {

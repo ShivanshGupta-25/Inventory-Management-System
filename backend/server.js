@@ -1,20 +1,57 @@
+// --------------------------------------------------
+// LOAD ENVIRONMENT VARIABLES FIRST
+// --------------------------------------------------
+
+require("dotenv").config();
+
+
+// --------------------------------------------------
+// CORE
+// --------------------------------------------------
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
+
+// --------------------------------------------------
+// MIDDLEWARE
+// --------------------------------------------------
+
 const cors = require("cors");
-const dotenv = require("dotenv");
 
 // Security and logging middleware
 const helmet = require("helmet");
 const morgan = require("morgan");
 
+
+// --------------------------------------------------
+// DATABASE
+// --------------------------------------------------
+
 const connectDB = require("./config/db");
 
-// uploads
+
+// --------------------------------------------------
+// SMTP
+// --------------------------------------------------
+
+const {
+  verifyEmailTransport,
+} = require("./services/emailService");
+
+
+// --------------------------------------------------
+// UPLOADS
+// --------------------------------------------------
+
 const path = require("path");
 
-// Routes
+
+// --------------------------------------------------
+// ROUTES
+// --------------------------------------------------
+
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
@@ -23,46 +60,84 @@ const stockMovementRoutes = require("./routes/stockMovementRoutes");
 const purchaseOrderRoutes = require("./routes/purchaseOrderRoutes");
 const salesRoutes = require("./routes/salesRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+
 const communicationRoutes = require(
   "./routes/communicationRoutes"
 );
 
-// Socket.IO communication handling
+
+// --------------------------------------------------
+// SOCKET.IO COMMUNICATION
+// --------------------------------------------------
+
 const {
   initializeCommunicationSocket,
 } = require(
   "./sockets/communicationSocket"
 );
 
-dotenv.config();
 
-// Connect to MongoDB
+// --------------------------------------------------
+// DATABASE CONNECTION
+// --------------------------------------------------
+
 connectDB();
+
+
+// --------------------------------------------------
+// EXPRESS APP
+// --------------------------------------------------
 
 const app = express();
 
-// Create HTTP server
+
+// --------------------------------------------------
+// HTTP SERVER
+// --------------------------------------------------
+
 const server = http.createServer(app);
 
-// Allowed CORS origins
+
+// --------------------------------------------------
+// CORS ORIGINS
+// --------------------------------------------------
+
 const allowedOrigins = (
-  process.env.CLIENT_URL || "http://localhost:5173"
+  process.env.CLIENT_URL ||
+  "http://localhost:5173"
 )
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-// Initialize Socket.IO
+
+// --------------------------------------------------
+// SOCKET.IO
+// --------------------------------------------------
+
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST", "PATCH", "DELETE"],
+    methods: [
+      "GET",
+      "POST",
+      "PATCH",
+      "DELETE",
+    ],
     credentials: true,
   },
-  transports: ["websocket", "polling"],
+
+  transports: [
+    "websocket",
+    "polling",
+  ],
 });
 
-// Security middleware
+
+// --------------------------------------------------
+// SECURITY MIDDLEWARE
+// --------------------------------------------------
+
 app.use(
   helmet({
     crossOriginResourcePolicy: {
@@ -71,10 +146,18 @@ app.use(
   })
 );
 
-// Logging middleware
+
+// --------------------------------------------------
+// LOGGING
+// --------------------------------------------------
+
 app.use(morgan("dev"));
 
+
+// --------------------------------------------------
 // CORS
+// --------------------------------------------------
+
 app.use(
   cors({
     origin: allowedOrigins,
@@ -82,10 +165,18 @@ app.use(
   })
 );
 
-// Body parser
+
+// --------------------------------------------------
+// BODY PARSER
+// --------------------------------------------------
+
 app.use(express.json());
 
-// Upload middleware
+
+// --------------------------------------------------
+// UPLOADS
+// --------------------------------------------------
+
 app.use(
   "/uploads",
   express.static(
@@ -93,51 +184,128 @@ app.use(
   )
 );
 
-// Make Socket.IO available to controllers
+
+// --------------------------------------------------
+// MAKE SOCKET.IO AVAILABLE TO CONTROLLERS
+// --------------------------------------------------
+
 app.set("io", io);
 
-// Root route
+
+// --------------------------------------------------
+// ROOT ROUTE
+// --------------------------------------------------
+
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "Inventory Management API is running",
+    message:
+      "Inventory Management API is running",
   });
 });
 
-// Authentication routes
-app.use("/api/auth", authRoutes);
 
-// Admin routes
-app.use("/api/admin", adminRoutes);
+// --------------------------------------------------
+// AUTHENTICATION ROUTES
+// --------------------------------------------------
 
-// Dashboard routes
-app.use("/api/dashboard", dashboardRoutes);
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-// Inventory routes
-app.use("/api/inventory", inventoryRoutes);
 
-// Stock movement routes
-app.use("/api/stock-movements", stockMovementRoutes);
+// --------------------------------------------------
+// ADMIN ROUTES
+// --------------------------------------------------
 
-// Purchase order routes
-app.use("/api/purchase-orders", purchaseOrderRoutes);
+app.use(
+  "/api/admin",
+  adminRoutes
+);
 
-// Sales routes
-app.use("/api/sales", salesRoutes);
 
-// Analytics routes
-app.use("/api/analytics", analyticsRoutes);
+// --------------------------------------------------
+// DASHBOARD ROUTES
+// --------------------------------------------------
 
-// Communication routes
+app.use(
+  "/api/dashboard",
+  dashboardRoutes
+);
+
+
+// --------------------------------------------------
+// INVENTORY ROUTES
+// --------------------------------------------------
+
+app.use(
+  "/api/inventory",
+  inventoryRoutes
+);
+
+
+// --------------------------------------------------
+// STOCK MOVEMENT ROUTES
+// --------------------------------------------------
+
+app.use(
+  "/api/stock-movements",
+  stockMovementRoutes
+);
+
+
+// --------------------------------------------------
+// PURCHASE ORDER ROUTES
+// --------------------------------------------------
+
+app.use(
+  "/api/purchase-orders",
+  purchaseOrderRoutes
+);
+
+
+// --------------------------------------------------
+// SALES ROUTES
+// --------------------------------------------------
+
+app.use(
+  "/api/sales",
+  salesRoutes
+);
+
+
+// --------------------------------------------------
+// ANALYTICS ROUTES
+// --------------------------------------------------
+
+app.use(
+  "/api/analytics",
+  analyticsRoutes
+);
+
+
+// --------------------------------------------------
+// COMMUNICATION ROUTES
+// --------------------------------------------------
+
 app.use(
   "/api/communication",
   communicationRoutes
 );
 
-// Initialize Socket.IO communication handling
+
+// --------------------------------------------------
+// INITIALIZE SOCKET.IO COMMUNICATION
+// --------------------------------------------------
+
 initializeCommunicationSocket(io);
 
-// 404 handler
+
+// --------------------------------------------------
+// 404 HANDLER
+// --------------------------------------------------
+
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -145,9 +313,18 @@ app.use((req, res) => {
   });
 });
 
-// Server
-const PORT = process.env.PORT || 5000;
+
+// --------------------------------------------------
+// SERVER
+// --------------------------------------------------
+
+const PORT =
+  process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(
+    `Server running on http://localhost:${PORT}`
+  );
+
+  verifyEmailTransport();
 });

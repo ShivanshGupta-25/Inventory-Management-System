@@ -7,6 +7,7 @@ import {
 import LandingPage from "../pages/landing/LandingPage";
 import LoginPage from "../pages/auth/LoginPage";
 import SignupPage from "../pages/auth/SignupPage";
+import VerifyEmailPage from "../pages/auth/VerifyEmailPage";
 
 import ContactPage from "../pages/contact/ContactPage";
 import PricingPage from "../pages/pricing/PricingPage";
@@ -117,6 +118,11 @@ const AppRoutes = () => {
       <Route
         path="/auth/signup"
         element={<SignupPage />}
+      />
+
+      <Route
+        path="/auth/verify-email"
+        element={<VerifyEmailPage />}
       />
 
       {/* =====================================================

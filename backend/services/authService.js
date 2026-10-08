@@ -8,6 +8,14 @@ const {
   recordSecurityEvent,
 } = require("./securityEventService");
 
+const {
+  createAndSendOTP,
+  verifyOTP,
+} = require("./twoFactorService");
+
+const {
+  createAndSendEmailVerification,
+} = require("./emailVerificationService");
 
 // --------------------------------------------------
 // GENERATE JWT
@@ -39,22 +47,30 @@ const registerUser = async ({
   name,
   email,
   password,
+  role,
 }) => {
-  const normalizedName = name.trim();
-  const normalizedEmail = email
-    .trim()
-    .toLowerCase();
+  const normalizedName =
+    name.trim();
+
+  const normalizedEmail =
+    email.trim().toLowerCase();
 
   if (!normalizedName) {
-    throw new Error("Name cannot be empty");
+    throw new Error(
+      "Name cannot be empty"
+    );
   }
 
   if (!normalizedEmail) {
-    throw new Error("Email cannot be empty");
+    throw new Error(
+      "Email cannot be empty"
+    );
   }
 
   if (!password) {
-    throw new Error("Password is required");
+    throw new Error(
+      "Password is required"
+    );
   }
 
   if (password.length < 6) {
@@ -63,9 +79,25 @@ const registerUser = async ({
     );
   }
 
-  const existingUser = await User.findOne({
-    email: normalizedEmail,
-  });
+  // Only these roles can be created
+  // through public registration.
+  // Admin accounts must be created
+  // through the admin-controlled flow.
+  const allowedRoles = [
+    "manager",
+    "staff",
+  ];
+
+  if (!allowedRoles.includes(role)) {
+    throw new Error(
+      "Invalid registration role"
+    );
+  }
+
+  const existingUser =
+    await User.findOne({
+      email: normalizedEmail,
+    });
 
   if (existingUser) {
     throw new Error(
@@ -73,32 +105,76 @@ const registerUser = async ({
     );
   }
 
-  const hashedPassword = await bcrypt.hash(
-    password,
-    10
-  );
+  const hashedPassword =
+    await bcrypt.hash(
+      password,
+      10
+    );
 
-  const user = await User.create({
-    name: normalizedName,
-    email: normalizedEmail,
-    password: hashedPassword,
-    role: "staff",
-    status: "active",
-  });
+  const user =
+    await User.create({
+      name: normalizedName,
+      email: normalizedEmail,
+      password: hashedPassword,
 
-  const token = generateToken(user);
+      // Store the role selected during
+      // public registration.
+      role: role,
 
-  return {
-    token,
+      status: "active",
 
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    },
-  };
+      // New accounts must verify
+      // their email first.
+      emailVerified: false,
+      emailVerifiedAt: null,
+
+      // New accounts have 2FA
+      // enabled by default.
+      twoFactorEnabled: true,
+      twoFactorMethod: "email",
+      twoFactorRequired: false,
+    });
+
+  try {
+    const verification =
+      await createAndSendEmailVerification({
+        user,
+      });
+
+    return {
+      requiresEmailVerification: true,
+
+      verificationId:
+        verification.verificationId,
+
+      expiresAt:
+        verification.expiresAt,
+
+      cooldownSeconds:
+        verification.cooldownSeconds,
+
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        emailVerified:
+          user.emailVerified,
+        twoFactorEnabled:
+          user.twoFactorEnabled,
+      },
+    };
+  } catch (error) {
+    // Since the verification email
+    // could not be sent, don't leave
+    // an unusable account behind.
+    await User.deleteOne({
+      _id: user._id,
+    });
+
+    throw error;
+  }
 };
 
 //--------------------------------------------------
@@ -183,7 +259,81 @@ const loginUser = async ({
   }
 
   // ------------------------------------------------
-  // SUCCESSFUL LOGIN
+  // EMAIL VERIFICATION
+  // ------------------------------------------------
+
+  if (user.emailVerified === false) {
+    throw new Error(
+      "Please verify your email address before logging in."
+    );
+  }
+  // ------------------------------------------------
+  // TWO-FACTOR AUTHENTICATION
+  // ------------------------------------------------
+
+  const requiresTwoFactor =
+    user.role === "admin" ||
+    user.role === "manager";
+
+  const safeUser = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: userStatus,
+  };
+
+  // ------------------------------------------------
+  // ADMIN / MANAGER
+  // ------------------------------------------------
+
+  if (requiresTwoFactor) {
+    const twoFactor =
+      await createAndSendOTP({
+        user,
+      });
+
+    await recordSecurityEvent({
+      type: "2FA_OTP_SENT",
+
+      severity: "info",
+
+      user: user._id,
+
+      email: normalizedEmail,
+
+      ipAddress,
+
+      userAgent,
+
+      description:
+        "Two-factor authentication OTP sent",
+
+      metadata: {
+        role: user.role,
+        challengeId:
+          twoFactor.challengeId,
+      },
+    });
+
+    return {
+      requiresTwoFactor: true,
+
+      challengeId:
+        twoFactor.challengeId,
+
+      expiresAt:
+        twoFactor.expiresAt,
+
+      cooldownSeconds:
+        twoFactor.cooldownSeconds,
+
+      user: safeUser,
+    };
+  }
+
+  // ------------------------------------------------
+  // STAFF — EXISTING LOGIN FLOW
   // ------------------------------------------------
 
   const token = generateToken(user);
@@ -203,6 +353,84 @@ const loginUser = async ({
 
     description:
       "Successful login",
+
+    metadata: {
+      role: user.role,
+    },
+  });
+
+  return {
+    requiresTwoFactor: false,
+
+    token,
+
+    user: safeUser,
+  };
+};
+
+// --------------------------------------------------
+// VERIFY TWO-FACTOR OTP
+// --------------------------------------------------
+
+const verifyTwoFactorOTP = async ({
+  challengeId,
+  otp,
+  ipAddress = null,
+  userAgent = null,
+}) => {
+  const result =
+    await verifyOTP({
+      challengeId,
+      otp,
+    });
+
+  const user =
+    await User.findById(
+      result.userId
+    );
+
+  if (!user) {
+    throw new Error(
+      "User account could not be found"
+    );
+  }
+
+  const userStatus =
+    user.status || "active";
+
+  if (userStatus === "disabled") {
+    throw new Error(
+      "Your account has been disabled. Please contact an administrator."
+    );
+  }
+
+  if (
+    user.role !== "admin" &&
+    user.role !== "manager"
+  ) {
+    throw new Error(
+      "Two-factor authentication is not required for this account"
+    );
+  }
+
+  const token =
+    generateToken(user);
+
+  await recordSecurityEvent({
+    type: "2FA_SUCCESS",
+
+    severity: "info",
+
+    user: user._id,
+
+    email: user.email,
+
+    ipAddress,
+
+    userAgent,
+
+    description:
+      "Two-factor authentication completed successfully",
 
     metadata: {
       role: user.role,
@@ -379,6 +607,7 @@ const changeUserPassword = async (
 module.exports = {
   registerUser,
   loginUser,
+  verifyTwoFactorOTP,
   getCurrentUser,
   updateUserProfile,
   changeUserPassword,

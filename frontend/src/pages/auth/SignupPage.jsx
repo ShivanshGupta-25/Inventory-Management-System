@@ -30,6 +30,7 @@ const SignupPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [verificationId, setVerificationId] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -83,14 +84,21 @@ const SignupPage = () => {
         role: selectedRole,
       });
 
-      setSuccess("Account created successfully.");
+      if (response.requiresEmailVerification) {
+        navigate("/auth/verify-email", {
+          state: {
+            verificationId: response.verificationId,
+            email: response.user.email,
+            name: response.user.name,
+            expiresAt: response.expiresAt,
+            cooldownSeconds: response.cooldownSeconds,
+          },
+        });
 
-      // Redirect according to actual backend role
-      if (response.user.role === "manager") {
-        navigate("/manager/dashboard");
-      } else if (response.user.role === "staff") {
-        navigate("/staff/dashboard");
+        return;
       }
+
+      setSuccess("Account created successfully.");
     } catch (error) {
       setError(
         error.message ||

@@ -372,7 +372,7 @@ const ConversationActionMenu = ({
                   MARK UNREAD
               ================================================== */}
 
-              <button
+              {/* <button
                 type="button"
                 onClick={() => {
                   onMarkUnread?.(
@@ -404,13 +404,13 @@ const ConversationActionMenu = ({
                 <span>
                   Mark as unread
                 </span>
-              </button>
+              </button> */}
 
               {/* =================================================
                   PIN
               ================================================== */}
 
-              <button
+              {/* <button
                 type="button"
                 onClick={() => {
                   onTogglePin?.(
@@ -444,13 +444,13 @@ const ConversationActionMenu = ({
                     ? "Unpin conversation"
                     : "Pin conversation"}
                 </span>
-              </button>
+              </button> */}
 
               {/* =================================================
                   MUTE
               ================================================== */}
 
-              <button
+              {/* <button
                 type="button"
                 onClick={() => {
                   onToggleMute?.(
@@ -491,7 +491,7 @@ const ConversationActionMenu = ({
                     ? "Unmute notifications"
                     : "Mute notifications"}
                 </span>
-              </button>
+              </button> */}
 
               <div className="my-2 border-t border-slate-100" />
 
@@ -624,7 +624,7 @@ const ConversationActionMenu = ({
             MARK UNREAD
         ================================================== */}
 
-        <button
+        {/* <button
           type="button"
           onClick={() => {
             onMarkUnread?.(
@@ -655,13 +655,13 @@ const ConversationActionMenu = ({
           <span>
             Mark as unread
           </span>
-        </button>
+        </button> */}
 
         {/* =================================================
             PIN
         ================================================== */}
 
-        <button
+        {/* <button
           type="button"
           onClick={() => {
             onTogglePin?.(
@@ -694,13 +694,13 @@ const ConversationActionMenu = ({
               ? "Unpin conversation"
               : "Pin conversation"}
           </span>
-        </button>
+        </button> */}
 
         {/* =================================================
             MUTE
         ================================================== */}
 
-        <button
+        {/* <button
           type="button"
           onClick={() => {
             onToggleMute?.(
@@ -740,7 +740,7 @@ const ConversationActionMenu = ({
               ? "Unmute notifications"
               : "Mute notifications"}
           </span>
-        </button>
+        </button> */}
 
         <div className="my-1 border-t border-slate-100" />
 

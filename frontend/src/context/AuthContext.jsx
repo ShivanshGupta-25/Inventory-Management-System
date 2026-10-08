@@ -7,6 +7,7 @@ import {
 
 import {
   loginUser,
+  verifyTwoFactorOTP,
   registerUser,
   getCurrentUser,
 } from "../services/authService";
@@ -23,10 +24,14 @@ export const AuthProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(true);
 
+  // --------------------------------------------------
   // Restore logged-in user when application starts
+  // --------------------------------------------------
+
   useEffect(() => {
     const restoreUser = async () => {
-      const storedToken = localStorage.getItem("token");
+      const storedToken =
+        localStorage.getItem("token");
 
       if (!storedToken) {
         setLoading(false);
@@ -34,7 +39,8 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await getCurrentUser(storedToken);
+        const response =
+          await getCurrentUser(storedToken);
 
         setUser(response.user);
         setToken(storedToken);
@@ -57,35 +63,41 @@ export const AuthProvider = ({ children }) => {
     restoreUser();
   }, []);
 
+  // --------------------------------------------------
   // Login
+  // --------------------------------------------------
+
   const login = async (credentials) => {
-    const response = await loginUser(credentials);
+    const response =
+      await loginUser(credentials);
 
-    const receivedToken = response.token;
-    const receivedUser = response.user;
+    /*
+     * IMPORTANT:
+     *
+     * Admin and Manager login responses do not
+     * contain a JWT until OTP verification succeeds.
+     *
+     * Therefore, do not store token/user here when
+     * requiresTwoFactor is true.
+     */
 
-    localStorage.setItem(
-      "token",
-      receivedToken
-    );
+    if (response.requiresTwoFactor) {
+      return {
+        ...response,
+        requiresTwoFactor: true,
+      };
+    }
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(receivedUser)
-    );
+    /*
+     * Staff login continues through the normal
+     * password-only authentication flow.
+     */
 
-    setToken(receivedToken);
-    setUser(receivedUser);
+    const receivedToken =
+      response.token;
 
-    return response;
-  };
-
-  // Register
-  const register = async (userData) => {
-    const response = await registerUser(userData);
-
-    const receivedToken = response.token;
-    const receivedUser = response.user;
+    const receivedUser =
+      response.user;
 
     if (receivedToken) {
       localStorage.setItem(
@@ -108,7 +120,95 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
+  // --------------------------------------------------
+  // Verify Two-Factor OTP
+  // --------------------------------------------------
+
+  const verifyTwoFactor = async ({
+    challengeId,
+    otp,
+  }) => {
+    const response =
+      await verifyTwoFactorOTP({
+        challengeId,
+        otp,
+      });
+
+    const receivedToken =
+      response.token;
+
+    const receivedUser =
+      response.user;
+
+    /*
+     * JWT is issued by the backend only after
+     * successful OTP verification.
+     */
+
+    if (!receivedToken) {
+      throw new Error(
+        "Authentication token was not returned."
+      );
+    }
+
+    localStorage.setItem(
+      "token",
+      receivedToken
+    );
+
+    setToken(receivedToken);
+
+    if (receivedUser) {
+      localStorage.setItem(
+        "user",
+        JSON.stringify(receivedUser)
+      );
+
+      setUser(receivedUser);
+    }
+
+    return response;
+  };
+
+  // --------------------------------------------------
+  // Register
+  // --------------------------------------------------
+
+  const register = async (userData) => {
+    const response =
+      await registerUser(userData);
+
+    const receivedToken =
+      response.token;
+
+    const receivedUser =
+      response.user;
+
+    if (receivedToken) {
+      localStorage.setItem(
+        "token",
+        receivedToken
+      );
+
+      setToken(receivedToken);
+    }
+
+    if (receivedUser) {
+      localStorage.setItem(
+        "user",
+        JSON.stringify(receivedUser)
+      );
+
+      setUser(receivedUser);
+    }
+
+    return response;
+  };
+
+  // --------------------------------------------------
   // Logout
+  // --------------------------------------------------
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -117,12 +217,19 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
   };
 
+  // --------------------------------------------------
+  // Context Value
+  // --------------------------------------------------
+
   const value = {
     user,
     token,
     loading,
+
     isAuthenticated: !!token,
+
     login,
+    verifyTwoFactor,
     register,
     logout,
   };
@@ -134,9 +241,13 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// useAuth hook
+// --------------------------------------------------
+// useAuth Hook
+// --------------------------------------------------
+
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context =
+    useContext(AuthContext);
 
   if (!context) {
     throw new Error(

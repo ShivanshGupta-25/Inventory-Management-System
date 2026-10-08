@@ -128,7 +128,7 @@ const ConversationHeader = ({
     if (conversation.type === "direct") {
       onOpenDirectInfo?.(conversation);
     }
-  };
+  };  
 
   const canOpenConversationInfo =
     (conversation.type === "group" &&

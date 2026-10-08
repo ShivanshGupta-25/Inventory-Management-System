@@ -7,6 +7,8 @@ const securityEventSchema = new mongoose.Schema(
       enum: [
         "LOGIN_FAILED",
         "LOGIN_SUCCESS",
+        "2FA_OTP_SENT",
+        "2FA_SUCCESS",
         "RATE_LIMIT_TRIGGERED",
         "SUSPICIOUS_ACTIVITY",
       ],

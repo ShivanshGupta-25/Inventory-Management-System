@@ -33,6 +33,39 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "disabled"],
       default: "active",
     },
+    // ---------------------------------------------
+    // EMAIL VERIFICATION
+    // --------------------------------------------
+
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // ---------------------------------------------
+    // TWO-FACTOR AUTHENTICATION
+    // --------------------------------------------
+
+    twoFactorEnabled: {
+      type: Boolean,
+      default: true,
+    },
+
+    twoFactorMethod: {
+      type: String,
+      enum: ["email"],
+      default: "email",
+    },
+
+    twoFactorRequired: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
