@@ -211,6 +211,22 @@ const login = async (req, res) => {
           req.get("user-agent") || null,
       });
 
+    
+    // Email verification required
+    if (result.requiresEmailVerification) {
+      return res.status(200).json({
+        success: true,
+        requiresEmailVerification: true,
+        message:
+          "Please verify your email address to continue.",
+        verificationId: result.verificationId,
+        expiresAt: result.expiresAt,
+        cooldownSeconds: result.cooldownSeconds,
+        user: result.user,
+      });
+    }
+
+
     // Admin / Manager requiring 2FA
     if (result.requiresTwoFactor) {
       return res.status(200).json({

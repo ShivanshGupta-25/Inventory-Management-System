@@ -130,7 +130,7 @@ const registerUser = async ({
 
       // New accounts have 2FA
       // enabled by default.
-      twoFactorEnabled: true,
+      twoFactorEnabled: false,
       twoFactorMethod: "email",
       twoFactorRequired: false,
     });
@@ -262,11 +262,33 @@ const loginUser = async ({
   // EMAIL VERIFICATION
   // ------------------------------------------------
 
-  if (user.emailVerified === false) {
-    throw new Error(
-      "Please verify your email address before logging in."
-    );
+  
+  // EMAIL VERIFICATION
+  // Must happen after password validation
+  // and before two-factor authentication.
+
+  if (user.emailVerified !== true) {
+    const verification =
+      await createAndSendEmailVerification({
+        user,
+      });
+
+    return {
+      requiresEmailVerification: true,
+      verificationId: verification.verificationId,
+      expiresAt: verification.expiresAt,
+      cooldownSeconds: verification.cooldownSeconds,
+
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: userStatus,
+      },
+    };
   }
+
   // ------------------------------------------------
   // TWO-FACTOR AUTHENTICATION
   // ------------------------------------------------

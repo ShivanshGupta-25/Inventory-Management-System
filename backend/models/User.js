@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema(
 
     twoFactorEnabled: {
       type: Boolean,
-      default: true,
+      default: false,
     },
 
     twoFactorMethod: {

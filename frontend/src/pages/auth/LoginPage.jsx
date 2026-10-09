@@ -1,7 +1,5 @@
 import { useState } from "react";
-
 import { Link, useNavigate } from "react-router-dom";
-
 import {
   Eye,
   EyeOff,
@@ -17,142 +15,138 @@ import {
   TrendingUp,
   BriefcaseBusiness,
 } from "lucide-react";
-
 import AuthLayout from "../../components/auth/AuthLayout";
-import { resendTwoFactorOTP } from "../../services/authService";
+import {
+  resendTwoFactorOTP,
+  verifyEmail,
+  resendEmailVerification,
+} from "../../services/authService";
+import EmailVerification from "../../components/auth/EmailVerification";
 import TwoFactorVerification from "../../components/auth/TwoFactorVerification";
 import { useAuth } from "../../context/AuthContext";
-
 const LoginPage = () => {
   const navigate = useNavigate();
-
   // --------------------------------------------------
   // LOGIN STATE
   // --------------------------------------------------
-
   const [selectedRole, setSelectedRole] =
     useState("staff");
-
   const [showPassword, setShowPassword] =
     useState(false);
-
   const {
     login,
     verifyTwoFactor,
     logout,
   } = useAuth();
-
   const [loading, setLoading] =
     useState(false);
-
   const [error, setError] =
     useState("");
-
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-
   // --------------------------------------------------
   // TWO-FACTOR STATE
   // --------------------------------------------------
-
   const [twoFactorMode, setTwoFactorMode] =
     useState(false);
-
   const [challengeId, setChallengeId] =
     useState(null);
-
   const [twoFactorExpiresAt, setTwoFactorExpiresAt] =
     useState(null);
-
   const [twoFactorCooldown, setTwoFactorCooldown] =
     useState(60);
-
+  // --------------------------------------------------
+  // EMAIL VERIFICATION STATE
+  // --------------------------------------------------
+  const [emailVerificationMode, setEmailVerificationMode] =
+    useState(false);
+  const [verificationId, setVerificationId] =
+    useState(null);
+  const [emailVerificationExpiresAt, setEmailVerificationExpiresAt] =
+    useState(null);
+  const [emailVerificationCooldown, setEmailVerificationCooldown] =
+    useState(60);
+  const [successMessage, setSuccessMessage] =
+    useState("");
   // --------------------------------------------------
   // FORM CHANGE
   // --------------------------------------------------
-
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
-
   // --------------------------------------------------
   // LOGIN
   // --------------------------------------------------
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setError("");
     setLoading(true);
-
     try {
       const response = await login({
         email: formData.email
           .trim()
           .toLowerCase(),
-
         password: formData.password,
       });
-
+      // EMAIL VERIFICATION REQUIRED
+      if (response.requiresEmailVerification) {
+        setVerificationId(response.verificationId);
+        setEmailVerificationExpiresAt(
+          response.expiresAt
+        );
+        setEmailVerificationCooldown(
+          response.cooldownSeconds || 60
+        );
+        setEmailVerificationMode(true);
+        setTwoFactorMode(false);
+        setError("");
+        setSuccessMessage("");
+        return;
+      }
       // ------------------------------------------------
       // ADMIN / MANAGER 2FA
       // ------------------------------------------------
-
       if (response.requiresTwoFactor) {
         setChallengeId(
           response.challengeId
         );
-
         setTwoFactorExpiresAt(
           response.expiresAt
         );
-
         setTwoFactorCooldown(
           response.cooldownSeconds || 60
         );
-
         setTwoFactorMode(true);
-
         return;
       }
-
       // ------------------------------------------------
       // NORMAL LOGIN - STAFF
       // ------------------------------------------------
-
       const user = response.user;
-
       if (!user) {
         throw new Error(
           "User information was not returned."
         );
       }
-
       // ------------------------------------------------
       // ROLE VALIDATION
       // ------------------------------------------------
-
       if (user.role !== selectedRole) {
         setError(
           `This account is registered as ${user.role}. Please select the correct role.`
         );
-
         logout();
-
         return;
       }
-
       // ------------------------------------------------
       // ROLE REDIRECTION
       // ------------------------------------------------
-
       if (user.role === "admin") {
         navigate("/admin/dashboard");
       } else if (user.role === "manager") {
@@ -169,48 +163,94 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
-
+  // VERIFY EMAIL OTP
+  const handleVerifyEmail = async (otp) => {
+    setError("");
+    setLoading(true);
+    try {
+      await verifyEmail({
+        verificationId,
+        otp,
+      });
+      // Email is now verified. Return to the login
+      // form so the user can authenticate normally.
+      setEmailVerificationMode(false);
+      setVerificationId(null);
+      setEmailVerificationExpiresAt(null);
+      setEmailVerificationCooldown(60);
+      setSuccessMessage(
+        "Email verified successfully. Please sign in to continue."
+      );
+    } catch (error) {
+      setError(
+        error.message ||
+          "Unable to verify your email. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+  // RESEND EMAIL VERIFICATION OTP
+  const handleResendEmailVerification = async () => {
+    setError("");
+    try {
+      const response = await resendEmailVerification({
+        verificationId,
+      });
+      setEmailVerificationExpiresAt(
+        response.expiresAt
+      );
+      setEmailVerificationCooldown(
+        response.cooldownSeconds || 60
+      );
+      return response;
+    } catch (error) {
+      setError(
+        error.message ||
+          "Unable to resend the verification code."
+      );
+      throw error;
+    }
+  };
+  // RETURN TO LOGIN FORM
+  const handleBackFromEmailVerification = () => {
+    setEmailVerificationMode(false);
+    setVerificationId(null);
+    setEmailVerificationExpiresAt(null);
+    setEmailVerificationCooldown(60);
+    setError("");
+  };
   // --------------------------------------------------
   // VERIFY TWO-FACTOR OTP
   // --------------------------------------------------
-
   const handleVerifyTwoFactor = async (otp) => {
     setError("");
     setLoading(true);
-
     try {
       const response =
         await verifyTwoFactor({
           challengeId,
           otp,
         });
-
       const user = response.user;
-
       if (!user) {
         throw new Error(
           "User information was not returned."
         );
       }
-
       // ------------------------------------------------
       // ROLE VALIDATION
       // ------------------------------------------------
-
       if (user.role !== selectedRole) {
         setError(
           `This account is registered as ${user.role}. Please select the correct role.`
         );
-
         logout();
-
         return;
       }
-
       // ------------------------------------------------
       // ROLE REDIRECTION
       // ------------------------------------------------
-
       if (user.role === "admin") {
         navigate("/admin/dashboard");
       } else if (user.role === "manager") {
@@ -227,80 +267,61 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
-
   // --------------------------------------------------
   // RESEND TWO-FACTOR OTP
   // --------------------------------------------------
-
   const handleResendTwoFactor = async () => {
     setError("");
-
     try {
       const response =
         await resendTwoFactorOTP({
           challengeId,
         });
-
       setTwoFactorExpiresAt(
         response.expiresAt
       );
-
       setTwoFactorCooldown(
         response.cooldownSeconds || 60
       );
-
       return response;
     } catch (error) {
       setError(
         error.message ||
           "Unable to resend verification code."
       );
-
       throw error;
     }
   };
-
   // --------------------------------------------------
   // BACK TO LOGIN
   // --------------------------------------------------
-
   const handleBackToLogin = () => {
     setTwoFactorMode(false);
-
     setChallengeId(null);
-
     setTwoFactorExpiresAt(null);
-
     setTwoFactorCooldown(60);
-
     setError("");
   };
-
   // --------------------------------------------------
   // PAGE
   // --------------------------------------------------
-
   return (
     <AuthLayout>
       {/* =====================================================
           FULL LOGIN PAGE
       ====================================================== */}
-
       <section className="h-[calc(100vh-64px)] overflow-hidden bg-slate-50 px-5 sm:px-8 lg:px-10">
         {/* =====================================================
             MAIN CONTAINER
         ====================================================== */}
-
         <div className="mx-auto flex h-full max-w-6xl items-center">
           <div className="grid w-full grid-cols-1 items-center gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14">
             {/* =================================================
                 LEFT SECTION
             ================================================== */}
-
             <div className="hidden lg:flex lg:justify-center">
               <div className="w-full max-w-xl">
                 {/* Brand */}
-
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
                     <Package
@@ -308,7 +329,6 @@ const LoginPage = () => {
                       strokeWidth={2}
                     />
                   </div>
-
                   <div>
                     <p className="text-lg font-bold tracking-tight text-slate-950">
                       Inventory
@@ -316,15 +336,12 @@ const LoginPage = () => {
                         Flow
                       </span>
                     </p>
-
                     <p className="text-[11px] font-medium tracking-wide text-blue-600">
                       SMART INVENTORY MANAGEMENT
                     </p>
                   </div>
                 </div>
-
                 {/* Main Heading */}
-
                 <div className="mt-7">
                   <h2 className="max-w-lg text-4xl font-bold leading-[1.12] tracking-tight text-slate-950">
                     Manage your inventory
@@ -332,7 +349,6 @@ const LoginPage = () => {
                       smarter and faster.
                     </span>
                   </h2>
-
                   <p className="mt-4 max-w-lg text-sm leading-6 text-slate-600">
                     Access your inventory workspace,
                     monitor stock, manage products,
@@ -340,60 +356,47 @@ const LoginPage = () => {
                     one centralized platform.
                   </p>
                 </div>
-
                 {/* Features */}
-
                 <div className="mt-7 space-y-4">
                   {/* Feature 1 */}
-
                   <div className="flex items-center gap-3.5">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       <Boxes size={18} />
                     </div>
-
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
                         Centralized Inventory
                       </p>
-
                       <p className="mt-0.5 text-xs text-slate-500">
                         Manage products and stock
                         from one place.
                       </p>
                     </div>
                   </div>
-
                   {/* Feature 2 */}
-
                   <div className="flex items-center gap-3.5">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       <BarChart3 size={18} />
                     </div>
-
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
                         Inventory Analytics
                       </p>
-
                       <p className="mt-0.5 text-xs text-slate-500">
                         Understand your stock with
                         useful insights.
                       </p>
                     </div>
                   </div>
-
                   {/* Feature 3 */}
-
                   <div className="flex items-center gap-3.5">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       <TrendingUp size={18} />
                     </div>
-
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
                         Smarter Decisions
                       </p>
-
                       <p className="mt-0.5 text-xs text-slate-500">
                         Identify trends and optimize
                         inventory levels.
@@ -401,16 +404,13 @@ const LoginPage = () => {
                     </div>
                   </div>
                 </div>
-
                 {/* Security Message */}
-
                 <div className="mt-7 border-t border-slate-200 pt-4">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <CheckCircle2
                       size={14}
                       className="text-blue-500"
                     />
-
                     <span>
                       Your inventory workspace is
                       securely handled.
@@ -419,19 +419,15 @@ const LoginPage = () => {
                 </div>
               </div>
             </div>
-
             {/* =================================================
                 RIGHT SECTION
             ================================================== */}
-
             <div className="mx-auto w-full max-w-[410px]">
               {/* Mobile Logo */}
-
               <div className="mb-5 flex items-center justify-center gap-2 lg:hidden">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
                   <Package size={17} />
                 </div>
-
                 <div>
                   <p className="text-sm font-bold text-slate-950">
                     Inventory
@@ -439,49 +435,56 @@ const LoginPage = () => {
                       Flow
                     </span>
                   </p>
-
                   <p className="text-[9px] font-medium text-blue-600">
                     SMART INVENTORY MANAGEMENT
                   </p>
                 </div>
               </div>
-
               {/* =================================================
                   LOGIN INTRO
               ================================================== */}
-
               <div className="text-center">
                 <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                  {twoFactorMode ? (
+                  {emailVerificationMode || twoFactorMode ? (
                     <CheckCircle2 size={20} />
                   ) : (
                     <Lock size={20} />
                   )}
                 </div>
-
                 <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
-                  {twoFactorMode
-                    ? "Verify your identity"
-                    : "Welcome back"}
+                  {emailVerificationMode
+                    ? "Verify your email"
+                    : twoFactorMode
+                      ? "Verify your identity"
+                      : "Welcome back"}
                 </h1>
-
                 <p className="mt-1 text-xs text-slate-500">
-                  {twoFactorMode
-                    ? "Enter the verification code sent to your email."
-                    : "Sign in to access your inventory workspace."}
+                  {emailVerificationMode
+                    ? "Verify your email address to continue signing in."
+                    : twoFactorMode
+                      ? "Enter the verification code sent to your email."
+                      : "Sign in to access your inventory workspace."}
                 </p>
               </div>
-
               {/* =================================================
                   LOGIN / TWO-FACTOR CARD
               ================================================== */}
-
               <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                {twoFactorMode ? (
+                {emailVerificationMode ? (
+                  <EmailVerification
+                    email={formData.email}
+                    expiresAt={emailVerificationExpiresAt}
+                    cooldownSeconds={emailVerificationCooldown}
+                    loading={loading}
+                    error={error}
+                    onVerify={handleVerifyEmail}
+                    onResend={handleResendEmailVerification}
+                    onBack={handleBackFromEmailVerification}
+                  />
+                ) : twoFactorMode ? (
                   /* =================================================
                      TWO-FACTOR VERIFICATION
                   ================================================== */
-
                   <TwoFactorVerification
                     email={formData.email}
                     expiresAt={twoFactorExpiresAt}
@@ -504,29 +507,24 @@ const LoginPage = () => {
                   /* =================================================
                      LOGIN FORM
                   ================================================== */
-
                   <>
                     <form onSubmit={handleSubmit}>
                       {/* =================================================
                           ROLE SELECTION
                       ================================================== */}
-
                       <div>
                         <div className="mb-2.5">
                           <h3 className="text-xs font-semibold text-slate-900">
                             Choose your role
                           </h3>
-
                           <p className="mt-0.5 text-[10px] text-slate-500">
                             Select the role that best
                             describes your
                             responsibilities.
                           </p>
                         </div>
-
                         <div className="grid grid-cols-3 gap-2">
                           {/* Administrator */}
-
                           <button
                             type="button"
                             onClick={() =>
@@ -548,24 +546,19 @@ const LoginPage = () => {
                                 className="absolute right-2 top-2 text-blue-600"
                               />
                             )}
-
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                               <UserCog
                                 size={15}
                               />
                             </div>
-
                             <p className="mt-2 text-[10px] font-bold text-slate-900">
                               Administrator
                             </p>
-
                             <p className="mt-0.5 text-[8px] leading-3 text-slate-500">
                               Full system access
                             </p>
                           </button>
-
                           {/* Manager */}
-
                           <button
                             type="button"
                             onClick={() =>
@@ -587,24 +580,19 @@ const LoginPage = () => {
                                 className="absolute right-2 top-2 text-blue-600"
                               />
                             )}
-
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
                               <BriefcaseBusiness
                                 size={15}
                               />
                             </div>
-
                             <p className="mt-2 text-[10px] font-bold text-slate-900">
                               Manager
                             </p>
-
                             <p className="mt-0.5 text-[8px] leading-3 text-slate-500">
                               Manage operations
                             </p>
                           </button>
-
                           {/* Staff */}
-
                           <button
                             type="button"
                             onClick={() =>
@@ -626,28 +614,23 @@ const LoginPage = () => {
                                 className="absolute right-2 top-2 text-blue-600"
                               />
                             )}
-
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
                               <Users
                                 size={15}
                               />
                             </div>
-
                             <p className="mt-2 text-[10px] font-bold text-slate-900">
                               Staff
                             </p>
-
                             <p className="mt-0.5 text-[8px] leading-3 text-slate-500">
                               Daily operations
                             </p>
                           </button>
                         </div>
                       </div>
-
                       {/* =================================================
                           EMAIL
                       ================================================== */}
-
                       <div className="mt-4">
                         <label
                           htmlFor="email"
@@ -655,13 +638,11 @@ const LoginPage = () => {
                         >
                           Email Address
                         </label>
-
                         <div className="relative">
                           <Mail
                             size={15}
                             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                           />
-
                           <input
                             id="email"
                             name="email"
@@ -679,11 +660,9 @@ const LoginPage = () => {
                           />
                         </div>
                       </div>
-
                       {/* =================================================
                           PASSWORD
                       ================================================== */}
-
                       <div className="mt-3">
                         <div className="mb-1.5 flex items-center justify-between">
                           <label
@@ -692,7 +671,6 @@ const LoginPage = () => {
                           >
                             Password
                           </label>
-
                           <Link
                             to="/forgot-password"
                             className="text-[10px] font-semibold text-blue-600 hover:text-blue-700"
@@ -700,13 +678,11 @@ const LoginPage = () => {
                             Forgot password?
                           </Link>
                         </div>
-
                         <div className="relative">
                           <Lock
                             size={15}
                             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                           />
-
                           <input
                             id="password"
                             name="password"
@@ -726,7 +702,6 @@ const LoginPage = () => {
                             required
                             className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-10 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                           />
-
                           <button
                             type="button"
                             onClick={() =>
@@ -753,18 +728,15 @@ const LoginPage = () => {
                           </button>
                         </div>
                       </div>
-
                       {/* =================================================
                           REMEMBER ME
                       ================================================== */}
-
                       <div className="mt-3 flex items-center gap-2">
                         <input
                           id="remember"
                           type="checkbox"
                           className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                         />
-
                         <label
                           htmlFor="remember"
                           className="text-[10px] text-slate-500"
@@ -772,11 +744,16 @@ const LoginPage = () => {
                           Remember me
                         </label>
                       </div>
-
+                      {successMessage && (
+                        <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+                          <p className="text-[10px] font-medium leading-4 text-green-700">
+                            {successMessage}
+                          </p>
+                        </div>
+                      )}
                       {/* =================================================
                           ERROR
                       ================================================== */}
-
                       {error && (
                         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
                           <p className="text-[10px] font-medium leading-4 text-red-600">
@@ -784,11 +761,9 @@ const LoginPage = () => {
                           </p>
                         </div>
                       )}
-
                       {/* =================================================
                           SUBMIT
                       ================================================== */}
-
                       <button
                         type="submit"
                         disabled={loading}
@@ -797,7 +772,6 @@ const LoginPage = () => {
                         {loading
                           ? "Signing in..."
                           : "Sign In"}
-
                         {!loading && (
                           <ArrowRight
                             size={14}
@@ -805,11 +779,9 @@ const LoginPage = () => {
                         )}
                       </button>
                     </form>
-
                     {/* =================================================
                         SIGNUP
                     ================================================== */}
-
                     <div className="mt-4 border-t border-slate-100 pt-3.5">
                       <p className="text-center text-[10px] text-slate-500">
                         Don't have an account?{" "}
@@ -824,14 +796,14 @@ const LoginPage = () => {
                   </>
                 )}
               </div>
-
               {/* Security */}
-
               <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[9px] text-slate-400">
                 <CheckCircle2 size={10} />
-                {twoFactorMode
-                  ? "Two-factor authentication protects your account."
-                  : "Your account information is securely handled."}
+                {emailVerificationMode
+                  ? "Verify your email to secure your account."
+                  : twoFactorMode
+                    ? "Two-factor authentication protects your account."
+                    : "Your account information is securely handled."}
               </div>
             </div>
           </div>
@@ -840,5 +812,4 @@ const LoginPage = () => {
     </AuthLayout>
   );
 };
-
 export default LoginPage;
